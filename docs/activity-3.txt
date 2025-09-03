@@ -1,0 +1,26 @@
+Activity 03 - Agile-based Activity
+Planning project scope and schedule
+
+Objective: Plan, prioritize, and manage the development process by
+employing agile methodologies.
+
+1. Prepare a Product backlog for your project
+
+2. Assign priority for each user story/ or requirement
+
+3. Add relative estimates for the user stories using agile estimation method.
+
+4. Based on the priority and estimates given, separate them into 3 sprints(duration of
+each sprint is two weeks). Each sprint should have a product as an outcome. The
+final sprint (3rd) should have the fully developed product
+
+5. Create the Kanban board (task board) for ITP project using a suitable project
+management tool (Ex: Trello. Jira or any other). Ensure following steps in creating the
+Kanban board.
+
+Add all user stories in product backlog to the Kanban board. Add all tasks identified
+in each user story.
+
+You may attach a screenshot for the submission
+
+6. Provide a sprint plan showing the tasks allocated for each member. 

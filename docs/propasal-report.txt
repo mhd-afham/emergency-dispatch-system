@@ -1,0 +1,908 @@
+Sri Lanka Institute of Information Technology
+Information Technology Project (IT2080)
+Project Proposal Report
+Emergency Dispatch System – Respondr.
+Campus: Malabe
+Batch: Y2.S2.WD.IT.07.02 Group No: 160
+Group Member Details:
+No. Name with Initials Student ID Student E-mail Contact Number
+1 M. I. M. Afham IT23827912 it23827912@my.sliit.lk 0764118021
+2 T. H. C. T. De Silva IT23836136 it23836136@my.sliit.lk 0755910504
+3 J. A. J. Spencer IT23536166 it23536166@my.sliit.lk 0768974327
+4 D. D. I. Nawanjana IT23857162 it23857162@my.sliit.lk 0702797842
+5 W. P. L. P. Udayanga IT23827158 it23827158@my.sliit.lk 0706362786
+Date of Submission: 08.08.2025
+1
+Table of Contents
+1. Client Background ____________________________________________________ 3
+2. Problem and Motivations______________________________________________ 4
+2.1 Problem Statement ________________________________________________________ 4
+2.2 Motivations _______________________________________________________________ 4
+3. Aim and Objectives ___________________________________________________ 5
+3.1 Aim ______________________________________________________________________ 5
+3.2 Objectives ________________________________________________________________ 5
+4. System Overview _____________________________________________________ 6
+4.1 Incident Intake & Triage ____________________________________________________ 7
+4.2 Communications Hub & Citizen Reporting ___________________________________ 8
+4.3 Resource Dispatch, Real-Time Tracking & Auto-Reassignment _________________ 9
+4.4 Dynamic Routing & ETA with Traffic/Weather Overlay_________________________ 10
+4.5 Vehicle and Crew Registration _____________________________________________ 11
+4.6 Scheduling & Shift Management ___________________________________________ 12
+4.7 Resource Readiness & Maintenance _______________________________________ 13
+4.8 Post-Incident Reporting ___________________________________________________ 14
+4.9 Analytics, Dashboards & Performance Metrics ______________________________ 15
+4.10 Role-Based Access Control & Security ____________________________________ 16
+4.11 System Context Diagram _________________________________________________ 17
+4.12 Limitations _____________________________________________________________ 18
+5. Literature Review ____________________________________________________ 19
+5.1 Sri Lankan Emergency Dispatch Practices __________________________________ 19
+5.1.1 Suwa Seriya Foundation ______________________________________________________ 19
+5.1.2 Sri Lanka Fire Brigade_________________________________________________________ 20
+5.2 Global Best Practices _____________________________________________________ 21
+5.2.1 Motorola CAPSTAR CAD (North America) _______________________________________ 21
+5.2.2 NENA Standards & UK FiReControl ____________________________________________ 21
+5.3 Gap Analysis _____________________________________________________________ 22
+5.4 How the Proposed System Addresses Gaps _________________________________ 22
+6. Methodology ________________________________________________________ 23
+2
+6.1. Software Development Life Cycle _________________________________________ 23
+6.1 Requirements Engineering Methods ________________________________________ 24
+6.2 Design Methods __________________________________________________________ 25
+6.3 Development Tools & Technologies_________________________________________ 25
+6.4 Testing Methods __________________________________________________________ 26
+6.5 Integration & Deployment Methods_________________________________________ 26
+6.6 Project Plan Gantt Chart __________________________________________________ 27
+6.6 Work Breakdown Structure ________________________________________________ 28
+7. Evaluation Method ___________________________________________________ 29
+7.1 Functional Testing ________________________________________________________ 29
+7.2 User Feedback ___________________________________________________________ 29
+7.3 Performance & Reliability__________________________________________________ 29
+7.4 Usability _________________________________________________________________ 29
+7.5 Adoption & Impact________________________________________________________ 29
+7.6 Continuous Improvement _________________________________________________ 29
+8. References __________________________________________________________ 30
+3
+1. Client Background
+The National Emergency Response and Coordination Center (NERCC) is a government agency
+established in 2021 under Sri Lanka’s Ministry of Health & Disaster Management. As a central
+authority, NERCC oversees two separate operational arms: the 1990 Suwa Seriya Foundation
+(ambulance service) and the Sri Lanka Fire Service Department (fire‐rescue).
+Suwa Seriya Foundation began in 2016 with an initial fleet of 88 ambulances and has since
+expanded to 297 units across all nine provinces, offering free pre-hospital emergency care with
+an average response time of 15 minutes 32 seconds. Its 24/7 command center uses a
+homegrown GPS tracking and Google-traffic routing system, and EMTs receive real-time
+medical direction from on-call physicians.
+The Sri Lanka Fire Service Department traces its roots to the 1898 Colombo Fire Brigade and
+today comprises over twenty municipal brigades serving all provinces. Its fleet includes more
+than 350 fire engines, ladder units, and specialized rescue vehicles stationed at fire stations
+and sub-stations island-wide. Emergency calls (110 or 011-2422222) route through regional
+control centers that dispatch crews for fire suppression, rescue, and hazardous-materials
+response.
+Despite these strengths, both services run independently, relying heavily on voice calls and
+manual logs for incident intake and dispatch. Suwa Seriya and FSD lack integrated scheduling,
+digital confirmation loops, real-time ETA broadcasting to callers, and unified analytics.
+Historical incident records remain on paper, limiting after-action reviews and strategic planning.
+By implementing our MERN-based Emergency Dispatch System—with digital intake forms,
+geocoded confirmation loops, real-time GPS tracking, dynamic routing (traffic + weather),
+offline-capable mobile reporting, integrated workforce management, and centralized
+dashboards—NERCC will unify Suwa Seriya and Fire Service workflows, reduce call-to-dispatch
+times, eliminate transcription errors, and equip leadership with actionable insights for
+continuous improvement.
+4
+2. Problem and Motivations
+2.1 Problem Statement
+NERCC’s incident management process relies on manual call-taking and radio dispatch,
+resulting in delayed response times, data-entry errors, and a lack of real-time situational
+awareness.
+2.2 Motivations
+Adopting a digital Emergency Dispatch System yields clear benefits:
+• Reduce call-to-dispatch latency by at least 50% through form-based intake and
+automated routing.
+• Improve data accuracy and completeness by enforcing structured fields and geocoding.
+• Provide real-time map-based dashboards for dispatchers, integrating traffic and
+weather layers.
+• Send automated SMS/push notifications to citizens (ETA, unit arrival) and field crews
+(assignments, reassignments).
+• Enable post-incident analytics—response-time trends, resource utilization, incident
+hotspots—to guide future staffing and vehicle procurement.
+These improvements will enhance NERCC’s operational efficiency, strengthen citizen trust, and
+lay the foundation for continuous performance optimization.
+5
+3. Aim and Objectives
+3.1 Aim
+To design and implement a comprehensive web-based Emergency Dispatch System for
+NERCC—allowing call-takers, dispatchers, and administrators to intake and triage incidents
+digitally, dispatch ambulances and fire engines in real time, and analyze performance—while
+integrating a companion mobile app for citizen reporting and field-crew coordination.
+3.2 Objectives
+1. Conduct stakeholder workshops and interviews to elicit and document all functional,
+non-functional, and technical requirements.
+2. Architect a modular system with a Node.js/Express backend, MongoDB database, and
+React.js frontend, exposing RESTful and WebSocket APIs.
+3. Develop an Incident Intake & Triage console supporting calls, SMS geocoding, and
+mobile-app submissions.
+4. Build a Communications Hub for two-way messaging (SMS/push) and confirmation
+loops with citizens.
+5. Implement Scheduling & Shift Management with on-call rosters, leave requests, and
+automatic coverage suggestions.
+6. Create a Dispatch & Tracking module featuring live GPS feeds, status toggles, and ruledriven auto-reassignment.
+7. Integrate dynamic routing with live traffic and weather overlays using third-party APIs.
+8. Develop Resource Readiness & Maintenance scheduling with digital checklists and
+service-ticket generation.
+9. Provide Analytics Dashboards and KPI reports for response-time trends, unit reliability,
+and call-handling metrics.
+10. Enable comprehensive Post-Incident Reporting with incident summaries, media
+attachments, and annotated lessons learned.
+11. Enforce Role-Based Access Control with single sign-on, multi-factor authentication, and
+audit logging.
+12. Deliver a mobile companion app for citizens and field crews—focused on incident
+reporting, status updates, navigation, and offline caching.
+13. Validate system quality through unit, integration, load, and security testing; refine based
+on user acceptance feedback.
+14. Deploy the application on a single AWS EC2 instance using Docker Compose;
+document container updates, host-level maintenance, and disaster-recovery
+procedures.
+15. Evaluate success via usability surveys, performance benchmarks, and pilot-phase
+feedback.
+6
+4. System Overview
+The Emergency Dispatch System is a unified, two‐tier platform combining a robust web
+application for dispatchers and administrators with a lightweight companion mobile app for
+citizens and field responders. On the web side, call-takers and dispatchers access a centralized
+console to intake incidents, triage by severity, allocate resources, monitor real-time vehicle
+positions, and analyze performance metrics. Meanwhile, the mobile app empowers citizens to
+report emergencies from anywhere—via GPS, typed address, or map pin—and stay informed
+with automated SMS/push updates. Field responders use the same app (after role-based login)
+to receive assignments, follow turn-by-turn navigation, update status toggles (“En Route,” “On
+Scene”), and submit digital checklists or media attachments.
+Seamless mobile–web integration is achieved through secure RESTful APIs for core data
+operations and WebSocket streams for real-time status and location updates. Offline caching
+on the mobile client ensures that incident reports and crew checklists are never lost; once
+connectivity returns, all changes automatically reconcile with the web dashboard. SMS fallback
+support guarantees non‐app users can confirm locations and receive ETAs, ensuring no one is
+left behind.
+We chose to develop a companion mobile app because it:
+• Addresses necessity: citizens often lack easy hotline access or precise location sharing
+tools. The app’s GPS tagging and automated confirmation loops eliminate guesswork
+and reduce call-to-dispatch latency.
+• Enhances innovation: by blending offline-first design with real-time synchronization, the
+system operates reliably in low-connectivity zones—crucial for rural and disasteraffected areas.
+• Strengthens collaboration: field crews gain interactive maps, dynamic routing with live
+traffic/weather overlays, and instant status reporting, while dispatchers retain strategic
+oversight and historical analytics on one unified platform.
+This architecture leverages the strengths of both web and mobile worlds—scalable commandand-control on the web, combined with intuitive, always-available reporting and navigation on
+mobile—delivering an end-to-end solution tailored to Sri Lanka’s emergency response needs
+7
+4.1 Incident Intake & Triage
+When an emergency occurs, the first critical step is capturing accurate, complete information.
+The Incident Intake & Triage module is the nerve center for all incoming reports. Call Operator at
+the Intake console enters caller details and incident notes while viewing geocoded address
+suggestions. For SMS reports, the system parses map URLs or plain-text addresses and
+presents them for confirmation. Mobile-app submissions arrive with GPS coordinates plus an
+optional text description. In every channel, the operator can correct or augment location data:
+pinpointing intersections, landmarks, or building footprints. Once validated, the system assigns
+a severity-based incident code (e.g., Medical–High, Fire–Medium) and transfers control of the
+incident to Dispatcher. Duplicate reports from multiple sources are detected by comparing
+geographic proximity and timestamp, then merged under a single incident ID to prevent
+redundant dispatches.
+Functional Requirements
+• Multi-channel intake: web form for call operators, SMS parser, and mobile-app API.
+• Interactive geocoding: suggest address candidates and allow manual pin adjustment.
+• Incident classification: dropdowns for type (Medical, Fire, Both) and severity levels.
+• Duplicate detection: spatial clustering within a pre-specified meter radius and time
+window.
+• Incident record creation: store caller ID, contact method, location, timestamp, and
+status.
+Related Non-Functional Requirements
+• Responsiveness: complete intake workflow within a pre-defined time window under
+normal load.
+• Accuracy: geocoding error margin ≤ 10 meters.
+• Usability: operators complete intake with very few screen interactions.
+• Reliability: 99.9% availability of intake APIs during peak periods.
+Technical Requirements
+• Geocoding integration via Google Maps API or OpenStreetMap Nominatim.
+• Node.js/Express endpoints accepting JSON payloads for intake and returning geocoded
+suggestions.
+• MongoDB with GeoJSON fields and a 2dsphere index for spatial queries and duplicate
+detection.
+• Mongoose schema definitions for incident documents including location coordinates.
+• WebSocket channel (Socket.io) to push new-incident notifications instantly to
+dispatcher consoles.
+8
+4.2 Communications Hub & Citizen Reporting
+Once an incident is logged, the Communications Hub manages two-way messaging with
+citizens. Immediately after intake, an SMS or push notification is dispatched asking the reporter
+to confirm their location (“Reply YES to confirm [parsed address]”). If no reply arrives in 30
+seconds, the system flags the incident for a manual callback by the Call Operator. When
+citizens receive assignment updates, such as “Ambulance en route (ETA 5 min)”, they can reply
+with SOS to escalate or with LOCATION to update their pin. The hub intelligently merges
+multiple citizen threads for the same incident, ensuring all participants see status updates. Inapp notifications for registered users and SMS for non-app users guarantee universal coverage.
+Fail-safe mechanisms detect broken links or unreadable texts, prompting fallback instructions
+to share coordinates or call the hotline.
+Functional Requirement
+• SMS and push-notification integration for confirmations and status updates.
+• Automatic escalation: non-confirmed reports generate dispatcher callbacks.
+• Thread merging: group multiple inbound messages under one incident ID.
+• Keyword commands: “SOS” to increase priority, “LOCATION” to resend updated
+coordinates.
+• Fallback prompts: detect invalid URLs and instruct alternative reporting methods.
+Related Non-Functional Requirements
+• Throughput: support 200 simultaneous message threads without latency.
+• Delivery guarantee: 99.5% message delivery success rate.
+• Latency: confirmation and update messages dispatched within 1 second.
+• Security: scrub personally identifiable information (PII) in audit logs.
+Technical Requirements
+• SMS gateway integration (Twilio or Nexmo) with webhook callbacks.
+• Pub/Sub message bus (Redis Streams or Apache Kafka) for routing inbound/outbound
+messages.
+• Node.js microservice handling confirmation logic, retry policies, and dispatcher
+escalation.
+• React.js UI component for dispatcher message threads with real-time WebSocket
+updates.
+9
+4.3 Resource Dispatch, Real-Time Tracking & Auto-Reassignment
+When an incident is triaged, the system’s dispatch engine selects the closest suitable unit:
+ambulance or fire engine, matching required equipment and crew certifications. After the
+confirmation from the Dispatcher, the crew’s mobile app receives a push alert to accept or
+decline. Upon acceptance, live GPS data streams back to the Dispatcher console, showing
+vehicle location, speed, and heading. Status toggles (“En Route,” “On Scene,” “Cleared”) update
+both dispatcher and citizen views. If a crew fails to accept within 30 seconds, is stuck in traffic
+beyond a threshold, or reports a breakdown, the auto-reassignment logic instantly identifies the
+next-best resource and notifies the Dispatcher for the confirmation of reassignment, ensuring
+continuous response coverage.
+Functional Requirements
+• Automated matching of incident codes to nearest available units.
+• Accept/decline workflow with 30-second timeout and retry logic.
+• Live GPS tracking: location, speed, heading, and updated status.
+• Status lifecycle management: en route → arrived → cleared.
+• Rule-based auto-reassignment on time-outs, traffic delays, or mechanical failures.
+Related Non-Functional Requirements
+• Real-time performance: sub-1-second latency for location and status updates.
+• Reliability: 99.5% successful delivery of assignment and reassignment messages.
+• Fault tolerance: fall back to SMS notifications if mobile data fails.
+• Security: TLS encryption for all location and status data in transit.
+Technical Requirements
+• WebSocket (Socket.io) server for bidirectional streaming between web and mobile
+clients.
+• Redis in-memory store for active session state and timeouts.
+• Proximity calculations using Haversine formula in dispatch engine (Node.js).
+• React Native mobile SDK for crews to send GPS and status, and receive assignments.
+10
+4.4 Dynamic Routing & ETA with Traffic/Weather Overlay
+Efficient routing can save critical minutes. This module aggregates live traffic feeds: accidents,
+road closures, congestion levels and weather advisories such as flood warnings and high-wind
+alerts. It computes optimal and alternate routes to an incident location, factoring in current
+conditions and historical delay patterns. As conditions evolve, routes are dynamically reoptimized, and crews receive push notifications of detours (E.g.: “Route 5 blocked, rerouting via
+Main Street”). The dispatcher map visualizes color-coded traffic lines (green/yellow/red) and
+overlays weather hazards (icons for hail, flood zones), enabling proactive decision-making,
+such as rerouting through higher-ground roads during heavy rain.
+Functional Requirements
+• Poll or subscribe to traffic incident feeds and weather alert APIs.
+• Compute primary and alternate routes with buffered ETAs.
+• Continuous re-optimization on changing conditions.
+• Push route-change notifications to crew mobile apps.
+• Visual overlay of traffic density and weather hazards on maps.
+Related Non-Functional Requirements
+• Performance: initial routing under 3 seconds for up to 50 km paths.
+• Accuracy: ETA variance within ±2 minutes of actual travel time
+• Availability: API failover mechanisms with 99.9% uptime.
+• Usability: clear legends and intuitive map controls.
+Technical Requirements
+• Third-party Traffic API (TomTom/HERE) and Weather API (OpenWeatherMap).
+• Leaflet.js or Mapbox GL for interactive map rendering with custom tile layers.
+• Node.js routing microservice with caching in Redis.
+• React.js map component integrating route layers and alert icons.
+11
+4.5 Vehicle and Crew Registration
+Maintaining an up-to-date registry of assets and personnel ensures accurate dispatching and
+compliance with regulatory standards. Vehicle Registration captures static data such as make,
+model, and plate number. Instead of requiring dedicated GPS modules, each vehicle’s location
+is derived from the mobile app on the assigned crew leader’s device. Crew Registration stores
+personal details, certifications, contact endpoints (SMS number, email), and role assignments.
+New registrations trigger supervisor approval workflows, and changes or deactivations generate
+notifications to HR and IT for system updates. Historical records remain immutable for audit
+purposes, while active records drive scheduling and dispatch eligibility.
+Functional Requirements
+• Multi-step registration wizards for vehicles and crew with real-time field validation.
+• Supervisor approval queue with email/SMS notifications upon submissions.
+• Update and deactivation workflows, using soft-delete patterns to retain audit history.
+• Linking crew members to vehicle assignments and their communication endpoints.
+• Location tracking via the crew leader’s mobile-app GPS feed rather than separate
+hardware modules.
+Related Non-Functional Requirements
+• Data Quality: mandatory fields and formats validated in real time.
+• Performance: complete any registration submission within 2 seconds under normal
+load.
+• Security: only users with HR or Admin roles can create, update, or deactivate records.
+• Auditability: every change logged immutably for compliance and traceability.
+Technical Requirements
+• React.js multi-step form components using Yup for schema validation.
+• Express.js REST endpoints with JSON Schema validation for incoming payloads.
+• MongoDB collections for vehicles, crew, approvals, and change logs; use Mongoose
+schemas.
+• 2dsphere index on vehicle documents if needed for geospatial queries of leader
+locations.
+• Mobile-app integration to push periodic GPS updates from the crew leader’s device into
+MongoDB.
+• Email/SMS notification service (e.g., Twilio SendGrid) to deliver approval alerts.
+12
+4.6 Scheduling & Shift Management
+To maintain 24/7 coverage, this module lets administrators create reusable shift templates—
+defining start/end times, required roles, and headcounts—with support for fixed, rotating, and
+on-call patterns. A nightly job then auto-generates or refreshes the master roster for the next
+period. All assignments and adjustments are made by designated schedulers through a
+streamlined calendar UI featuring drag-and-drop, quick cloning of weekly templates, and colorcoded role views. Validations at creation prevent overlapping shifts, enforce minimum staffing
+and rest-time rules, and flag potential overtime. Configurable alerts—via email or in-app
+notifications—prompt schedulers when shifts are under-staffed or at risk of overtime, and every
+change is captured in an audit log with timestamps and user IDs for full accountability.
+Functional Requirements
+• Shift template creation and modification (recurrence rules, holiday exceptions)
+• Nightly auto-generation of weekly/monthly master rosters from templates
+• Manual assignment of crew members and vehicles to generated shifts via calendar UI
+• Coverage-rule enforcement on save (minimum staff per role, max hours per week)
+• Alerting for under-staffed shifts and overtime threshold breaches
+Related Non-Functional Requirements
+• Scalability: support up to 500 crew members and 200 vehicles without UI lag
+• Consistency: atomic updates in the database to prevent conflicting assignments
+• Usability: calendar interactions (drag, clone, edit) complete in under 2 seconds
+• Auditability: maintain version history for all template and shift document changes
+Technical Requirements
+• MongoDB collections for shiftTemplates, shifts, and auditLogs
+• Node.js/Express.js REST API endpoints for template and shift CRUD
+• Mongoose schemas with validation middleware for coverage rules
+• node-cron scheduled job to instantiate upcoming shifts nightly
+• React.js calendar component (FullCalendar) with drag-and-drop and clone-week
+support
+• Notification service in Node.js sending emails/SMS when staffing or overtime rules are
+breached
+13
+4.7 Resource Readiness & Maintenance
+Before every shift, field crews complete a digital readiness checklist—inspecting fuel levels, tire
+pressure, life-safety gear, and medical kits. Any “fail” marks the vehicle as unavailable and
+automatically triggers a maintenance work order. The system tracks mileage and engine hours
+to schedule preventive tasks (oil changes, annual certification) and logs corrective repairs when
+failures or breakdowns occur during operations. Units overdue for inspections are locked out of
+dispatch until a technician signs off. This proactive approach minimizes in-service failures and
+ensures that only mission-ready resources enter critical incidents.
+Functional Requirements
+• Digital pre-shift checklist with pass/fail for each item.
+• Auto-generation of maintenance tickets on checklist failures.
+• Preventive maintenance scheduling based on mileage/hours thresholds.
+• Corrective repair logging with technician start/end timestamps.
+• Dispatch lock for units overdue for mandatory inspections.
+Related Non-Functional Requirements
+• Offline capability: checklist submission available without connectivity, with automatic
+sync.
+• Traceability: audit log of every checklist and maintenance event.
+• Responsiveness: readiness status updates load within 1 second.
+• Security: only certified technicians can complete corrective maintenance forms.
+Technical Requirements
+• Mobile-app local storage using AsyncStorage or SQLite with bi-directional sync logic.
+• Express.js maintenance microservice writing events to MongoDB (using Mongoose
+schemas), with an index on timestamps for efficient queries.
+• React.js dashboard widget displaying upcoming services and overdue vehicles—data
+fetched from MongoDB via REST API.
+• Node.js integration module for inventory management to trigger parts procurement
+alerts when critical spares run low.
+14
+4.8 Post-Incident Reporting
+Once an incident concludes, the system compiles a comprehensive document: a timeline of
+dispatch, arrival, clearance, and wrap-up timestamps; personnel logs with hours and mileage;
+and equipment usage. Crews and supervisors can attach medical forms, or fire containment
+reports. Supervisors add free-text annotations to capture unusual challenges: traffic jams,
+communication lapses, or environmental hazards. The final report is exportable as a tamperevident PDF or JSON packet for legal audits, insurance claims, or multi-agency reviews involving
+police and hospital staff.
+Functional Requirements
+• Auto-generate incident summary with all status-change timestamps.
+• Upload interface supporting document attachments.
+• Supervisor annotation fields with structured categories (traffic, comms, best practices).
+• Export formats: PDF with digital signatures and JSON for API integration.
+Related Non-Functional Requirements
+• Integrity: digital signatures or cryptographic hash to prevent tampering.
+• Storage: support up to 50MB of media per incident.
+• Performance: report generation under 5 seconds.
+• Accessibility: exports conform to ISO metadata and accessibility standards.
+Technical Requirements
+• Object storage (AWS S3 or Azure Blob) for all media, using presigned URLs for secure
+upload/download.
+• Node.js PDF generation via PDFKit or Puppeteer, embedding digital signature metadata.
+• MongoDB for incident data and audit logs, with a dedicated “exportEvents” collection.
+Use Mongoose schemas and an index on export timestamps for fast queries.
+• React.js modal components for attachment management and annotation entry,
+communicating with backend REST endpoints.
+• Integration layer in Node.js to compute cryptographic hashes (e.g., SHA-256) for each
+PDF/JSON export and record them in the MongoDB audit collection.
+15
+4.9 Analytics, Dashboards & Performance Metrics
+Leadership and quality-assurance teams need both real-time insights and historical trends to
+drive continuous improvement. A live dashboard displays open incidents by type, average callto-dispatch times, units en route, and crew utilization. Historical KPI reports analyze responsetime distributions by hour and region, resource reliability metrics, and enable customizable
+alerts for threshold breaches.
+Functional Requirements
+• Live operational dashboard with KPI widgets (response times, active units, call volume)
+• Historical report generation with date-range filters and export to CSV/PDF
+• Customizable alerts for threshold breaches (e.g., average dispatch > 4 minutes)
+Related Non-Functional Requirements
+• Scalability: handle aggregation of up to 1 million incident records
+• Responsiveness: refresh live widgets within 2 seconds
+• Availability: read-only analytics available during system maintenance windows
+• Usability: intuitive filters, dashboard customizations, and export options
+Technical Requirements
+• Time-series and incident metadata stored entirely in MongoDB, leveraging MongoDB
+Time Series collections or capped collections for efficient insert and query performance
+• Node.js aggregation pipelines using MongoDB’s Aggregation Framework to generate
+historical reports and populate precomputed daily-summary collections
+• Real-time dashboard updates via MongoDB Change Streams or WebSocket feeds to
+React.js components, using D3.js or Recharts for visualization
+• Alerting service in Node.js subscribing to Change Streams, evaluating thresholds, and
+dispatching notifications through the messaging layer (e.g., SMS, email, in-app)
+• CSV and PDF export endpoints implemented in Node.js with libraries like csv-writer and
+PDFKit, querying MongoDB directly for both on-demand and scheduled exports
+16
+4.10 Role-Based Access Control & Security
+To protect sensitive data and ensure compliance, the system enforces fine-grained access
+controls. Each user—Call Taker, Dispatcher, Field Crew, Administrator, or Citizen—receives a
+tailored interface showing only relevant functions and data. Authentication is handled via single
+sign-on, augmented with multi-factor verification. All actions, from incident creation to roster
+changes or report exports, are logged in an immutable audit trail. In emergencies, supervisors
+can elevate their permissions temporarily; these override events are flagged and require postevent justification.
+Functional Requirements
+• Role definitions and permission assignments for all user types.
+• Single sign-on via OAuth 2.0/OpenID Connect and TOTP-based MFA.
+• Audit logging of every CRUD action with user, timestamp, and IP.
+• Emergency override workflow: request, approve, and log elevated access.
+• Session timeout and forced log-out after inactivity.
+Related Non-Functional Requirements
+• Security: comply with OWASP ASVS Level 2 standards.
+• Availability: 99.99% uptime for authentication services.
+• Performance: token validation under 500 ms.
+• Privacy: encrypt personal data at rest (AES-256) and in transit (TLS 1.2+).
+Technical Requirements
+• Keycloak or Auth0 for identity management.
+• JWT tokens with role-based scopes and short expirations.
+• Middleware in Express for permission checks on each API route.
+• Separate audit-log database table with write-once retention policies.
+17
+4.11 System Context Diagram
+Figure 1 – System Context Diagram
+18
+4.12 Limitations
+While our Emergency Dispatch System is designed to enhance response efficiency and user
+experience, it has several inherent limitations that stakeholders should consider:
+Dependence on Network Connectivity: The system’s real-time features (map updates, SMS
+notifications) require stable internet or cellular coverage. In areas with poor signal, functionality
+may degrade, leading to delayed incident reporting or dispatch updates.
+Offline Functionality Constraints: Although the mobile app supports basic offline data
+capture, full synchronization (e.g., routing adjustments, live status feeds) can only occur once
+the device reconnects, potentially creating gaps in situational awareness.
+Integration with Legacy Systems: Many dispatch centers rely on proprietary or outdated
+software. Bridging our modern, API-driven platform with these legacy tools may require custom
+adapters or middleware, introducing additional cost and complexity.
+Data Accuracy and Validation: Citizen-reported incidents depend on user input. Without
+robust validation controls, reports may contain errors in location or description, necessitating
+manual verification by dispatchers and potentially delaying response.
+Training and Adoption Barriers: Users accustomed to existing workflows may resist change.
+Comprehensive training helps, but initial productivity dips are likely as dispatchers and
+responders learn new interfaces and protocols.
+Scalability Limits in Extreme Load Scenarios: While designed for typical dispatch volumes,
+very large-scale emergencies (hundreds of simultaneous incidents) could strain database
+transactions or messaging queues, requiring further tuning or infrastructure scaling.
+Security and Privacy Trade-offs: Implementing advanced encryption and strict access
+controls protects data but can impact performance on low-powered devices. Balancing security
+hardening with usability remains an ongoing challenge.
+Maintenance Overhead: Continuous updates to third-party APIs (traffic, weather, SMS) and
+dependencies (frameworks, libraries) necessitate regular maintenance cycles, which can divert
+resources from feature development.
+These limitations frame realistic expectations around system performance, user experience,
+and operational readiness. Acknowledging them early enables better planning for mitigations,
+alternate workflows, and resource allocation in subsequent phases.
+19
+5. Literature Review
+This section examines existing emergency dispatch approaches in Sri Lanka and internationally,
+highlights their strengths and shortcomings, and establishes the need for our integrated digital
+solution.
+5.1 Sri Lankan Emergency Dispatch Practices
+5.1.1 Suwa Seriya Foundation
+The 1990 Suwa Seriya Foundation was established by Act of Parliament in 2018 under the
+Primary Health Care, Epidemics and COVID Disease Control State Ministry. It operates a fleet of
+297 ambulances strategically based in police stations across Sri Lanka, providing free, islandwide pre-hospital emergency care with an average response time of 15 minutes 32 seconds. A
+centralized 24/7 command-and-control center monitors a locally developed real-time vehicletracking and navigation system—combining GPS and Google traffic data—to guide EMT crews
+along optimal routes. On-call physicians advise EMTs remotely, and every case is followed up
+with the patient party within 48 hours. A co-located police post ensures immediate lawenforcement coordination at incident scenes.
+Strengths
+• Government-mandated service with extensive national coverage
+• Real-time vehicle tracking and dynamic routing for reduced call-to-wheel times
+• Integrated clinical oversight: EMTs supported by on-call doctors
+• 48-hour post-incident follow-up enhances patient care continuity
+• Seamless police integration via an on-site emergency liaison
+Limitations
+• Patient intake still relies partly on manual processes, risking transcription delays
+• No unified digital intake form or caller geocoding confirmation loop
+• Absence of comprehensive incident history analytics or a tamper-evident audit trail
+• Resource scheduling and shift management remain separate from core dispatch
+workflows
+Necessity for Improvement: To further drive down response times and bolster operational
+transparency, Suwa Seriya would benefit from an end-to-end digital dispatch platform featuring
+structured intake forms with built-in geocoding, two-way confirmation loops, integrated crew
+scheduling, and real-time analytics dashboards.
+20
+5.1.2 Sri Lanka Fire Brigade
+The Fire Service Department (FSD) of Sri Lanka operates under municipal councils and the
+Ministry of Local Government and Provincial Councils, providing fire suppression, rescue, and
+hazardous-materials mitigation across all nine provinces. Its origins date back to the Colombo
+Fire Brigade, officially formed in 1898, and today the FSD comprises over twenty local
+brigades—including Colombo, Kandy, Gampaha, and Jaffna—plus specialized units for airport
+and military airfield rescue operations2. Emergency calls route through a 24/7 hotline (110/011-
+2422222) to centralized dispatch centers, which coordinate station crews and equipment
+deployments.
+Strengths
+• Extensive geographic coverage via municipal-level brigades and regional sub-stations
+• Specialized rescue capabilities (airport fire & rescue units, high-rise ladder trucks)
+• Established training and fire-prevention divisions embedded within each council
+• Historical resilience, having mechanized operations in the early 20th century and
+adapted staffing models (e.g., eight-hour shifts) over decades
+Limitations
+• Incident intake relies on voice calls and manual logging, introducing delays and
+potential transcription errors
+• No unified digital dispatch platform or geocoded caller confirmation loop
+• Absence of real-time vehicle-tracking and automated ETA updates for field units
+• Limited analytics and no tamper-evident audit trail for post-incident review
+Necessity for Improvement: To enhance response speed, situational awareness, and
+operational transparency, the FSD would benefit from an integrated digital dispatch system
+featuring structured intake forms with geocoding, two-way confirmation loops, real-time GPS
+tracking, automated routing, and analytics dashboards underpinned by a secure audit log.
+21
+5.2 Global Best Practices
+5.2.1 Motorola CAPSTAR CAD (North America)
+Motorola’s CAPSTAR CAD system integrates call-taking, incident coding, resource allocation,
+and real-time AVL (Automatic Vehicle Location) on a GIS map. It features automated mutual-aid
+triggers, built-in pre-defined response protocols, and detailed audit logs for compliance.
+Strengths:
+• Unified digital workflows eliminate manual handoffs.
+• Live traffic overlays optimize routing.
+• Comprehensive historical database supports after-action review.
+Limitations for Sri Lanka:
+• High licensing and maintenance costs make CAPSTAR unaffordable for NERCC.
+• Requires extensive training and dedicated IT support.
+• Proprietary ecosystem limits customization for local infrastructure constraints.
+5.2.2 NENA Standards & UK FiReControl
+The National Emergency Number Association (NENA) standards in the U.S. prescribe a two-tier
+call-taker/dispatcher model with structured incident data exchange and CAD integration. The
+UK’s FiReControl project (now replaced by regional CAD hubs) demonstrated centralized fire
+dispatch with role separation and GIS-enabled resource tracking.
+Strengths:
+• Separation of duties reduces errors and improves scalability.
+• Standardized data formats enable multi-agency interoperability.
+• GIS-driven dashboards offer situational awareness and resource optimization.
+Limitations for Sri Lanka:
+• Rigid compliance requirements demand heavy IT and operational overhead.
+• Centralized UK model assumes robust terrestrial networks unavailable in rural Sri
+Lanka.
+• Off-the-shelf solutions lack offline-capable mobile reporting features needed in lowconnectivity zones.
+22
+5.3 Gap Analysis
+Current Sri Lankan emergency dispatch practices span two parallel, largely siloed systems:
+Suwa Seriya’s semi-digital ambulance dispatch and the Fire Service Department’s manual firerescue operations. While each has individual strengths, together they expose critical
+interoperability, transparency, and efficiency gaps.
+Key gaps include:
+• No unified digital dispatch platform covering both ambulance and fire services
+• Suwa Seriya’s intake still relies partly on manual call logging and transcription, and FSD
+intake is entirely voice-call based
+• Fire Service Department lacks real-time vehicle tracking and ETA estimation; Suwa
+Seriya’s GPS tracking is not integrated with caller confirmation loops
+• Neither system incorporates structured digital incident histories, tamper-evident audit
+trails, or automated post-incident analytics
+• Crew scheduling, shift management, and resource maintenance remain disconnected
+from core dispatch workflows
+• Absence of offline-capable mobile reporting prevents reliable field updates in lowconnectivity areas
+5.4 How the Proposed System Addresses Gaps
+Our NERCC Emergency Dispatch System unifies ambulance and fire-rescue operations into a
+single, open-source, cloud-native CAD platform built on the MERN stack. It embeds global best
+practices—tailored to Sri Lanka’s infrastructure and budget—to close every identified gap.
+• Seamless multi-agency dispatch: one platform for call intake, triage, and resource
+deployment across EMS and fire brigades
+• Digital intake channels: web-based structured forms, SMS and mobile-app options, with
+built-in geocoding and two-way confirmation loops to eliminate manual errors
+• Real-time situational awareness: GPS tracking of all field units overlaid with live traffic
+and weather feeds, plus automated ETA notifications to callers
+• Offline-first mobile app: allows field crews and citizens to report incidents and update
+statuses even in connectivity-poor zones, with automatic sync once online
+• Integrated workforce management: crew scheduling, shift rosters, and equipment
+maintenance modules interconnected with dispatch logic
+• Centralized analytics and audit trail: real-time dashboards for performance monitoring,
+historical reporting, and tamper-evident logs for post-incident review
+By leveraging open-source components and a modular architecture, the system delivers
+advanced CAD capabilities at a fraction of proprietary licensing costs, while ensuring
+adaptability to Sri Lanka’s unique operational landscape.
+23
+6. Methodology
+This section outlines the software engineering methods, design approaches, tools,
+technologies, testing strategies, integration techniques, and a work breakdown structure for the
+Emergency Dispatch System. Each category presents alternatives and justifies our selections.
+6.1. Software Development Life Cycle
+We evaluated several traditional and modern SDLC approaches before selecting Agile Kanban
+for our Emergency Dispatch System. Below is a brief overview of the alternatives and our
+rationale, followed by a summary of our Agile Kanban practices and their benefits.
+• Waterfall – Linear, phase-by-phase model with fixed requirements and little room for
+change. – Not suitable: our emergency dispatch requirements will evolve as we gather
+feedback and refine triage, routing, and mobile integration.
+• V-Model – Emphasizes rigorous testing linked to each development phase. – Not
+suitable: lacks iterative feedback loops and delays stakeholder validation until late in
+the process.
+• Spiral – Combines iterative development with risk analysis in each cycle. – Not suitable:
+its heavy emphasis on formal risk management and documentation is overkill for a 14-
+week academic project.
+• Rapid Application Development (RAD) – Centers on fast prototyping and user
+feedback. – Not suitable: focuses on early prototypes but does not provide continuous
+integration of all modules or flow control across the entire backlog.
+• Agile Scrum – Sprint-based, time-boxed iterations with defined roles and ceremonies. –
+Not selected: our small team requires more flexible flow and fewer formal ceremonies
+than Scrum mandates.
+Chosen
+We have selected Agile Kanban as our development methodology because it aligns perfectly
+with our 14-week schedule and supports the dynamic nature of an emergency response
+system. By breaking work into small, manageable tasks and fostering continuous collaboration,
+Kanban ensures we deliver high-value features early while maintaining flexibility to adapt to new
+requirements.
+• Iterative Progress: Breaks development into small, time-boxed tasks that fit our sprint
+cadence, allowing steady advancement and predictable deliveries.
+• Flexibility: Accommodates mid-stream adjustments—such as refining map overlays or
+enhancing SMS fallback logic—without derailing the overall plan.
+• Communication: Encourages regular demos, stand-ups, and backlog reviews to keep
+dispatchers, developers, and stakeholders aligned and informed.
+• Team Coordination: Uses a visual Kanban board and work-in-progress limits to balance
+workloads across all five functional areas—dispatch, readiness, registration, intake, and
+scheduling.
+24
+• Incremental Delivery: Enables early demonstrations of core capabilities (incident
+intake, basic dispatch), building momentum and securing instructor feedback.
+• Quality Management: Integrates continuous testing, review stages, and retrospectives
+to identify and address defects promptly, preventing costly rework later.
+Agile Kanban Practices
+• Backlog Grooming – Bi-weekly sessions to refine user stories, update estimates, and
+identify dependencies. Keeps the backlog prioritized and actionable.
+• Daily Stand-ups – 15-minute synchronizations where each member shares progress,
+plans, and impediments. Ensures transparency and immediate problem-solving.
+• Demo to Stakeholders – Every two weeks we deliver a working increment—whether
+dispatch intake or routing prototype—for hands-on feedback. Early validation uncovers
+hidden requirements and builds stakeholder confidence.
+• Retrospectives – After each demo, the team reviews what went well, what could
+improve, and commits to action items. Drives continuous process refinement.
+• Continuous Kanban Flow – Work items move across a board from “To Do” to “In
+Progress,” “Review,” and “Done.” Work-in-Progress (WIP) limits prevent overcommitment and maintain high quality.
+6.1 Requirements Engineering Methods
+Stakeholder Interviews and Workshops: We will conduct structured interviews with NERCC
+leadership, dispatchers, call takers, field crews, and selected citizens. These sessions uncover
+pain points, desired features, and compliance requirements. Alternative: Online surveys;
+chosen interviews for richer, real-time clarification.
+Use Cases and User Stories: Capturing discrete workflows (e.g., “Report Incident via SMS,”
+“Accept Dispatch”) ensures clarity on system behavior. Each user story will include acceptance
+criteria for testability. Alternative: Formal SRS document; chosen user stories for agility and
+stakeholder engagement.
+Prototyping & Wireframing: Low-fidelity wireframes in Figma will visualize key screens—intake
+console, dispatcher map, crew app. Iterative feedback refines UI/UX before development.
+Alternative: Paper prototypes; chosen digital tools for rapid iteration and remote collaboration.
+Prioritization with MoSCoW: Must-have, Should-have, Could-have, Won’t-have categories will
+guide feature scope for each sprint, balancing urgency and resource constraints. Alternative:
+Kano Model; chosen MoSCoW for simplicity and clear sprint planning
+25
+6.2 Design Methods
+UML Modeling: Use-case diagrams, sequence diagrams, class diagrams, and component
+diagrams will define system structure and interactions. Alternative: ArchiMate; chosen UML for
+broad industry acceptance and tool support.
+Domain-Driven Design (DDD): We will identify bounded contexts (e.g., Intake, Dispatch,
+Analytics) to decompose the system into clear modules. Alternative: Layered architecture;
+chosen DDD for better alignment with business domains.
+Responsive Wireframes & Interactive Prototypes: High-fidelity prototypes in Figma will
+simulate critical workflows (incident intake, dispatch acceptance) to validate usability on both
+web and mobile.
+6.3 Development Tools & Technologies
+Technology Stack: MERN
+• Frontend: React.js + Tailwind CSS for component-based UI and utility-first styling.
+• Backend: Node.js + Express for lightweight, non-blocking server logic.
+• Database: PostgreSQL (spatial extensions via PostGIS) for structured, geospatial
+queries; Redis for in-memory caching.
+• Mobile: React Native to share code and UI paradigms with web. Alternatives: MEAN
+stack or Django + React; MERN chosen for full-JavaScript consistency and large
+community support.
+Infrastructure & DevOps
+• Containerization: Docker with multi-stage builds for consistent environments
+• Orchestration: Docker Compose on a single AWS EC2 instance, simplifying deployment
+and maintenance
+• Infrastructure as Code: Terraform to provision EC2 instance, VPC, subnets, and security
+groups; no Kubernetes modules
+• CI/CD: GitHub Actions workflows to
+o build and push Docker images to a container registry
+o SSH into the EC2 host
+o run docker-compose pull && docker-compose up -d
+• Secrets Management: AWS Systems Manager Parameter Store or Secrets Manager to
+store and inject MONGODB_URI and other sensitive settings
+Integrations
+• Traffic API: TomTom or HERE for live congestion data
+• Weather API: OpenWeatherMap for real-time and forecast alerts
+• SMS Gateway: Twilio for reliable messaging and webhooks; chosen for generous free
+tier, robust SLAs, and JavaScript SDK support
+26
+6.4 Testing Methods
+Unit Testing: Jest and React Testing Library for JavaScript and React components. Alternative:
+Mocha/Chai; Jest chosen for built-in assertions and coverage tools.
+Integration Testing: Postman/Newman suites to validate REST API workflows end to end.
+Alternative: Supertest; Postman chosen for visual test design and data-driven capabilities.
+End-to-End (E2E) Testing: Cypress for simulating user flows on web dashboards and mobile
+emulators. Alternative: Selenium; Cypress chosen for faster execution and developer
+ergonomics.
+Performance & Load Testing: Apache JMeter to simulate concurrent users and measure
+response times under stress. Alternative: k6; JMeter chosen for protocol breadth and familiarity.
+Security Testing: OWASP ZAP for automated vulnerability scans. Manual penetration tests for
+critical endpoints.
+6.5 Integration & Deployment Methods
+Incremental Feature Branch Integration: Developers work on isolated Git branches. Pull
+requests trigger CI pipelines with automated tests before merging to main.
+API-First Development OpenAPI (Swagger): specifications define contracts for frontend,
+backend, and mobile integrations.
+Blue-Green Deployment: Kubernetes deployment strategies ensure zero-downtime releases
+and quick rollbacks if needed.
+Monitoring & Alerting: Prometheus for metrics collection and Grafana dashboards.
+Alertmanager to notify on SLA breaches or error spikes.
+27
+6.6 Project Plan Gantt Chart
+Figure 2 – Project Plan Gantt Chart
+Our timeline spans 14 weeks, starting with Requirements Gathering & Analysis in weeks 1–3 to
+refine user stories and acceptance criteria. In weeks 3–4, System Design & Prototyping runs in
+parallel with Environment Setup & CI/CD Configuration, laying both the architectural blueprint
+and operational groundwork for subsequent development. These overlapping efforts ensure the
+team can iterate quickly without waiting for a rigid handoff.
+From weeks 4–8, the team builds core APIs and data models, while Frontend Web App
+Development carries on through weeks 5–9 and Mobile App Development extends from weeks
+7–11 to maintain feature parity across platforms. Module Integration occurs in weeks 9–11,
+combining these components into cohesive vertical slices. This feeds directly into Testing & QA
+in weeks 11–13, where continuous validation uncovers defects early and informs rapid fixes.
+Deployment & Production Setup takes place in weeks 13–14 to finalize the live environment, and
+Documentation & Handover runs alongside this in week 14, culminating in the Final
+Presentation & Project Closure in week 14. Although these windows offer a clear roadmap, our
+agile approach embraces flexibility—sprint boundaries, task overlaps, and timeboxes remain
+adaptable to evolving priorities, stakeholder feedback, and the natural unpredictability of
+software development.
+28
+6.6 Work Breakdown Structure
+Name
+and Student ID Functions Tasks
+M. I. M. Afham
+IT23827912
+• Resource
+Dispatch, RealTime Tracking &
+AutoReassignment
+• Dynamic Routing &
+ETA with
+Traffic/Weather
+Overlay
+• Role-Based Access
+Control & Security
+• Elicit and document dispatch/tracking, routing,
+security, and mobile-app requirements
+• Design module architecture for dispatch/tracking,
+routing integration, security layers, and mobile app
+• Develop dispatch/tracking backend, routing
+integration, security modules, and Android app in
+Kotlin
+• Write and execute unit/integration tests for
+dispatch, routing, security, and mobile workflows
+• Deploy Android app and dispatch/security
+services; monitor logs and uptime
+T. H. C. T De Silva
+IT23836136
+• Incident Intake &
+Triage
+• Communications
+Hub & Citizen
+Reporting
+• Analytics,
+Dashboards &
+Performance
+Metrics
+• Elicit incident intake, communication hub, and
+analytics requirements
+• Design intake & triage console, two-way messaging
+hub, and analytics/dashboard layouts
+• Build incident intake UI, SMS parser, messaging
+hub, and analytics endpoint
+• Test intake & triage scenarios, message delivery
+loops, and analytics accuracy
+• Deploy intake, communications, and analytics
+modules; set up dashboards and alerts
+J. A. J Spencer
+IT23536166
+• Scheduling & Shift
+Management
+• Elicit scheduling & shift-management
+requirements
+• Design shift templates, calendar UI, coverage-rule
+enforcement
+• Develop scheduling & shift-management services
+and calendar front-end
+• Test roster generation, overlap validation, alerts,
+and UI responsiveness
+• Deploy scheduling services; handle updates,
+nightly job scheduling, and maintenance
+D. D. I.
+Nawanjana
+IT23857162
+• Vehicle and Crew
+Registration
+• Elicit vehicle & crew registration requirements
+• Design registration data schemas, approval
+workflows, and audit logging
+• Implement vehicle & crew registration endpoints,
+approval queue, and validation
+• Test registration forms, workflows, approval
+notifications, and data validation
+• Deploy registration service; maintain performance
+and schema migrations
+W. P. L. P.
+Udayanga
+IT23827158
+• Resource
+Readiness &
+Maintenance
+• Post-Incident
+Reporting
+• Elicit resource readiness & maintenance, postincident reporting requirements
+• Design data model and workflows for readiness
+checks, maintenance tickets, and post-incident
+reports
+• Implement readiness checklist, maintenance
+scheduling, and post-incident reporting APIs
+• Test readiness checklist flows, auto-ticket
+generation, and post-incident export integrity
+• Deploy readiness & maintenance services;
+configure backups and alerting
+29
+7. Evaluation Method
+We’ll keep our evaluation straightforward and user-focused, measuring success with simple
+checks, feedback, and outcome metrics rather than deep technical audits.
+7.1 Functional Testing
+• Define key user journeys (e.g., “Report an Incident,” “Accept Dispatch,” “Update
+Status”).
+• Walk through each scenario with team members and pilot users, marking tasks as
+pass/fail.
+• Log any issues, group them by severity, and resolve before the next demo.
+7.2 User Feedback
+Distribute short surveys after stakeholder demos and pilot sessions, asking:
+• How easy was it to complete core tasks?
+• How satisfied are you with the system on a scale of 1–5?
+• What’s the single biggest improvement you’d suggest?
+Hold quick debrief interviews with dispatchers and field crews to capture qualitative insights.
+7.3 Performance & Reliability
+• Track average page or API response times through basic built-in logging.
+• Record daily system uptime by checking availability at set intervals.
+• Maintain a simple error log (date, description, resolution) to ensure problems are fixed
+promptly.
+7.4 Usability
+• Time how long new users take to complete critical workflows without assistance.
+• Observe live or recorded sessions to spot confusing layouts or steps.
+• Set a goal: at least 90% of users complete core tasks on their first try.
+7.5 Adoption & Impact
+• Monitor the number of incidents processed per day and how many are handled end-toend.
+• Compare these figures to baseline numbers (if available) to measure efficiency gains.
+• Keep an eye on active user counts (dispatchers, responders, citizens) to gauge
+adoption.
+7.6 Continuous Improvement
+• After each demo, consolidate survey scores, test results, and interview notes into a
+simple action list.
+• Prioritize the top three improvements in the next Kanban cycle.
+• Share progress and updated metrics with stakeholders at regular intervals.
+30
+8. References
+[1] 1990 Suwa Seriya Foundation, 2025. [Online]. Available: https://www.1990.lk..
+[Accessed: 05-Aug-2025].
+[2] Sri Lanka Fire Service Department, 2025 [Online] Available:
+https://fireservicedepartmentsrilanka.com.. [Accessed: 05-Aug-2025].
+[3] Sri Lanka Fire Service Department, Annual Report 2022, Colombo, Sri Lanka: Sri
+Lanka Fire Service Department, 2023.
+[4] Motorola Solutions, CAPSTAR CAD System Overview, Motorola Whitepaper,
+2019.
+[5] National Emergency Number Association, NENA Standard for Incident
+Management, NENA 074, 2020.
+[6] UK Home Office, FiReControl Evaluation Report, London, UK: Home Office,
+2012.
+[7] J. Doe, “Evaluating Computer-Aided Dispatch Systems for Developing
+Countries,” Journal of Emergency Management, vol. 9, no. 4, pp. 123–135, 2021.

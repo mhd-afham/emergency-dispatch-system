@@ -1,0 +1,1478 @@
+Sri Lanka Institute of Information Technology
+Information Technology Project (IT2080)
+Activity 03 - Agile-based Activity Answers
+Planning project scope and schedule
+
+Emergency Dispatch System – Respondr.
+Campus: Malabe
+Batch: Y2.S2.WD.IT.07.02 Group No: 160
+
+Group Member Details:
+No. Name with Initials Student ID Student E-mail Contact Number
+1 M. I. M. Afham IT23827912 it23827912@my.sliit.lk 0764118021
+2 T. H. C. T. De Silva IT23836136 it23836136@my.sliit.lk 0755910504
+3 J. A. J. Spencer IT23536166 it23536166@my.sliit.lk 0768974327
+4 D. D. I. Nawanjana IT23857162 it23857162@my.sliit.lk 0702797842
+5 W. P. L. P. Udayanga IT23827158 it23827158@my.sliit.lk 0706362786
+
+Date of Submission: 28.08.2025
+
+===============================================================================
+
+1. Product Backlog for Emergency Dispatch System
+
+Epic 1: System Foundation & Security
+US-001: As a system user, I want to securely login with role-based access so that I can access features appropriate to my role.
+Priority: Must Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can users login with email/password authentication?
+Can the system implement JWT-based authentication with role-based authorization?
+Can users be redirected based on their roles (Call Taker, Dispatcher, Admin, Field Crew, Supervisor)?
+Can the system manage sessions with secure logout functionality?
+Can multi-factor authentication be supported for enhanced security?
+2. Non-functional: Security:
+Are user credentials encrypted and stored securely?
+Can the system prevent unauthorized access to role-specific features?
+3. Non-functional: Performance:
+Can user authentication be completed within 2 seconds?
+
+Epic 2: Emergency Call Logging & Incident Intake
+US-002: As a call taker, I want to log emergency calls with structured intake forms so that incident details are captured accurately.
+Priority: Must Have | Estimate: 13 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system capture emergency calls through multiple channels (web form, SMS parser, mobile app API)?
+Can mandatory fields be enforced for caller info, incident type, and description?
+Can the system automatically generate timestamps for all incidents?
+Can incident types be selected from predefined categories (Medical, Fire, Rescue)?
+Can severity levels be assigned (High, Medium, Low)?
+2. Non-functional: Performance:
+Can the system handle concurrent call logging without delays?
+Can form validation occur in real-time (frontend + backend)?
+3. Non-functional: Security:
+Are incident details protected from unauthorized access?
+Is caller information encrypted and secure?
+
+US-003: As a call taker, I want to geocode and validate caller locations so that responders can find the exact location.
+Priority: Must Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system integrate with Google Maps API for address suggestions?
+Can call takers adjust location pins on an interactive map interface?
+Can GPS coordinates be captured and validated automatically?
+Can the system implement a location confirmation workflow?
+2. Non-functional: Accuracy:
+Can the system provide location accuracy within 10 meters?
+Can address validation prevent invalid locations from being saved?
+3. Non-functional: Performance:
+Can geocoding complete within 3 seconds of address entry?
+
+US-004: As a call taker, I want to detect potential duplicate incidents so that resources are not wasted.
+Priority: Must Have | Estimate: 5 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system check for similar incidents within a defined radius and timeframe?
+Can spatial clustering algorithms identify potential duplicate reports?
+Can alerts be displayed when potential duplicates are detected?
+Can duplicate reports be merged under a single incident ID?
+2. Non-functional: Performance:
+Can duplicate detection complete within 2 seconds of incident submission?
+Can the system handle duplicate checking for high-volume periods?
+3. Non-functional: Accuracy:
+Can the system achieve 95% accuracy in duplicate detection?
+
+Epic 3: Resource Dispatch & Real-Time Tracking
+US-005: As a dispatcher, I want to view available emergency resources on a real-time map so that I can make informed dispatch decisions.
+Priority: Must Have | Estimate: 13 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system display a real-time map showing all vehicles and their current status?
+Can WebSocket integration provide live updates without page refresh?
+Can dispatchers filter resources by type (ambulance, fire engine)?
+Can live GPS tracking be displayed accurately on the map?
+Can resource status indicators show (Available, En Route, On Scene, Unavailable)?
+2. Non-functional: Performance:
+Can the map load and update within 3 seconds?
+Can the system handle real-time updates for 50+ vehicles simultaneously?
+3. Non-functional: Accuracy:
+Can GPS positions be accurate within 5 meters?
+
+US-006: As a dispatcher, I want the system to suggest optimal resources for incidents so that response time is minimized.
+Priority: Must Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the algorithm suggest the nearest suitable resources for incidents?
+Can the system consider incident type, crew certifications, and equipment requirements?
+Can ETA calculations include real-time traffic integration?
+Can dispatchers manually override system suggestions when necessary?
+2. Non-functional: Performance:
+Can resource suggestions be generated within 5 seconds?
+Can ETA calculations update dynamically with traffic changes?
+3. Non-functional: Accuracy:
+Can the system achieve 90% accuracy in ETA predictions?
+
+US-007: As a dispatcher, I want to assign resources and handle crew responses so that incidents are responded promptly.
+Priority: Must Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system send dispatch notifications to crew mobile devices?
+Can a 30-second acceptance timer be implemented with auto-reassignment logic?
+Can crew members accept/decline assignments with reason codes?
+Can real-time status updates be provided throughout the incident lifecycle?
+2. Non-functional: Performance:
+Can dispatch notifications be delivered within 10 seconds?
+Can status updates be reflected in real-time across all interfaces?
+3. Non-functional: Reliability:
+Can the system handle crew non-response scenarios automatically?
+
+Epic 4: Shift Planning & Management
+US-008: As a shift supervisor, I want to create shift schedules with staffing requirements so that 24/7 coverage is maintained.
+Priority: Must Have | Estimate: 13 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system provide a calendar interface for shift creation?
+Can shift times, roles, and headcount requirements be defined?
+Can standard shift templates be created (Day, Evening, Night)?
+Can the system validate minimum staffing requirements?
+Can coverage rule enforcement prevent understaffing?
+2. Non-functional: Usability:
+Can supervisors create shifts intuitively without extensive training?
+3. Non-functional: Performance:
+Can shift creation and validation complete within 5 seconds?
+
+US-009: As a shift supervisor, I want to assign crew members to shifts so that coverage requirements are met.
+Priority: Must Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system display available crew members with their roles and qualifications?
+Can multiple crew members be assigned to shifts simultaneously?
+Can the system check for conflicts (overlapping shifts, excessive hours)?
+Can notifications be sent to assigned crew members automatically?
+2. Non-functional: Performance:
+Can crew assignment operations complete within 3 seconds?
+Can conflict detection run in real-time during assignment?
+3. Non-functional: Reliability:
+Can the system prevent double-booking of crew members?
+
+Epic 5: Vehicle & Crew Registration
+US-010: As a system administrator, I want to register vehicles through a multi-step wizard so that fleet information is properly captured.
+Priority: Must Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system provide a multi-step registration form (Vehicle Details, Documents, Equipment, Review)?
+Can real-time validation ensure plate number uniqueness?
+Can file uploads be supported for vehicle documents and photos?
+Can equipment specifications be entered and validated?
+Can audit logging track all registration activities?
+2. Non-functional: Usability:
+Can the wizard guide system administrators through registration without confusion?
+Can progress be saved between steps?
+3. Non-functional: Security:
+Are uploaded documents stored securely and encrypted?
+
+US-011: As a shift supervisor, I want to approve vehicle registrations so that only qualified vehicles are available for dispatch.
+Priority: Must Have | Estimate: 5 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system provide an approval queue interface for pending registrations?
+Can supervisors review vehicle details, documents, and specifications comprehensively?
+Can vehicles be approved or rejected with mandatory comments?
+Can email notifications be sent automatically for approval decisions?
+2. Non-functional: Performance:
+Can the approval process complete within 30 seconds per vehicle?
+Can the approval queue handle multiple pending registrations efficiently?
+3. Non-functional: Accountability:
+Are all approval decisions logged with supervisor identity and timestamp?
+
+US-012: As a system administrator, I want to register crew members so that qualified personnel are available for dispatch.
+Priority: Must Have | Estimate: 5 Story Points
+Acceptance Criteria:
+1. Functional:
+Can crew registration forms capture crew information?
+Can role assignments be implemented?
+Can contact information be managed and kept current?
+Can the crew registration integrate seamlessly with shift scheduling system?
+2. Non-functional: Security:
+Is crew personal information protected and access-controlled?
+3. Non-functional: Performance:
+Can crew registration complete within 5 minutes per person?
+
+Epic 6: Equipment Readiness & Maintenance
+US-013: As a field crew leader, I want to perform digital equipment checks so that vehicle readiness is verified before dispatch.
+Priority: Must Have | Estimate: 13 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the mobile app provide digital checklists based on vehicle type?
+Can PASS/FAIL status be recorded for each inspection item?
+Can items be classified as critical vs non-critical?
+Can GPS location and timestamp be captured automatically?
+Can the system work offline with sync capability when connection is restored?
+2. Non-functional: Performance:
+Can checklist completion be processed within 2 minutes when online?
+Can offline data sync occur within 30 seconds when connection is available?
+3. Non-functional: Reliability:
+Can the system prevent data loss during offline operations?
+
+US-014: As a field crew leader, I want the system to automatically handle failed inspections so that maintenance is triggered promptly.
+Priority: Must Have | Estimate: 5 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system auto-generate maintenance work orders for failed inspections?
+Can vehicle status be updated automatically based on inspection results?
+Can supervisors be notified immediately of critical failures?
+Can vehicles be locked out from dispatch when critical issues are identified?
+2. Non-functional: Performance:
+Can work orders be generated within 1 minute of failure detection?
+Can status updates propagate across all systems within 30 seconds?
+3. Non-functional: Reliability:
+Can the system ensure no critical equipment failures are missed?
+
+Epic 7: Post Incident Reporting
+US-015: As a supervisor, I want to generate post-incident reports so that performance can be analyzed.
+Priority: Should Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system compile comprehensive incident timelines automatically?
+Can media attachments be supported in reports (photos, documents) for field crews?
+Can supervisors add annotations and comments to reports?
+Can reports be exported in PDF format?
+2. Non-functional: Performance:
+Can reports be generated within 30 seconds for standard incidents?
+Can large reports with media be processed within 2 minutes?
+3. Non-functional: Security:
+Are reports access-controlled based on user permissions?
+
+Epic 8: Incident Assignment and Navigation
+US-016: As a field crew leader, I want to receive and respond to incident assignments on my mobile device so that I can respond quickly.
+Priority: Must Have | Estimate: 13 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system deliver push notifications for new assignments?
+Can the interface allow accept/decline assignment responses?
+Can incident details and location be viewed clearly on mobile?
+Can status be updated throughout incident response (En Route, On Scene, Complete)?
+Can the app function offline with sync capability?
+2. Non-functional: Performance:
+Can notifications be delivered within 15 seconds of dispatch?
+3. Non-functional: Usability:
+Can crew members use the app effectively while driving (large buttons)?
+
+US-017: As a field crew leader, I want GPS navigation to incident locations so that I can reach emergencies efficiently.
+Priority: Must Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can turn-by-turn navigation be provided using Google Maps integration?
+Can real-time traffic information be integrated into route planning?
+Can dynamic routing adapt to weather overlays and road conditions?
+Can location be shared automatically with dispatch center during travel?
+Can arrival confirmation be captured and communicated?
+2. Non-functional: Performance:
+Can navigation routes be calculated within 10 seconds?
+Can location updates be transmitted every 5 seconds during travel?
+3. Non-functional: Accuracy:
+Can GPS accuracy be maintained within 5 meters during navigation?
+
+Epic 9: Communication
+US-018: As a citizen, I want to receive SMS and mobile app push notifications about my emergency so that I'm informed of response progress.
+Priority: Should Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can SMS confirmation be sent for location verification?
+Can push notifications be delivered to the mobile app?
+Can ETA notifications be delivered when resources are dispatched?
+Can status updates be provided throughout incident response?
+Can SOS escalation keywords be supported for emergency situations?
+Can two-way messaging capabilities be implemented?
+2. Non-functional: Performance:
+Can SMS messages be delivered within 30 seconds?
+Can push notifications be delivered within 15 seconds?
+Can the system handle high-volume messaging during major incidents?
+3. Non-functional: Reliability:
+Can message delivery be confirmed and tracked for both channels?
+
+US-019: As a dispatcher, I want to send notifications to crews and citizens so that communication is maintained in emergencies.
+Priority: Should Have | Estimate: 5 Story Points
+Acceptance Criteria:
+1. Functional:
+Can both SMS and push notification capabilities be implemented?
+Can automatic notifications be triggered for key status changes?
+Can delivery confirmation be tracked for all notifications?
+Can notifications be sent to both crew members and citizens?
+2. Non-functional: Performance:
+Can notifications be sent within 20 seconds of triggering event?
+Can the system handle simultaneous notifications to multiple recipients?
+3. Non-functional: Reliability:
+Can failed message deliveries be retried automatically?
+
+Epic 10: Analytics
+US-020: As a data analyst, I want to view real-time performance dashboards so that operational efficiency can be monitored.
+Priority: Could Have | Estimate: 8 Story Points
+Acceptance Criteria:
+1. Functional:
+Can the system display real-time KPI widgets (response times, active incidents)?
+Can performance metrics be visualized with charts and graphs?
+Can analytics show resource utilization trends over time?
+Can reports be exported in PDF format?
+Can dashboard views be customized by filters?
+2. Non-functional: Performance:
+Can dashboards load within 5 seconds with real-time data?
+Can the system handle concurrent dashboard users without performance degradation?
+3. Non-functional: Usability:
+Can analysts easily navigate and interpret dashboard information?
+
+===============================================================================
+
+2. Priority Assignment Using MoSCoW Method
+
+Must Have (Critical for Core System - Sprints 1 & 2) - 141 Story Points
+These represent the 5 core use cases and essential system functionality:
+
+Core Use Cases (Individual Member Features):
+US-001: Authentication & security system - Afham (8 SP)
+US-002: Emergency call logging - De Silva (13 SP)
+US-003: Location geocoding - De Silva (8 SP)
+US-004: Duplicate detection - De Silva (5 SP)
+US-005: Resource map view - Afham (13 SP)
+US-006: Resource suggestion - Afham (8 SP)
+US-007: Assignment workflows - Afham (8 SP)
+US-008: Shift creation - Spencer (13 SP)
+US-009: Crew assignment - Spencer (8 SP)
+US-010: Vehicle registration - Nawanjana (8 SP)
+US-011: Registration approval - Nawanjana (5 SP)
+US-012: Crew registration - Nawanjana (5 SP)
+US-013: Equipment readiness - Udayanga (13 SP)
+US-014: Maintenance workflow - Udayanga (5 SP)
+US-016: Mobile assignments - Afham (13 SP)
+US-017: Mobile navigation - Afham (8 SP)
+
+Total Must Have: 141 Story Points
+
+Should Have (Important Enhancements - Sprint 3) - 21 Story Points
+US-015: Post-incident reporting - Udayanga (8 SP)
+US-018: Citizen SMS and push notifications - De Silva (8 SP)
+US-019: Crew and citizen notification management - De Silva (5 SP)
+
+Could Have (Future Enhancement) - 8 Story Points
+US-020: Analytics dashboard - De Silva (8 SP)
+
+Won't Have (Out of Scope)
+Advanced AI-based routing
+Complex weather integration
+Multi-language support
+Advanced reporting with digital signatures
+
+===============================================================================
+
+3. Relative Estimates Using Agile Estimation Method
+
+Estimation Method: Planning Poker with Fibonacci Sequence (1, 2, 3, 5, 8, 13, 21)
+
+Individual Story Point Estimates:
+
+Must Have Stories (141 Story Points):
+US-001: Authentication & security system - 8 Story Points
+US-002: Emergency call logging - 13 Story Points
+US-003: Location geocoding - 8 Story Points
+US-004: Duplicate detection - 5 Story Points
+US-005: Resource map view - 13 Story Points
+US-006: Resource suggestion - 8 Story Points
+US-007: Assignment workflows - 8 Story Points
+US-008: Shift creation - 13 Story Points
+US-009: Crew assignment - 8 Story Points
+US-010: Vehicle registration - 8 Story Points
+US-011: Registration approval - 5 Story Points
+US-012: Crew registration - 5 Story Points
+US-013: Equipment readiness - 13 Story Points
+US-014: Maintenance workflow - 5 Story Points
+US-016: Mobile assignments - 13 Story Points
+US-017: Mobile navigation - 8 Story Points
+
+Should Have Stories (21 Story Points):
+US-015: Post-incident reporting - 8 Story Points
+US-018: Citizen SMS and push notifications - 8 Story Points
+US-019: Crew and citizen notification management - 5 Story Points
+
+Could Have Stories (8 Story Points):
+US-020: Analytics dashboard - 8 Story Points
+
+Total Project Estimate: 170 Story Points
+
+Estimation Guidelines:
+1-2 Points: Simple CRUD operations, basic validations
+3-5 Points: Standard features with moderate complexity
+8 Points: Complex features with API integrations, real-time functionality
+13 Points: Very complex features with multiple integrations, mobile development
+21+ Points: Epic-level features (broken down into smaller stories)
+
+Team Velocity Calculation:
+Team Size: 5 developers
+Sprint Duration: 2 weeks
+Individual Capacity: 25 hours/week (considering academic schedule)
+Team Capacity: 250 hours per sprint
+Estimated Velocity: 55-65 Story Points per sprint
+
+Estimation Rationale by Story:
+US-002 (13 SP): Complex form with validations, database integration, error handling
+US-005 (13 SP): Real-time map with WebSocket, GPS tracking, multiple data layers
+US-008 (13 SP): Calendar interface, complex validation rules, notification system
+US-013 (13 SP): Mobile checklist, offline capability, complex business logic
+US-016 (13 SP): Mobile app core functionality, push notifications, real-time updates
+
+===============================================================================
+
+4. Sprint Planning (3 Sprints × 2 Weeks Each)
+
+Sprint 1 (Weeks 1-2): Core Foundation & Infrastructure
+Sprint Goal: Establish system foundation with authentication and basic functionality for each core use case
+Target Velocity: 65 Story Points
+
+Sprint 1 Stories:
+US-001: Authentication & security system (8 SP) - Afham Foundation
+US-002: Emergency call logging (13 SP) - De Silva Core Feature
+US-010: Vehicle registration (8 SP) - Nawanjana Core Feature
+US-011: Registration approval (5 SP) - Nawanjana Enhancement
+US-012: Crew registration (5 SP) - Nawanjana Enhancement
+US-008: Shift creation (13 SP) - Spencer Core Feature
+US-016: Mobile assignments (13 SP) - Afham Core Feature
+
+Total Sprint 1: 65 Story Points
+
+Sprint 1 Deliverables:
+Working authentication system with role-based access
+Basic incident intake interface with form validation
+Vehicle and crew registration workflows
+Shift creation functionality
+Mobile app with assignment reception
+
+Sprint 2 (Weeks 3-4): Advanced Features & Integration
+Sprint Goal: Complete all core use cases with full integration and real-time functionality
+Target Velocity: 65 Story Points
+
+Sprint 2 Stories:
+US-003: Location geocoding (8 SP) - De Silva Enhancement
+US-004: Duplicate detection (5 SP) - De Silva Enhancement
+US-005: Resource map view (13 SP) - Afham Core Feature
+US-006: Resource suggestion (8 SP) - Afham Enhancement
+US-007: Assignment workflows (8 SP) - Afham Enhancement
+US-009: Crew assignment (8 SP) - Spencer Enhancement
+US-013: Equipment readiness (13 SP) - Udayanga Core Feature
+US-017: Mobile navigation (8 SP) - Afham Mobile Enhancement
+
+Total Sprint 2: 71 Story Points
+
+Sprint 2 Deliverables:
+Complete emergency dispatch workflow with duplicate detection
+Real-time resource tracking and assignment
+Full mobile app functionality with navigation
+Integrated shift management with crew assignment
+Digital equipment checklist functionality
+
+Sprint 3 (Weeks 5-6): Enhancement Features & Integration
+Sprint Goal: Add communication features, reporting, and complete remaining core functionality
+Target Velocity: 40 Story Points
+
+Sprint 3 Stories:
+US-014: Maintenance workflow (5 SP) - Udayanga Core Feature
+US-015: Post-incident reporting (8 SP) - Udayanga Enhancement
+US-018: Citizen SMS and push notifications (8 SP) - De Silva Communication
+US-019: Crew and citizen notification management (5 SP) - De Silva Communication
+US-020: Analytics dashboard (8 SP) - De Silva Analytics
+
+Total Sprint 3: 34 Story Points
+
+Sprint 3 Deliverables:
+SMS and push notification system with two-way communication
+Post-incident reporting functionality
+Analytics dashboard for performance monitoring
+Automated maintenance workflows
+Polished, fully integrated system
+
+===============================================================================
+
+5. Kanban Board Structure
+
+Kanban Board Design:
+Tool Recommendation: Trello (Free, user-friendly, suitable for academic project)
+
+Board Columns:
+1. Product Backlog - All user stories prioritized by MoSCoW
+2. Sprint Backlog - Stories committed for current sprint
+3. To Do - Sprint tasks ready to start
+4. In Progress - Stories being actively developed (WIP Limit: 5)
+5. Code Review - Completed code awaiting peer review (WIP Limit: 3)
+6. Testing - Stories in testing phase (WIP Limit: 2)
+7. Done - Completed and validated stories
+
+Work in Progress (WIP) Limits:
+In Progress: 5 (one per team member maximum)
+Code Review: 3 (prevent review bottlenecks)
+Testing: 2 (ensure quality focus)
+
+Card Structure:
+Each Trello card contains:
+Title: User Story ID and description
+Labels: Priority (Must/Should/Could), Team Member, Epic
+Checklist: Acceptance criteria items
+Due Date: Sprint end date
+Attachments: Relevant documents, mockups
+Comments: Progress updates, blockers
+
+Labels System:
+Priority: Red (Must Have), Orange (Should Have), Yellow (Could Have)
+Members: Green (Afham), Blue (De Silva), Purple (Spencer), Pink (Nawanjana), Gray (Udayanga)
+Type: Backend, Frontend, Mobile, Database, Integration
+
+===============================================================================
+
+6. Sprint Plan with Individual Task Allocation
+
+Sprint 1 Task Allocation (Weeks 1-2):
+
+M. I. M. Afham (IT23827912) - System Foundation & Mobile Setup:
+US-001: Implement role-based authentication and security system (8 SP)
+Set up project infrastructure and development environment
+Design and implement database architecture for all modules
+Set up JWT authentication with role-based access control
+Implement session management and secure logout functionality
+US-016: Create mobile assignment reception interface (13 SP)
+Set up Android development environment and project structure
+Implement push notification framework using Firebase
+Create basic mobile app architecture with offline capability
+Design mobile UI for assignment reception and response
+Individual Focus: System foundation, security infrastructure, and mobile application setup
+
+T. H. C. T. De Silva (IT23836136) - Emergency Call System Foundation:
+US-002: Implement emergency call logging system (13 SP)
+Design API architecture for cross-module communication
+Create structured intake forms with multiple input channels
+Implement real-time form validation (frontend + backend)
+Set up incident categorization and severity assignment
+Design database schema for incident management and integration points
+Implement comprehensive error handling and validation logic
+Individual Focus: Emergency call intake system and API architecture foundation
+
+J. A. J. Spencer (IT23536166) - Shift Management Foundation:
+US-008: Implement shift scheduling system (13 SP)
+Create calendar interface for shift creation and management
+Implement shift templates and staffing requirements validation
+Set up coverage rules and minimum staffing enforcement
+Design database schema for shift management
+Implement basic notification framework for shift assignments
+Individual Focus: Complete shift creation and scheduling foundation
+
+D. D. I. Nawanjana (IT23857162) - Registration Workflows:
+US-010: Implement vehicle registration wizard (8 SP)
+US-011: Create vehicle approval workflow (5 SP)
+US-012: Implement crew registration system (5 SP)
+Create multi-step registration forms with file upload capability
+Implement real-time validation and audit logging
+Design approval queue interface with notification system
+Set up secure document storage and retrieval system
+Individual Focus: Complete registration and approval workflows
+
+W. P. L. P. Udayanga (IT23827158) - Equipment System Planning:
+Design equipment checklist system architecture
+Create equipment database schema and relationships
+Individual Focus: Equipment system planning and architecture design
+
+Sprint 2 Task Allocation (Weeks 3-4):
+
+M. I. M. Afham (IT23827912) - Real-Time Dispatch System:
+US-005: Implement real-time resource map (13 SP)
+Set up WebSocket server and client integration for real-time updates
+Integrate Google Maps API for tracking and visualization
+Implement live GPS tracking and resource status management
+US-006: Create resource suggestion algorithm (8 SP)
+Develop resource matching algorithm considering proximity and capabilities
+Integrate real-time traffic data for ETA calculations
+US-007: Implement assignment workflows (8 SP)
+Create dispatch notification system for mobile devices
+Implement 30-second acceptance timer with auto-reassignment logic
+US-017: Add GPS navigation to mobile app (8 SP)
+Integrate turn-by-turn navigation using Google Maps API
+Implement real-time location sharing with dispatch center
+Individual Focus: Complete resource dispatch, tracking, and mobile navigation systems
+
+T. H. C. T. De Silva (IT23836136) - Advanced Location & Data Management:
+US-003: Implement location geocoding and validation (8 SP)
+Integrate Google Maps API for address suggestions and validation
+Create interactive map interface for location pin adjustment
+Implement GPS coordinate capture and validation workflow
+US-004: Implement duplicate incident detection (5 SP)
+Develop spatial clustering algorithm for duplicate detection
+Implement real-time duplicate alerts and incident merging
+Enhance incident logging system with advanced location features
+Optimize database queries for location-based operations
+Individual Focus: Advanced location management, duplicate detection, and data optimization
+
+J. A. J. Spencer (IT23536166) - Crew Management Integration:
+US-009: Implement crew assignment to shifts (8 SP)
+Create crew availability management interface
+Implement conflict detection and validation for shift assignments
+Design automated notification system for shift assignments
+Integrate crew assignment with resource dispatch system
+Enhance shift management with coverage optimization suggestions
+Individual Focus: Complete crew scheduling, assignment workflow, and dispatch integration
+
+D. D. I. Nawanjana (IT23857162) - System Integration:
+Integrate vehicle and crew registration with dispatch system
+Implement data synchronization between all modules
+Create comprehensive form validation across all registration workflows
+Individual Focus: Registration system integration and validation optimization
+
+W. P. L. P. Udayanga (IT23827158) - Equipment Management Implementation:
+US-013: Implement digital equipment readiness system (13 SP)
+Create mobile checklist interface with offline-first design
+Implement GPS location capture and automatic timestamp functionality
+Develop equipment status tracking and validation logic
+Create offline data synchronization with conflict resolution
+Implement equipment readiness reporting and dashboard
+Individual Focus: Complete equipment readiness and checklist functionality
+
+Sprint 3 Task Allocation (Weeks 5-6):
+
+M. I. M. Afham (IT23827912) - Mobile App Finalization, Integration, Quality Assurance & Documentation:
+Complete mobile app testing across all features
+Implement advanced offline capabilities and data synchronization
+Perform performance optimization for real-time features
+Conduct comprehensive integration testing for dispatch workflows
+Final mobile app deployment preparation and security hardening
+Coordinate comprehensive user acceptance testing across all modules
+Implement final bug fixes and performance improvements
+Optimize database indexing and query performance
+Create comprehensive system documentation and user guides
+Conduct final system validation and deployment preparation
+Individual Focus: Mobile application completion and system-wide performance optimization
+
+T. H. C. T. De Silva (IT23836136) - Communication Systems & Analytics:
+US-018: Implement citizen SMS and push notification system (8 SP)
+Integrate Twilio SMS gateway for two-way messaging
+Implement citizen notification templates and automation
+US-019: Create crew and citizen notification management interface (5 SP)
+Develop notification delivery tracking and confirmation system
+Create notification management dashboard for dispatchers
+US-020: Develop analytics dashboard (8 SP)
+Implement real-time KPI widgets and performance metrics visualization
+Create report generation and PDF export functionality
+Individual Focus: Complete communication system and analytics dashboard
+
+J. A. J. Spencer (IT23536166) - Shift Management Feature Enhancement:
+Implement search and filtering capabilities across shift management
+Develop UI/UX improvements for shift management interfaces
+Conduct integration testing between shift management and other modules
+Individual Focus: Advanced shift management features and system polish
+
+D. D. I. Nawanjana (IT23857162) - Registration Testing & Workflow Optimization:
+Develop user acceptance testing procedures for registration systems
+Optimize registration workflows for performance and user experience
+
+Individual Focus: Quality assurance, documentation, and deployment readiness
+
+W. P. L. P. Udayanga (IT23827158) - Maintenance & Reporting Systems:
+US-014: Implement maintenance workflow automation (5 SP)
+Create automated work order generation for failed inspections
+Implement vehicle lockout system for critical failures
+US-015: Develop post-incident reporting system (8 SP)
+Create comprehensive incident timeline compilation
+Implement media attachment support and PDF report generation
+Develop supervisor annotation and comment system
+Individual Focus: Maintenance automation and comprehensive reporting system
+
+===============================================================================
+
+7. Detailed Task Breakdown for Kanban Board Implementation
+
+This section provides granular tasks for each user story that can be tracked as checklist items in your Kanban board cards.
+
+Epic 1: System Foundation & Security
+
+US-001: Authentication & Security System (8 SP)
+Frontend Tasks:
+Create login page UI with form validation
+Implement role-based navigation components
+Design user dashboard layouts for different roles
+Create logout functionality with session cleanup
+Backend Tasks:
+Set up JWT authentication middleware
+Implement password hashing and encryption
+Create user role management system
+Design user database schema
+Set up session management and token refresh
+Testing Tasks:
+Unit tests for authentication functions
+Integration tests for role-based access
+Security testing for unauthorized access attempts
+
+Epic 2: Emergency Call Logging & Incident Intake
+
+US-002: Emergency Call Logging System (13 SP)
+Frontend Tasks:
+Create structured incident intake form
+Implement real-time form validation
+Design incident categorization dropdowns
+Create caller information capture interface
+Add timestamp display and incident ID generation
+Backend Tasks:
+Design incident database schema
+Create incident creation API endpoints
+Implement form validation logic
+Set up incident categorization system
+Create audit logging for all incident activities
+Testing Tasks:
+Form validation testing across all fields
+API endpoint testing for incident creation
+Database integration testing
+Load testing for concurrent call logging
+
+US-003: Location Geocoding & Validation (8 SP)
+Frontend Tasks:
+Integrate Google Maps API for address suggestions
+Create interactive map interface for location adjustment
+Design location confirmation dialog
+Implement GPS coordinate display
+Backend Tasks:
+Set up Google Maps API integration
+Create geocoding validation logic
+Implement location accuracy verification
+Design location database schema
+Create location validation API endpoints
+Testing Tasks:
+Address suggestion accuracy testing
+Location pin placement testing
+GPS coordinate validation testing
+API integration testing with Google Maps
+
+US-004: Duplicate Incident Detection (5 SP)
+Frontend Tasks:
+Create duplicate alert notification interface
+Design incident comparison display
+Implement incident merging interface
+Backend Tasks:
+Develop spatial clustering algorithm
+Create duplicate detection logic
+Implement incident merging functionality
+Set up real-time duplicate checking
+Testing Tasks:
+Algorithm accuracy testing
+Performance testing for duplicate detection
+Incident merging workflow testing
+
+Epic 3: Resource Dispatch & Real-Time Tracking
+
+US-005: Real-Time Resource Map (13 SP)
+Frontend Tasks:
+Create real-time map interface
+Implement resource filtering controls
+Design resource status indicators
+Create map legend and controls
+Set up WebSocket client for live updates
+Backend Tasks:
+Set up WebSocket server infrastructure
+Create GPS tracking data management
+Implement resource status management system
+Design vehicle tracking database schema
+Create real-time update API endpoints
+Testing Tasks:
+Real-time update performance testing
+Map rendering performance testing
+WebSocket connection stability testing
+Multiple vehicle tracking testing
+
+US-006: Resource Suggestion Algorithm (8 SP)
+Frontend Tasks:
+Create resource suggestion display interface
+Implement manual override controls
+Design ETA display components
+Backend Tasks:
+Develop resource matching algorithm
+Integrate traffic data APIs
+Create ETA calculation logic
+Implement algorithm optimization
+Testing Tasks:
+Algorithm accuracy testing
+ETA prediction accuracy testing
+Performance testing under load
+Traffic integration testing
+
+US-007: Assignment Workflows (8 SP)
+Frontend Tasks:
+Create dispatch confirmation interface
+Design crew response tracking display
+Implement status update controls
+Backend Tasks:
+Create dispatch notification system
+Implement 30-second timer logic
+Set up auto-reassignment workflows
+Create status tracking system
+Mobile Tasks:
+Implement push notification handling
+Create assignment response interface
+Testing Tasks:
+Notification delivery testing
+Timer functionality testing
+Auto-reassignment logic testing
+Status update synchronization testing
+
+Epic 4: Shift Planning & Management
+
+US-008: Shift Creation System (13 SP)
+Frontend Tasks:
+Create calendar interface for shift creation
+Design shift template management
+Implement staffing requirement forms
+Create shift validation displays
+Backend Tasks:
+Design shift database schema
+Create shift creation API endpoints
+Implement staffing validation logic
+Set up shift template system
+Create coverage rule enforcement
+Testing Tasks:
+Calendar functionality testing
+Validation rule testing
+Shift template testing
+Coverage calculation testing
+
+US-009: Crew Assignment to Shifts (8 SP)
+Frontend Tasks:
+Create crew availability display
+Design shift assignment interface
+Implement conflict detection alerts
+Create assignment confirmation dialogs
+Backend Tasks:
+Create crew assignment logic
+Implement conflict detection algorithms
+Set up assignment notification system
+Design crew scheduling database relationships
+Testing Tasks:
+Conflict detection testing
+Assignment notification testing
+Double-booking prevention testing
+Scheduling algorithm testing
+
+Epic 5: Vehicle & Crew Registration
+
+US-010: Vehicle Registration Wizard (8 SP)
+Frontend Tasks:
+Create multi-step wizard interface
+Design file upload components
+Implement progress saving functionality
+Create equipment specification forms
+Backend Tasks:
+Set up file upload and storage system
+Create vehicle registration API endpoints
+Implement validation logic for each step
+Design vehicle database schema
+Set up audit logging system
+Testing Tasks:
+Multi-step wizard flow testing
+File upload functionality testing
+Validation logic testing
+Progress saving testing
+
+US-011: Vehicle Registration Approval (5 SP)
+Frontend Tasks:
+Create approval queue interface
+Design vehicle review display
+Implement approval decision forms
+Create notification status display
+Backend Tasks:
+Create approval workflow logic
+Set up email notification system
+Implement approval decision API endpoints
+Create approval audit logging
+Testing Tasks:
+Approval workflow testing
+Notification delivery testing
+Decision tracking testing
+
+US-012: Crew Registration System (5 SP)
+Frontend Tasks:
+Create crew registration forms
+Design role assignment interface
+Implement contact management forms
+Backend Tasks:
+Create crew registration API endpoints
+Set up crew database schema
+Implement role assignment logic
+Create integration with shift system
+Testing Tasks:
+Registration form testing
+Role assignment testing
+System integration testing
+
+Epic 6: Equipment Readiness & Maintenance
+
+US-013: Digital Equipment Readiness (13 SP)
+Mobile Tasks:
+Create digital checklist interface
+Implement offline functionality
+Add GPS location capture
+Design inspection item management
+Set up offline data storage
+Backend Tasks:
+Create equipment checklist API endpoints
+Design equipment database schema
+Implement offline synchronization logic
+Set up inspection workflow system
+Create equipment status tracking
+Testing Tasks:
+Offline functionality testing
+Synchronization testing
+GPS accuracy testing
+Checklist completion testing
+Data integrity testing
+
+US-014: Maintenance Workflow Automation (5 SP)
+Frontend Tasks:
+Create maintenance alert displays
+Design work order interface
+Backend Tasks:
+Implement auto work order generation
+Create vehicle lockout system
+Set up supervisor notification system
+Create maintenance workflow API endpoints
+Testing Tasks:
+Work order generation testing
+Vehicle lockout testing
+Notification system testing
+
+Epic 7: Post Incident Reporting
+
+US-015: Post-Incident Reporting (8 SP)
+Frontend Tasks:
+Create incident timeline interface
+Design media attachment components
+Implement report generation forms
+Create PDF export functionality
+Backend Tasks:
+Create incident timeline compilation logic
+Set up media storage system
+Implement report generation API endpoints
+Create PDF generation system
+Testing Tasks:
+Timeline accuracy testing
+Media attachment testing
+PDF generation testing
+Report data integrity testing
+
+Epic 8: Incident Assignment and Navigation
+
+US-016: Mobile Assignment Reception (13 SP)
+Mobile Tasks:
+Create assignment notification interface
+Implement accept/decline functionality
+Design incident details display
+Create status update controls
+Set up offline capability
+Backend Tasks:
+Create mobile assignment API endpoints
+Implement assignment tracking system
+Set up push notification infrastructure
+Create offline synchronization logic
+Testing Tasks:
+Push notification testing
+Offline capability testing
+Assignment workflow testing
+Status synchronization testing
+
+US-017: GPS Navigation Integration (8 SP)
+Mobile Tasks:
+Integrate Google Maps navigation
+Implement real-time location sharing
+Create arrival confirmation interface
+Design navigation controls
+Backend Tasks:
+Set up location tracking API endpoints
+Create navigation data management
+Implement location sharing system
+Testing Tasks:
+Navigation accuracy testing
+Location sharing testing
+Arrival confirmation testing
+Real-time tracking testing
+
+Epic 9: Communication
+
+US-018: Citizen SMS & Push Notifications (8 SP)
+Frontend Tasks:
+Create notification template management
+Design citizen communication interface
+Backend Tasks:
+Integrate Twilio SMS gateway
+Set up push notification system
+Create notification automation logic
+Implement two-way messaging system
+Create delivery tracking system
+Testing Tasks:
+SMS delivery testing
+Push notification testing
+Delivery confirmation testing
+Two-way messaging testing
+
+US-019: Crew & Citizen Notification Management (5 SP)
+Frontend Tasks:
+Create notification management dashboard
+Design delivery tracking interface
+Backend Tasks:
+Create notification management API endpoints
+Implement delivery confirmation tracking
+Set up automatic retry logic
+Testing Tasks:
+Management interface testing
+Delivery tracking testing
+Retry mechanism testing
+
+Epic 10: Analytics
+
+US-020: Analytics Dashboard (8 SP)
+Frontend Tasks:
+Create KPI widget interfaces
+Implement chart and graph components
+Design filter and customization controls
+Create report export functionality
+Backend Tasks:
+Set up analytics data processing
+Create dashboard API endpoints
+Implement report generation logic
+Create PDF export system
+Testing Tasks:
+Dashboard performance testing
+Chart rendering testing
+Export functionality testing
+Data accuracy testing
+
+Task Implementation Guidelines:
+
+Task Completion Criteria:
+Each task should be marked complete only when:
+Code is written and reviewed
+Unit tests are passing
+Integration with other components is verified
+Documentation is updated
+
+Task Dependencies:
+Database tasks should be completed before API tasks
+API tasks should be completed before frontend tasks
+Authentication system should be completed before any user-specific features
+Mobile infrastructure should be set up before mobile-specific features
+
+Estimation Guidelines:
+Frontend tasks: 2-8 hours each
+Backend tasks: 3-12 hours each
+Mobile tasks: 4-10 hours each
+Testing tasks: 1-4 hours each
+Integration tasks: 2-6 hours each
+
+===============================================================================
+
+7. Detailed Task Breakdown for Kanban Board Implementation
+
+This section provides granular tasks for each user story that can be tracked as checklist items in your Kanban board cards.
+
+Epic 1: System Foundation & Security
+
+US-001: Authentication & Security System (8 SP)
+Frontend Tasks:
+Create login page UI with form validation
+Implement role-based navigation components
+Design user dashboard layouts for different roles
+Create logout functionality with session cleanup
+Backend Tasks:
+Set up JWT authentication middleware
+Implement password hashing and encryption
+Create user role management system
+Design user database schema
+Set up session management and token refresh
+Testing Tasks:
+Unit tests for authentication functions
+Integration tests for role-based access
+Security testing for unauthorized access attempts
+
+Epic 2: Emergency Call Logging & Incident Intake
+
+US-002: Emergency Call Logging (13 SP)
+Frontend Tasks:
+Create structured incident intake form
+Implement real-time form validation
+Design incident categorization dropdowns
+Create caller information capture interface
+Add timestamp display and incident ID generation
+Backend Tasks:
+Design incident database schema
+Create incident creation API endpoints
+Implement form validation logic
+Set up incident categorization system
+Create audit logging for all incident activities
+Testing Tasks:
+Form validation testing across all fields
+API endpoint testing for incident creation
+Database integration testing
+Load testing for concurrent call logging
+
+US-003: Location Geocoding & Validation (8 SP)
+Frontend Tasks:
+Integrate Google Maps API for address suggestions
+Create interactive map interface for location adjustment
+Design location confirmation dialog
+Implement GPS coordinate display
+Backend Tasks:
+Set up Google Maps API integration
+Create geocoding validation logic
+Implement location accuracy verification
+Design location database schema
+Create location validation API endpoints
+Testing Tasks:
+Address suggestion accuracy testing
+Location pin placement testing
+GPS coordinate validation testing
+API integration testing with Google Maps
+
+US-004: Duplicate Incident Detection (5 SP)
+Frontend Tasks:
+Create duplicate alert notification interface
+Design incident comparison display
+Implement incident merging interface
+Backend Tasks:
+Develop spatial clustering algorithm
+Create duplicate detection logic
+Implement incident merging functionality
+Set up real-time duplicate checking
+Testing Tasks:
+Algorithm accuracy testing
+Performance testing for duplicate detection
+Incident merging workflow testing
+
+Epic 3: Resource Dispatch & Real-Time Tracking
+
+US-005: Real-Time Resource Map (13 SP)
+Frontend Tasks:
+Create real-time map interface
+Implement resource filtering controls
+Design resource status indicators
+Create map legend and controls
+Set up WebSocket client for live updates
+Backend Tasks:
+Set up WebSocket server infrastructure
+Create GPS tracking data management
+Implement resource status management system
+Design vehicle tracking database schema
+Create real-time update API endpoints
+Testing Tasks:
+Real-time update performance testing
+Map rendering performance testing
+WebSocket connection stability testing
+Multiple vehicle tracking testing
+
+US-006: Resource Suggestion Algorithm (8 SP)
+Frontend Tasks:
+Create resource suggestion display interface
+Implement manual override controls
+Design ETA display components
+Backend Tasks:
+Develop resource matching algorithm
+Integrate traffic data APIs
+Create ETA calculation logic
+Implement algorithm optimization
+Testing Tasks:
+Algorithm accuracy testing
+ETA prediction accuracy testing
+Performance testing under load
+Traffic integration testing
+
+US-007: Assignment Workflows (8 SP)
+Frontend Tasks:
+Create dispatch confirmation interface
+Design crew response tracking display
+Implement status update controls
+Backend Tasks:
+Create dispatch notification system
+Implement 30-second timer logic
+Set up auto-reassignment workflows
+Create status tracking system
+Mobile Tasks:
+Implement push notification handling
+Create assignment response interface
+Testing Tasks:
+Notification delivery testing
+Timer functionality testing
+Auto-reassignment logic testing
+Status update synchronization testing
+
+Epic 4: Shift Planning & Management
+
+US-008: Shift Creation System (13 SP)
+Frontend Tasks:
+Create calendar interface for shift creation
+Design shift template management
+Implement staffing requirement forms
+Create shift validation displays
+Backend Tasks:
+Design shift database schema
+Create shift creation API endpoints
+Implement staffing validation logic
+Set up shift template system
+Create coverage rule enforcement
+Testing Tasks:
+Calendar functionality testing
+Validation rule testing
+Shift template testing
+Coverage calculation testing
+
+US-009: Crew Assignment to Shifts (8 SP)
+Frontend Tasks:
+Create crew availability display
+Design shift assignment interface
+Implement conflict detection alerts
+Create assignment confirmation dialogs
+Backend Tasks:
+Create crew assignment logic
+Implement conflict detection algorithms
+Set up assignment notification system
+Design crew scheduling database relationships
+Testing Tasks:
+Conflict detection testing
+Assignment notification testing
+Double-booking prevention testing
+Scheduling algorithm testing
+
+Epic 5: Vehicle & Crew Registration
+
+US-010: Vehicle Registration Wizard (8 SP)
+Frontend Tasks:
+Create multi-step wizard interface
+Design file upload components
+Implement progress saving functionality
+Create equipment specification forms
+Backend Tasks:
+Set up file upload and storage system
+Create vehicle registration API endpoints
+Implement validation logic for each step
+Design vehicle database schema
+Set up audit logging system
+Testing Tasks:
+Multi-step wizard flow testing
+File upload functionality testing
+Validation logic testing
+Progress saving testing
+
+US-011: Vehicle Registration Approval (5 SP)
+Frontend Tasks:
+Create approval queue interface
+Design vehicle review display
+Implement approval decision forms
+Create notification status display
+Backend Tasks:
+Create approval workflow logic
+Set up email notification system
+Implement approval decision API endpoints
+Create approval audit logging
+Testing Tasks:
+Approval workflow testing
+Notification delivery testing
+Decision tracking testing
+
+US-012: Crew Registration System (5 SP)
+Frontend Tasks:
+Create crew registration forms
+Design role assignment interface
+Implement contact management forms
+Backend Tasks:
+Create crew registration API endpoints
+Set up crew database schema
+Implement role assignment logic
+Create integration with shift system
+Testing Tasks:
+Registration form testing
+Role assignment testing
+System integration testing
+
+Epic 6: Equipment Readiness & Maintenance
+
+US-013: Equipment Readiness (13 SP)
+Mobile Tasks:
+Create digital checklist interface
+Implement offline functionality
+Add GPS location capture
+Design inspection item management
+Set up offline data storage
+Backend Tasks:
+Create equipment checklist API endpoints
+Design equipment database schema
+Implement offline synchronization logic
+Set up inspection workflow system
+Create equipment status tracking
+Testing Tasks:
+Offline functionality testing
+Synchronization testing
+GPS accuracy testing
+Checklist completion testing
+Data integrity testing
+
+US-014: Maintenance Workflow Automation (5 SP)
+Frontend Tasks:
+Create maintenance alert displays
+Design work order interface
+Backend Tasks:
+Implement auto work order generation
+Create vehicle lockout system
+Set up supervisor notification system
+Create maintenance workflow API endpoints
+Testing Tasks:
+Work order generation testing
+Vehicle lockout testing
+Notification system testing
+
+Epic 7: Post Incident Reporting
+
+US-015: Post-Incident Reporting (8 SP)
+Frontend Tasks:
+Create incident timeline interface
+Design media attachment components
+Implement report generation forms
+Create PDF export functionality
+Backend Tasks:
+Create incident timeline compilation logic
+Set up media storage system
+Implement report generation API endpoints
+Create PDF generation system
+Testing Tasks:
+Timeline accuracy testing
+Media attachment testing
+PDF generation testing
+Report data integrity testing
+
+Epic 8: Incident Assignment and Navigation
+
+US-016: Mobile Assignment Reception (13 SP)
+Mobile Tasks:
+Create assignment notification interface
+Implement accept/decline functionality
+Design incident details display
+Create status update controls
+Set up offline capability
+Backend Tasks:
+Create mobile assignment API endpoints
+Implement assignment tracking system
+Set up push notification infrastructure
+Create offline synchronization logic
+Testing Tasks:
+Push notification testing
+Offline capability testing
+Assignment workflow testing
+Status synchronization testing
+
+US-017: Mobile GPS Navigation (8 SP)
+Mobile Tasks:
+Integrate Google Maps navigation
+Implement real-time location sharing
+Create arrival confirmation interface
+Design navigation controls
+Backend Tasks:
+Set up location tracking API endpoints
+Create navigation data management
+Implement location sharing system
+Testing Tasks:
+Navigation accuracy testing
+Location sharing testing
+Arrival confirmation testing
+Real-time tracking testing
+
+Epic 9: Communication
+
+US-018: Citizen SMS & Push Notifications (8 SP)
+Frontend Tasks:
+Create notification template management
+Design citizen communication interface
+Backend Tasks:
+Integrate Twilio SMS gateway
+Set up push notification system
+Create notification automation logic
+Implement two-way messaging system
+Create delivery tracking system
+Testing Tasks:
+SMS delivery testing
+Push notification testing
+Delivery confirmation testing
+Two-way messaging testing
+
+US-019: Field Crew Notification Management (5 SP)
+Frontend Tasks:
+Create notification management dashboard
+Design delivery tracking interface
+Backend Tasks:
+Create notification management API endpoints
+Implement delivery confirmation tracking
+Set up automatic retry logic
+Testing Tasks:
+Management interface testing
+Delivery tracking testing
+Retry mechanism testing
+
+Epic 10: Analytics
+
+US-020: Analytics Dashboard (8 SP)
+Frontend Tasks:
+Create KPI widget interfaces
+Implement chart and graph components
+Design filter and customization controls
+Create report export functionality
+Backend Tasks:
+Set up analytics data processing
+Create dashboard API endpoints
+Implement report generation logic
+Create PDF export system
+Testing Tasks:
+Dashboard performance testing
+Chart rendering testing
+Export functionality testing
+Data accuracy testing
+
+Task Implementation Guidelines:
+
+Task Completion Criteria:
+Each task should be marked complete only when:
+Code is written and reviewed
+Unit tests are passing
+Integration with other components is verified
+Documentation is updated
+
+Task Dependencies:
+Database tasks should be completed before API tasks
+API tasks should be completed before frontend tasks
+Authentication system should be completed before any user-specific features
+Mobile infrastructure should be set up before mobile-specific features
+
+Estimation Guidelines:
+Frontend tasks: 2-8 hours each
+Backend tasks: 3-12 hours each
+Mobile tasks: 4-10 hours each
+Testing tasks: 1-4 hours each
+Integration tasks: 2-6 hours each
+
+===============================================================================
+
+Summary and Success Metrics
+
+Project Overview:
+Total Story Points: 170 SP (focused on essential features)
+Sprint Velocity: 55-65 SP per sprint
+Individual Contribution: Each member owns one core use case
+MVP Delivery: End of Sprint 2 (all 5 core use cases functional)
+Full System: End of Sprint 3 with communication features
+
+Individual Member Responsibilities:
+1. Afham: System foundation, security, resource dispatch system, and complete mobile application
+2. De Silva: API architecture, emergency call logging, location management, and communication systems
+3. Spencer: Shift management, crew scheduling, and advanced features
+4. Nawanjana: Vehicle and crew registration workflows
+5. Udayanga: Equipment readiness, maintenance systems, and reporting
+
+Success Criteria for Assignment 2 Evaluation:
+Each member demonstrates their core use case working independently
+All 5 use cases integrate seamlessly by Sprint 2 completion
+Sprint 3 delivers enhanced communication and reporting features
+System meets performance requirements under expected load
+Complete documentation and user guides delivered
+

@@ -1,0 +1,799 @@
+Sri Lanka Institute of Information Technology
+Information Technology Project (IT2080)
+Activity 02 – Requirements Engineering
+Emergency Dispatch System – Respondr.
+Campus: Malabe
+Batch: Y2.S2.WD.IT.07.02 Group No: 160
+Group Member Details:
+No. Name with Initials Student ID Student E-mail Contact Number
+1 M. I. M. Afham IT23827912 it23827912@my.sliit.lk 0764118021
+2 T. H. C. T. De Silva IT23836136 it23836136@my.sliit.lk 0755910504
+3 J. A. J. Spencer IT23536166 it23536166@my.sliit.lk 0768974327
+4 D. D. I. Nawanjana IT23857162 it23857162@my.sliit.lk 0702797842
+5 W. P. L. P. Udayanga IT23827158 it23827158@my.sliit.lk 0706362786
+Date of Submission: 19.08.2025
+1
+Table of Contents
+1. Stakeholders and Onion Diagram Analysis........................................................ 3
+1.1 Stakeholders ................................................................................................................ 3
+1.2 Onion Diagram Analysis ................................................................................................ 4
+2. Functional Requirements................................................................................. 5
+1. Call Takers...................................................................................................................... 5
+2. Dispatchers.................................................................................................................... 6
+3. Field Crews (EMTs & Firefighters) ..................................................................................... 7
+4. Citizens (Emergency Callers)........................................................................................... 8
+5. Crew Leaders ................................................................................................................. 9
+6. Shift Supervisors........................................................................................................... 10
+7. System Administrators.................................................................................................. 11
+8. Data Analysts ............................................................................................................... 12
+3. Non-Functional Requirements ....................................................................... 13
+1. Call Takers.................................................................................................................... 13
+2. Dispatchers.................................................................................................................. 13
+3. Field Crews (EMTs & Firefighters) ................................................................................... 14
+4. Citizens (Emergency Callers)......................................................................................... 15
+5. Crew Leaders ............................................................................................................... 15
+6. Shift Supervisors........................................................................................................... 16
+7. System Administrators.................................................................................................. 16
+8. Data Analysts ............................................................................................................... 17
+4. Technical Requirements ................................................................................ 18
+4.1 Hardware Requirements ............................................................................................. 18
+4.2 Software Platform Requirements ................................................................................. 18
+4.3 Database Requirements.............................................................................................. 18
+4.4 Development Stack & Frameworks .............................................................................. 19
+4.5 Integrations ................................................................................................................ 19
+4.6 Security Requirements................................................................................................ 20
+4.7 Performance Requirements......................................................................................... 20
+4.8 Deployment Requirements.......................................................................................... 21
+4.9 Monitoring .................................................................................................................. 21
+10. Backup & Recovery ..................................................................................................... 21
+2
+5. Use Case Diagram ......................................................................................... 22
+6. Use Case Descriptions................................................................................... 23
+6.1 Log Emergency Call..................................................................................................... 23
+6.2 Assign Resources........................................................................................................ 25
+6.3 Plan Shifts .................................................................................................................. 28
+6.4 Register Vehicle .......................................................................................................... 30
+6.5 Check Vehicle/Equipment Readiness .......................................................................... 32
+7. System Diagram ............................................................................................ 34
+8. Data Flow Diagram (Level 0)............................................................................ 35
+3
+1. Stakeholders and Onion Diagram Analysis
+1.1 Stakeholders
+1.1.1 Direct users (Primary Stakeholders)
+1. Call Takers: Receive emergency calls and input initial incident data
+2. Dispatchers: Assign resources, monitor incidents, make dispatch decisions
+3. Field Crews: EMTs and firefighters who receive assignments and update status
+4. Citizens: People reporting emergencies through various channels
+5. Crew Leaders: Senior field personnel who coordinate team activities
+6. Shift Supervisors: Oversee daily operations and staff management
+7. System Administrators: Maintain IT infrastructure and user accounts
+8. Data Analysts: Generate reports and analyze operational performance
+1.1.2 Indirect Users: Operational Stakeholders (Involved in day-to-day operations but
+don't directly use the core system)
+1. Medical Officers (On-call Physicians): Provide medical guidance to EMTs
+2. Fire Brigade Representatives: Provide operational guidance to firefighters
+3. Police Liaison Officers: Provide co-operation with Police Department
+4. Maintenance Technicians: Handle Equipment repairs and maintenance
+1.1.3 Indirect Users: Organizational Stakeholders (Influence policy and strategic
+decisions)
+1. Ministry of Health: Policy makers and budget approvers
+2. Ministry of Disaster Management: Policy makers and budget approvers
+3. Police Department: Legal, security and traffic management
+4. Municipal Councils: Local government oversight
+4
+1.2 Onion Diagram Analysis
+5
+2. Functional Requirements
+1. Call Takers
+Emergency Call Management
+• The system shall allow call takers to receive and log emergency calls from multiple
+channels (voice, SMS, mobile app)
+• The system shall capture caller information including name, contact number, and
+callback details
+• The system shall timestamp all incoming calls automatically
+Incident Data Entry
+• The system shall provide structured forms for incident data entry with mandatory and
+optional fields
+• The system shall allow call takers to select incident type (Medical, Fire, Rescue) from
+predefined categories
+• The system shall support free-text description entry for incident details
+Location Management
+• The system shall provide address geocoding with auto-suggestions
+• The system shall allow call takers to manually adjust location pins on an interactive map
+• The system shall validate and confirm caller location through SMS/callback loops
+Incident Classification
+• The system shall allow call takers to assign severity levels (High, Medium, Low) to
+incidents
+• The system shall support incident code assignment based on emergency type
+• The system shall enable priority escalation for critical incidents
+Duplicate Detection
+• The system shall automatically detect potential duplicate reports based on location and
+time proximity
+• The system shall alert call takers when similar incidents are found within specified
+radius and timeframe
+• The system shall allow call takers to merge duplicate incident reports
+6
+2. Dispatchers
+Resource Assignment
+• The system shall display available ambulances and fire engines with real-time status
+• The system shall automatically suggest nearest suitable resources based on incident
+requirements
+• The system shall allow dispatchers to manually override automatic assignments
+Real-time Monitoring
+• The system shall display live GPS tracking of all field units on an interactive map
+• The system shall show current status of each unit (Available, En Route, On Scene,
+Cleared)
+• The system shall provide real-time updates on unit positions and estimated arrival times
+Communication Management
+• The system shall send dispatch notifications to assigned crew members via mobile
+app/SMS
+• The system shall manage two-way communication between dispatch center and field
+units
+• The system shall send status updates and ETA notifications to emergency callers
+Auto-reassignment Logic
+• The system shall automatically detect when assigned units fail to respond within
+timeout period
+• The system shall suggest alternative resources for reassignment
+• The system shall handle crew acceptance/decline workflows with timeout mechanisms
+Incident Monitoring
+• The system shall provide dashboard view of all active incidents
+• The system shall allow dispatchers to update incident status throughout lifecycle
+• The system shall track response times and performance metrics in real-time
+7
+3. Field Crews (EMTs & Firefighters)
+Assignment Reception
+• The system shall push incident assignments to crew mobile devices with alert
+notifications
+• The system shall allow crews to accept or decline assignments within specified
+timeframes
+• The system shall display incident details, location, and special instructions
+Navigation & Routing
+• The system shall provide turn-by-turn navigation to incident locations
+• The system shall integrate live traffic and weather data for optimal routing
+• The system shall automatically reroute when conditions change
+Status Management
+• The system shall allow crews to update their status (En Route, On Scene, Available,
+Cleared)
+• The system shall enable crews to send arrival confirmations and scene updates
+• The system shall support emergency escalation requests (SOS functionality)
+Resource Tracking
+• The system shall track crew location via GPS throughout incident lifecycle
+• The system shall log mileage and operational hours for reporting
+• The system shall enable crews to report equipment status and issues
+Digital Documentation
+• The system shall provide digital pre-shift checklists for vehicle and equipment
+inspection
+• The system shall allow crews to attach photos and documents to incident reports
+• The system shall support offline data capture with automatic synchronization
+8
+4. Citizens (Emergency Callers)
+Multi-channel Reporting
+• The system shall accept emergency reports via mobile app with GPS location
+• The system shall process SMS emergency reports with location sharing
+• The system shall support voice call integration through traditional hotlines
+Location Confirmation
+• The system shall send location confirmation requests via SMS or push notification
+• The system shall allow citizens to update their location during ongoing incidents
+• The system shall provide easy-to-use map interface for location selection
+Status Updates
+• The system shall send automated notifications about response unit assignment and ETA
+• The system shall provide real-time updates on unit arrival and incident status
+• The system shall allow citizens to request status updates through keyword responses
+Emergency Escalation
+• The system shall enable citizens to escalate incidents using SOS keywords
+• The system shall allow citizens to add additional information during incident
+• The system shall support callback functionality for complex situations
+Feedback & Follow-up
+• The system shall send post-incident feedback requests to citizens
+• The system shall allow citizens to rate service quality and provide comments
+• The system shall enable citizens to access their incident history and reports
+9
+5. Crew Leaders
+Team Coordination
+• The system shall allow crew leaders to coordinate multiple team members during
+incidents
+• The system shall enable crew leaders to assign roles and tasks within their team
+• The system shall support inter-team communication and resource sharing
+Resource Management
+• The system shall allow crew leaders to request additional resources or backup
+• The system shall enable crew leaders to report equipment failures or shortages
+• The system shall support vehicle and crew readiness reporting
+Decision Support
+• The system shall provide crew leaders with incident history and related information
+• The system shall display relevant protocols, procedures, and safety guidelines
+• The system shall enable access to specialized contacts (medical directors, hazmat
+experts)
+Documentation & Reporting
+• The system shall allow crew leaders to complete detailed post-incident reports
+• The system shall enable crew leaders to document lessons learned and
+recommendations
+• The system shall support digital signatures for official documentation
+Training & Compliance
+• The system shall track crew certifications and training requirements
+• The system shall alert crew leaders about upcoming certification renewals
+• The system shall provide access to training materials and procedure updates
+10
+6. Shift Supervisors
+Shift Planning & Creation
+• The system shall allow shift supervisors to create shifts with start/end times, required
+roles, and headcounts
+• The system shall enable shift supervisors to set holiday exceptions and special coverage
+requirements
+Staff Assignment & Scheduling
+• The system shall enable assignment of crew members and vehicles to generated shifts
+Coverage Rule Management
+• The system shall enforce minimum staffing requirements per role and shift
+• The system shall validate maximum working hours per crew member per week
+• The system shall prevent overlapping shift assignments for the same person
+Alerting & Notifications
+• The system shall alert shift supervisors when shifts are understaffed or approaching
+overtime thresholds
+• The system shall send notifications for leave requests requiring approval
+• The system shall provide alerts for upcoming certification expirations of staff members
+Roster Oversight & Adjustments
+• The system shall allow shift supervisors to approve/reject leave requests
+• The system shall enable real-time adjustments to current shift assignments
+11
+7. System Administrators
+User Account Management
+• The system shall allow administrators to create, modify, and deactivate user accounts
+• The system shall enable administrators to assign roles and permissions to users
+Role-Based Access Control
+• The system shall enable administrators to manage access levels for different system
+modules
+• The system shall support temporary permission elevation for emergency scenarios
+Vehicle & Crew Registration Management
+• The system shall allow administrators to register new vehicles with specifications and
+equipment details
+• The system shall enable administrators to manage crew member profiles, certifications,
+and contact information
+• The system shall support approval workflows for new registrations and profile changes
+System Security & Audit
+• The system shall provide administrators with comprehensive audit logs of all user
+actions
+• The system shall enable administrators to monitor failed login attempts and security
+events
+• The system shall support two-factor authentication configuration and enforcement
+System Configuration & Maintenance
+• The system shall allow administrators to configure system parameters and business
+rules
+• The system shall enable administrators to manage API integrations and third-party
+services
+• The system shall provide backup and restore functionality for critical system data
+12
+8. Data Analysts
+Performance Analytics & KPIs
+• The system shall provide real-time dashboards showing response times, call volumes,
+and unit utilization
+• The system shall enable analysts to generate historical trend reports with customizable
+date ranges
+• The system shall support KPI threshold monitoring with automated alert generation
+Operational Reporting
+• The system shall allow analysts to create custom reports on incident patterns, resource
+performance, and crew productivity
+• The system shall enable analysts to export reports in multiple formats (PDF, CSV)
+• The system shall support scheduled report generation and automated distribution
+Post-Incident Analysis
+• The system shall allow analysts to access comprehensive incident timelines and
+documentation
+13
+3. Non-Functional Requirements
+1. Call Takers
+Performance Requirements
+• The incident intake workflow shall be completed within 90 seconds under normal load
+conditions
+• Address geocoding shall provide location suggestions within 3 seconds of input
+• The system shall support simultaneous incident logging by up to 50 call takers without
+performance degradation
+Usability Requirements
+• Call takers shall be able to complete basic incident intake with fewer screen
+interactions
+• New call takers shall be able to use the intake console effectively with minimum training
+• The intake interface shall be operable using keyboard shortcuts
+Reliability Requirements
+• The incident intake module shall have 99.9% uptime during peak emergency periods
+• Geocoding accuracy shall be within 10 meters for 95% of address inputs
+• Data entry validation shall prevent invalid submissions with real-time error detection
+Security Requirements
+• All personally identifiable information (PII) shall be encrypted at rest using AES-256
+• All incident creation actions shall be logged with user ID and timestamp
+2. Dispatchers
+Performance Requirements
+• Real-time unit location updates shall be displayed within 1 second of GPS transmission
+• Resource assignment suggestions shall be calculated and displayed within 2 seconds
+• The dispatch console shall handle up to 200 active incidents simultaneously without lag
+Usability Requirements
+• The dispatch dashboard shall be viewable on screens ranging from 21" to 32" with clear
+visibility
+• Critical alerts shall be distinguishable through color coding and audio notifications
+• Dispatchers shall be able to reassign resources with few clicks
+14
+Reliability Requirements
+• The dispatch module shall maintain 99.95% availability during 24/7 operations
+• SMS and push notifications shall have 99.5% delivery success rate
+• Auto-reassignment logic shall trigger within 30 seconds of crew non-response
+Security Requirements
+• Location data shall be transmitted using TLS 1.3 encryption
+• Only authorized dispatchers shall access active incident assignments
+• Emergency override actions shall require supervisor authentication
+3. Field Crews (EMTs & Firefighters)
+Performance Requirements
+• Assignment notifications shall be delivered to mobile devices within 5 seconds
+• GPS location updates shall be transmitted every 10 seconds while en route
+• Turn-by-turn navigation shall recalculate routes within 3 seconds when conditions
+change
+Usability Requirements
+• Critical functions shall remain accessible with one-handed operation in mobile app
+• Status updates shall be completable within 2 taps on mobile interface
+Reliability Requirements
+• The mobile app shall function offline for basic data capture and sync when connectivity
+returns
+• Battery usage shall not exceed 10% per hour during active incident response
+• The app shall maintain functionality in poor network conditions (2G/EDGE)
+Security Requirements
+• Incident data shall be encrypted on device storage using device-level encryption
+• Accounts of lost or stolen devices shall be remotely disabled by system administrators
+15
+4. Citizens (Emergency Callers)
+Performance Requirements
+• Emergency reports via mobile app shall be submitted within 30 seconds
+• Location confirmation SMS shall be delivered within 10 seconds of incident logging
+• Status update notifications shall be sent within 1 minute of crew status changes
+Usability Requirements
+• The mobile app shall be usable by citizens aged 16-70 with minimal technical
+knowledge
+• Emergency reporting shall require maximum 4 steps to complete
+Reliability Requirements
+• The citizen reporting module shall work on Android 7.0+ devices
+• SMS fallback shall function when mobile app is unavailable
+• Location accuracy shall be within 20 meters for 90% of mobile reports
+5. Crew Leaders
+Performance Requirements
+• Team coordination functions shall respond within 2 seconds on mobile devices
+• Post-incident reports shall be completable within 15 minutes of incident closure
+• Digital signatures shall be processed and validated within 5 seconds
+Usability Requirements
+• Team management interface shall be intuitive for crew leaders with no experience
+• Documentation templates shall auto-populate with incident data to reduce manual
+entry
+Reliability Requirements
+• Digital reports shall be automatically saved every 30 seconds to prevent data loss
+• Team communication shall maintain functionality during network interruptions
+• Report attachments shall support up to 50MB per incident without performance issues
+Security Requirements
+• Access to team member personal information shall be role-restricted
+• Incident reports shall be immutable once digitally signed and submitted
+16
+6. Shift Supervisors
+Performance Requirements
+• Coverage validation checks shall execute within 3 seconds of shift assignment
+• Leave request approvals shall process instantly with immediate notification
+Usability Requirements
+• Scheduling conflicts shall be highlighted visually with clear resolution suggestions
+Reliability Requirements
+• Shift data shall be automatically backed up every 6 hours
+• Schedule notifications shall be delivered with 99% reliability to affected staff
+• The scheduling module shall recover from interruptions without data corruption
+Security Requirements
+• Only designated shift supervisors shall modify finalized schedules
+• Personal schedule data shall not be accessible to unauthorized personnel
+7. System Administrators
+Performance Requirements
+• User account operations shall execute within 2 seconds for individual actions
+• System audit queries shall return results within 10 seconds for 30-day periods
+Usability Requirements
+• Administrative interfaces shall follow standard enterprise UI patterns
+Reliability Requirements
+• User authentication services shall maintain 99.99% uptime
+• Security audit logs shall be immutable and tamper-evident
+Security Requirements
+• Administrative access shall require multi-factor authentication
+• Privilege escalation shall be logged and require supervisor approval
+17
+8. Data Analysts
+Performance Requirements
+• Standard reports shall generate within 30 seconds
+• Real-time dashboards shall refresh every 15 seconds without user intervention
+• Data export operations shall complete within 5 minutes
+Usability Requirements
+• Analytics dashboards shall be customizable without requiring technical programming
+skills
+• Report filters shall support complex date ranges and multiple criteria selection
+Reliability Requirements
+• Analytics services shall remain available during peak reporting periods
+• Historical data shall be accessible for minimum 5 years for trend analysis
+Security Requirements
+• Report access shall be logged and auditable for compliance purposes
+18
+4. Technical Requirements
+4.1 Hardware Requirements
+Server Infrastructure
+• Single cloud server
+• Internet connection with minimum 100Mbps for development team
+• Basic backup storage for critical data (50GB cloud storage)
+Client Device Requirements
+• Development laptops with minimum 16GB RAM for running MERN stack locally
+• Android devices with minimum Android 7.0 (API level 25) for testing
+• Web browsers supporting modern JavaScript (Chrome 90+, Firefox 88+)
+4.2 Software Platform Requirements
+Operating System & Development Environment
+• Development machines shall support Node.js 18+ and npm package manager
+• Android Studio Arctic Fox or later for mobile app development
+• MongoDB 6.0+ for database server
+• Git version control with GitHub repository
+Essential Development Tools
+• Visual Studio Code IDE for web development
+• MongoDB Compass for database management and visualization
+• Postman for API testing and documentation
+• Android SDK 25+ with necessary build tools
+4.3 Database Requirements
+Primary Database - MongoDB
+• MongoDB 6.0+ with geospatial indexing support (2dsphere)
+• MongoDB Atlas cloud database or local MongoDB installation
+• Collections for: incidents, users, vehicles, crews, shifts, analytics
+• Geospatial queries for location-based dispatch logic
+19
+Data Storage
+• GridFS for storing incident attachments and media files
+• Basic indexing on frequently queried fields (location, timestamp, status)
+• Backup strategy using MongoDB dump commands
+• Data validation using Mongoose schemas
+4.4 Development Stack & Frameworks
+Backend Technologies (MERN - Backend)
+• Node.js 18+ with Express.js 4.18+ for REST API development
+• Mongoose 7.0+ for MongoDB object modeling
+• Socket.io 4.7+ for real-time communication (GPS tracking, status updates)
+• bcryptjs for password hashing and basic authentication
+Frontend Technologies (MERN - Frontend)
+• React.js 18+ with functional components and hooks
+• React Router for client-side navigation
+• Axios for HTTP requests to backend APIs
+• Google Maps React library (@googlemaps/react-wrapper) for map integration
+Mobile Development - Native Android
+• Android Studio with Java/Kotlin for native Android development
+• Google Maps SDK for Android for mapping and navigation
+• Android Location Services for GPS tracking
+• SharedPreferences for simple local data storage
+• Retrofit for API communication with backend
+4.5 Integrations
+Communication Service
+• Twilio SMS API for two-way messaging with citizens
+• Email service (Gmail SMTP) for notifications
+• Android notification system for mobile alerts
+20
+Mapping Services
+• Google Maps JavaScript API for interactive web mapping
+• Google Geocoding API for accurate address validation and suggestions
+• Google Directions API for route calculation and turn-by-turn navigation
+• Google Distance Matrix API for ETA calculations and resource optimization
+• Google Places API for location search and validation
+• OpenWeatherMap weather API for weather overlays
+API Design
+• RESTful API endpoints following basic REST principles
+• JSON data format for all API communications
+• Simple error handling and status codes
+4.6 Security Requirements
+Authentication
+• JWT tokens for session management
+• Password encryption using bcryptjs
+• Role -based access
+• HTTPS for production deployment
+Data Protection
+• Input validation to prevent injection attacks
+• Environment variables for API keys and database credentials
+• Rate limiting for API endpoints
+4.7 Performance Requirements
+Response Time
+• API responses within 2 seconds for normal operations
+• Real-time updates with 3-5 second acceptable delay
+• Mobile app responsiveness suitable for demo purposes
+21
+Scalability
+• Support for 20-50 concurrent users during demo
+• Handle 500-1000 test incident records
+• Caching for frequently accessed data
+4.8 Deployment Requirements
+Development Environment
+• Local development with MongoDB, Node.js, and React dev servers
+• Android app testing on physical devices or emulators
+Production Deployment
+• Single cloud server deployment (AWS)
+• MongoDB Atlas for cloud database hosting
+4.9 Monitoring
+Logging
+• Console logging for development debugging
+• Error logging in production
+• Simple application monitoring using cloud platform tools
+Testing
+• Unit testing using Jest for critical functions
+• Manual testing procedures for user acceptance testing
+10. Backup & Recovery
+Data Management
+• Weekly database backups using MongoDB dump
+• Source code backup via GitHub repository
+22
+5. Use Case Diagram
+23
+6. Use Case Descriptions
+6.1 Log Emergency Call
+Use Case ID: UC-001
+Use Case Name: Log Emergency Call
+Summary: Call taker receives an emergency call from a citizen, capture incident details,
+validate location information, and classifies the incident for appropriate response.
+Priority: 5
+Pre-conditions: Call taker is logged into the system with appropriate permissions, Emergency
+hotline is operational and receiving calls and Geocoding service is functioning
+Post-conditions: Emergency incident is logged in the system with unique incident ID, Incident
+is classified and ready for dispatcher assignment, Location is validated and geocoded and
+Caller information is captured and stored
+Primary Actor: Call Taker
+Secondary Actor: Citizen
+Trigger: Call operator receives an emergency call and needs to log details for appropriate
+response
+Main Scenario:
+1. Call taker receives an emergency call
+2. Call taker answers the call and opens incident intake form
+3. Call taker captures caller information (name, contact number, callback details)
+4. System automatically timestamps the incident.
+5. Call taker enters incident details using structured form fields
+6. Call taker selects incident type (Medical, Fire, Rescue, etc.) from dropdown
+7. Call taker captures location information from caller
+8. System provides geocoded address suggestions based on input
+9. Call taker validates location using interactive map interface
+10. Call taker assigns severity level (High, Medium, Low) based on incident nature.
+11. System assigns appropriate incident code automatically
+12. Call taker reviews all entered information for completeness.
+13. Call taker saves the incident record.
+14. System generates unique incident ID and transfers to dispatcher queue.
+24
+15. System sends incident record confirmation SMS to caller
+Branching Actions:
+A: Incomplete Location Information (Step 8)
+7a. Caller cannot provide precise location
+7b. Call taker uses landmark-based geocoding
+7c. System provides approximate location options
+7d. Call taker adjust pin on interactive map to best suited position
+7e. Continue with step 10
+B: Duplicate Incident Detected (Step 14)
+14a. System detects similar incident within proximity and time window
+14b. System displays potential duplicate incidents to call taker
+14c. Call taker reviews existing incidents
+14d. If duplicate: Call taker merges reports under existing incident ID. If not duplicate:
+Call taker confirms new incident creation
+14e. Complete step 15
+C: Caller Disconnection (Any step)
+xa. Call taker saves partial incident information
+xb. System marks incident as "Incomplete - Callback Required"
+xc. Call taker attempts callback using captured contact information
+xd. Resume from last completed step
+25
+6.2 Assign Resources
+Use Case ID: UC-002
+Use Case Name: Assign Resources
+Summary: Dispatcher reviews incident details, selects appropriate emergency resources
+(ambulances, fire engines), and dispatches them to respond to an emergency situation.
+Priority: 5
+Pre-conditions: Dispatcher is logged into system with dispatch permissions and Incident has
+been logged and classified by call taker
+Post-conditions: Appropriate resources are assigned to incident, crew members receive
+dispatch notifications, incident status updated to "En Route" and citizen receives notification
+with ETA information
+Primary Actor: Dispatcher
+Secondary Actors: Field Crew and Citizen
+Trigger: Admin needs to register a vehicle and make it active for assignments.
+Main Scenario:
+1. System displays new incident in dispatcher’s console queue with priority indicator
+2. Dispatcher selects incident to review details
+3. System displays incident information (type, location, severity, special requirements
+and notes)
+4. System automatically suggests nearest available resources based on:
+Incident type (medical → ambulance, fire → fire engine)
+Proximity to incident location
+Crew certifications and equipment requirements
+Current availability status
+5. Dispatcher reviews suggested resources on real-time map interface
+6. Dispatcher selects preferred resource from available options
+7. System calculates estimated response time and travel route
+8. Dispatcher confirms resource assignment
+9. System sends dispatch notification to the selected crew via mobile app and SMS
+10. System starts 30-second acceptance timer
+11. Crew leader accepts assignment through mobile app
+26
+12. System updates incident status to "En Route"
+13. System begins real-time GPS tracking of assigned unit
+14. System sends ETA notification to citizen via SMS and mobile app push notification
+15. System logs assignment details and timestamp
+16. Dispatcher monitors unit progress on real-time dashboard
+Branching Actions:
+A: Manual Resource Override (Step 6)
+6a. Dispatcher manually selects different available resource
+6b. System validates selected resource meets requirements
+6c. System recalculates ETA and route
+6d. Continue to step 8
+B: Multiple Resource Requirement (Step 4)
+4a. If the incident requires both ambulance and fire response, system suggests optimal
+combination of resources
+4b. Dispatcher reviews and confirms both assignments
+4d. System coordinates dual dispatch with separate ETAs and travel routes
+4e. Continue with step 9 for each resource
+C: No Available Optimal Resources (Step 4)
+4a. If all optimal resources are currently assigned or unavailable, system displays next
+available resource with delay estimate
+4b. Dispatcher chooses to proceed with the next available resource suggested
+4c. Continue with step 7
+4b1. Dispatcher chooses to wait for resource availability
+4b2. System queues incident and keeps checking for resource availability
+D: Crew Assignment Timeout (Step 11)
+11a. If the crew fails to accept assignment within 30 seconds, system notifies the
+dispatcher to either try again or proceed with the auto-reassignment logic
+11b. Dispatcher opts to try again
+11c. Continue with step 9
+11b1. Dispatcher opts to proceed with the auto-reassignment logic
+27
+11b2. System displays next available resource with delay estimate
+11b3. Dispatcher chooses to proceed with the next available resource suggested:
+11b4. Continue from step 7
+E: Crew Declines Assignment (Step 11)
+11a. Crew actively declines assignment (vehicle issue, emergency) and provides reason
+11b. System logs decline reason and updates crew status
+11c. System immediately initiates auto-reassignment logic and displays next available
+resource with delay estimate
+11d. Dispatcher chooses to proceed with the next available resource suggested:
+11e. Continue from step 7
+28
+6.3 Plan Shifts
+Use Case ID: UC-003
+Use Case Name: Plan Shifts
+Summary: Shift supervisors creates shifts, assign available crew members, and publish the
+schedule.
+Priority: 5
+Pre-condition: Shift supervisor is logged into the system with scheduling permissions
+Post-conditions: Shift schedules created for specified time period, crew assignments are
+confirmed and communicated with notifications sent to affected crew members
+Primary Actor: Shift Supervisor
+Secondary Actors: Field Crew
+Trigger: Admin needs assign shifts to crew members
+Main Scenario:
+1. Shift supervisor logs in and navigates to "Schedule Management"
+2. System displays a calendar view showing the current week with any existing
+schedules
+3. Supervisor selects the time period to create schedules for (next week or next month)
+4. System displays the selected time period with standard shift time slots (Day: 8AM4PM, Evening: 4PM-12AM, Night: 12AM-8AM)
+5. Supervisor clicks on an empty shift slot in the calendar
+6. System opens a shift details form showing the selected date, time, and asking for
+staffing requirements
+7. Supervisor enters the number of crew members needed and their required roles (EMT,
+Firefighter, Driver)
+8. Supervisor clicks "Create Shift" and system saves the shift slot with requirements
+9. Supervisor clicks on the newly created shift slot to assign crew members
+10. System displays the shift requirements and shows a list of available crew members
+with their roles and availability status
+11. Supervisor selects crew members from the available list using checkboxes
+12. System validates the assignments and checks for basic conflicts (overlapping shifts,
+excessive hours)
+29
+13. If validation passes, supervisor clicks "Assign Crew" and system saves the
+assignments
+14. Supervisor repeats steps 5-13 for other needed shifts throughout the time period
+15. When all shifts are created and staffed, supervisor clicks "Publish Schedule" and
+system sends notifications to assigned crew members
+Branching Actions:
+10a. If the available crew members are fewer than required for the shift, system displays
+the available crew members with a warning message
+10b. Supervisor chooses one of the following options: Leave shift understaffed and add
+a note explaining the shortage or contact additional crew members to request overtime
+work
+11c. Supervisor documents the decision and continues with available assignments
+11d. Continue with step 12
+30
+6.4 Register Vehicle
+Use Case ID: UC-004
+Use Case Name: Register Vehicle
+Summary: Admin registers a vehicle and submits for shift supervisor approval with notifications
+and audit logs.
+Priority: 5
+Pre-condition: Admin is logged into the system with proper permissions.
+Post-condition: The vehicle is active for assignment, linked as needed, notifications are sent,
+and audit entries are stored.
+Primary Actor: System Administrator
+Secondary Actor: Shift Supervisor
+Trigger: Admin needs to register a vehicle and make it active for assignments.
+Main Scenario:
+1. System administrator accesses vehicle registration module.
+2. System displays multi-step Vehicle Registration wizard (Step 1: Vehicle Details) with
+real-time validation.
+3. Admin enters vehicle details (make, model, year, plate number, type, capacity)
+4. System validates formats and plate uniqueness in real time
+5. Admin clicks “Next” button
+6. System displays Step 2: “Documents & Photos” (registration, insurance, vehicle
+photo)
+7. Admin uploads files and clicks “Upload” button
+8. System checks file types/sizes and marks each file with a green check on success.
+9. Admin clicks “Next” button
+10. System displays Step 3: “Equipment Specification and Crew Leader/Base
+Assignment (optional)” with a searchable dropdown.
+11. Admin enters equipment specifications and selects a crew leader/base or chooses
+“Assign later”
+12. Admin confirms and clicks “Next”
+13. System displays Step 4: “Review & Submit” with a summary of all details
+14. Admin reviews all entered information and submits registration for approval.
+31
+15. System creates the vehicle record with status = “Pending Approval” and writes an
+audit log entry
+16. System sends approval request to the Shift Supervisor via email with a deep link to
+review
+17. System shows a success toast: “Vehicle submitted for approval” and returns to the
+vehicle list (filtered by Pending)
+18. Supervisor receives the email and clicks the “Review” link
+19. System opens the Approval page showing vehicle details, documents, and audit
+history
+20.Supervisor clicks “Approve” (or “Reject with comments”)
+21. System sets vehicle status to “Active” on approval, logs the decision, and notifies the
+admin via email
+22. System marks the vehicle as eligible for scheduling/dispatch.
+Branching Actions:
+4a. System detects invalid or duplicate information, blocks “Next” and shows error
+messages with specific validation issues.
+4b. Admin correct issues.
+7a. If any file type/size is invalid, system shows “Upload failed” and keeps the step open
+for re-upload.
+11a. If no leader is selected, system shows a notice: “Without a leader, live location
+tracking will be unavailable until assigned.”
+20a. If Supervisor clicks “Reject with comments,” system notifies admin with notes, and
+highlights fields to fix.
+32
+6.5 Check Vehicle/Equipment Readiness
+Use Case ID: UC-005
+Use Case Name: Check Vehicle/Equipment Readiness
+Summary: Field Crew Leader conducts systematic pre-shift equipment readiness checks using
+digital checklists on their mobile app and vehicle’s availability is marked for dispatch based on
+inspection results
+Priority: 5
+Pre-condition: Field Crew Leader is logged into mobile app with appropriate permissions
+Post-condition: Equipment readiness status is recorded in the system, Vehicle is marked as
+available/unavailable for dispatch based on inspection results and Maintenance work orders
+are generated for any failed equipment
+Primary Actor: Field Crew Leader
+Trigger: Field Crew Leader needs to inspect their assigned vehicle before it can be made
+available for emergency dispatch.
+Main Scenario:
+1. Crew leader navigates to “Vehicle/Equipment Management”
+2. System displays assigned vehicle and equipment information
+3. Crew member taps "Begin Equipment Check" button
+4. System loads the appropriate digital checklist template based on vehicle type
+(ambulance or fire engine)
+5. Crew member performs vehicle systems inspection (fuel level, oil, battery, coolant,
+belts) and enters levels or PASS/FAIL status for each item in the mobile app
+6. Crew member conducts exterior inspection (emergency lights, siren, physical
+damage) and records PASS/FAIL status in the app
+7. Crew member checks running condition and expiry dates of emergency equipment
+specific to vehicle type (medical supplies for ambulance, firefighting tools for fire
+engine) and enters PASS/FAIL status in the app
+8. System validates all information against minimum thresholds and displays results
+9. For FAIL items, crew member records detailed description of the problem and selects
+urgency level (Critical, High, Medium, Low) from dropdown menu
+10. System calculates overall readiness score based on all checklist items and displays
+inspection summary
+11. If all critical items pass, crew member confirms readiness and ends readiness
+check.
+33
+12. System captures timestamp, GPS location (from mobile app), and crew leader ID
+13. System updates vehicle status to "READY" in dispatch system and sends notification
+to dispatcher
+14. System displays confirmation message "Pre-shift inspection complete - Vehicle
+available for dispatch"
+Branching Actions:
+11a. If critical items failed, system automatically marks vehicle as "OUT OF SERVICE".
+11b. System immediately generates high-priority maintenance work order
+11c. System sends notifications to the Shift Supervisor.
+11d. Mobile app instructs crew leader to report to supervisor for alternative vehicle
+assignment
+11e. System ends inspection process and logs incomplete status with failure reasons
+11a1. If only non-critical items failed, system marks vehicle as "AVAILABLE WITH
+RESTRICTIONS".
+11a2. System generates maintenance work order
+11a3. Continue with step 12
+34
+7. System Diagram
+35
+8. Data Flow Diagram (Level 0)
