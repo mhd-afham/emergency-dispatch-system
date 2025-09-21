@@ -1,0 +1,24 @@
+# CODEOWNERS file - Defines who reviews PRs for specific files/folders
+
+# Global owner - Afham reviews everything by default
+* @mhd-afham
+
+# Specific feature ownership (optional - for faster reviews)
+# Authentication system
+backend/controllers/auth.js @mhd-afham
+backend/models/User.js @mhd-afham
+backend/routes/auth.js @mhd-afham
+
+# Incident management
+backend/controllers/incidents.js @mhd-afham
+backend/models/Incident.js @mhd-afham
+
+# Shared/critical files - Always require Afham's review
+backend/server.js @mhd-afham
+backend/config/database.js @mhd-afham
+package.json @mhd-afham
+*/package.json @mhd-afham
+
+# Documentation
+docs/ @mhd-afham
+README.md @mhd-afham
