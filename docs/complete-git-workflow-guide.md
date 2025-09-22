@@ -463,6 +463,58 @@ git push origin afham/authentication
 - **After team member merges:** Get their changes
 - **When conflicts arise:** Resolve with latest code
 
+### **📅 Branch Synchronization Schedule:**
+
+#### **🚨 ALWAYS Sync When:**
+- **Monday mornings** - Start of each work week
+- **Before starting major new features** - Get latest foundation
+- **Before creating Pull Requests** - Ensure compatibility
+- **When team lead announces main branch updates** - Stay current
+- **After critical bug fixes** are merged to main
+
+#### **⚡ Optional But Recommended:**
+- **Mid-week check** - Wednesday sync if lots of team activity
+- **Before weekend** - End week with clean state
+- **After being away** - Catch up after breaks
+
+### **🔍 Visual Branch Sync Example:**
+
+**Before Sync:**
+```
+Your Branch:    A---B---C---D (your work)
+                 \
+Main Branch:      X---Y---Z (team updates you're missing)
+
+Result: Conflicts when merging, outdated dependencies
+```
+
+**After Sync:**
+```
+Your Branch:    A---B---X---Y---Z---C'---D' (includes team updates)
+                     \               /
+Main Branch:          X---Y---Z (team updates)
+
+Result: Clean merges, current dependencies
+```
+
+### **📋 Weekly Sync Checklist:**
+
+#### **Every Monday Morning:**
+- [ ] Open GitHub Desktop
+- [ ] Switch to main branch
+- [ ] Pull latest changes (`Repository` → `Pull`)
+- [ ] Switch back to my feature branch
+- [ ] Merge main into my branch (`Repository` → `Merge into current branch`)
+- [ ] Resolve any conflicts if they appear
+- [ ] Push updated branch (`Push origin`)
+- [ ] Verify in GitHub Desktop that branch shows "up to date"
+
+#### **Before Creating PR:**
+- [ ] Follow the same sync steps above
+- [ ] Test that my feature still works after merge
+- [ ] Commit any fixes needed after sync
+- [ ] Then create the Pull Request
+
 ---
 
 ## � Understanding Local Merging and Pushing
