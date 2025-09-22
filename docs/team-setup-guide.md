@@ -152,6 +152,27 @@ When your feature is ready to be merged:
 
 ---
 
+## 🔄 Step 6: Keeping Your Branch Updated
+
+**Important:** Your feature branch needs to stay current with main branch changes!
+
+### **When to Sync:**
+- **Every Monday morning** (weekly routine)
+- **Before creating Pull Requests** 
+- **When team lead announces main branch updates**
+
+### **How to Sync:**
+See the detailed guide: **`docs/branch-sync-guide.md`**
+
+**Quick Summary:**
+1. Switch to `main` branch in GitHub Desktop
+2. Pull latest changes
+3. Switch back to your feature branch  
+4. `Repository` → `Merge into current branch` → Select `main`
+5. Push your updated branch
+
+---
+
 ## ⚠️ Important Rules & Guidelines
 
 ### **Branch Rules:**
@@ -197,6 +218,7 @@ When your feature is ready to be merged:
 - 📱 **Team group chat:** Ask questions there
 - 👤 **Contact Afham:** For repository/access issues
 - 📖 **Check documentation:** Review this guide and other docs
+- 🔄 **Branch syncing:** See `docs/branch-sync-guide.md`
 
 ---
 
