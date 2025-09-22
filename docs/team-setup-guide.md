@@ -5,11 +5,12 @@ Welcome to the Emergency Dispatch System project! This guide will help you get s
 ## 📋 Prerequisites Checklist
 
 Before starting, ensure you have:
+- ✅ **Completed software installation** (see `software-installation.md`)
 - ✅ **GitHub account** (you should already have this)
 - ✅ **Repository access** (you've been added as a collaborator)
-- ✅ **GitHub Desktop** installed
-- ✅ **Code editor** (VS Code, IntelliJ, etc.)
-- ✅ **Development tools** for your assigned module
+- ✅ **All required software installed** (GitHub Desktop, VS Code, etc.)
+
+**⚠️ If you haven't installed software yet, complete `software-installation.md` first.**
 
 ---
 
