@@ -1,14 +1,23 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 require("dotenv").config();
 
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Database connection
 const connectDB = require("./config/database");
@@ -24,7 +33,7 @@ app.get("/", (req, res) => {
 });
 
 // Import routes (will be added as we create them)
-// app.use('/api/auth', require('./routes/auth'));
+app.use("/api/auth", require("./routes/auth"));
 // app.use('/api/incidents', require('./routes/incidents'));
 // app.use('/api/shifts', require('./routes/shifts'));
 // app.use('/api/vehicles', require('./routes/vehicles'));
