@@ -2,23 +2,20 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(
-      process.env.MONGODB_URI || "mongodb://localhost:27017/emergency_dispatch"
-    );
+    const mongoURI = process.env.MONGODB_URI;
 
-    console.log(`📦 MongoDB Connected: ${conn.connection.host}`);
-    console.log(`🗄️  Database: ${conn.connection.name}`);
+    if (!mongoURI) {
+      throw new Error("MONGODB_URI not found in environment variables");
+    }
 
-    // Connection event handlers
-    mongoose.connection.on("disconnected", () => {
-      console.log("❌ MongoDB disconnected");
-    });
+    console.log("Connecting to MongoDB Atlas...");
 
-    mongoose.connection.on("error", (err) => {
-      console.error("❌ MongoDB connection error:", err);
-    });
+    const conn = await mongoose.connect(mongoURI);
+
+    console.log(`MongoDB Atlas Connected: ${conn.connection.host}`);
+    console.log(`Database: ${conn.connection.name}`);
   } catch (error) {
-    console.error("❌ Database connection failed:", error.message);
+    console.error("MongoDB Atlas connection failed:", error.message);
     process.exit(1);
   }
 };

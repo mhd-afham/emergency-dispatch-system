@@ -1,0 +1,110 @@
+/* Respondr Color System - Centralized Color Management */
+:root {
+  /* Core Brand Colors */
+  --text: #212121;
+  --background: #fbfbfe;
+  --primary: #ff4238;
+  --secondary: #cda284;
+  --accent: #93413e;
+
+  /* Semantic Colors (derived from your palette) */
+  --success: #10b981; /* Green for success states */
+  --warning: #f59e0b; /* Orange for warnings */
+  --error: #ef4444; /* Red for errors (complementary to your primary) */
+  --info: #3b82f6; /* Blue for informational states */
+
+  /* UI Colors (based on your background and text) */
+  --surface: #ffffff;
+  --surface-hover: #f3f4f6;
+  --border: #e5e7eb;
+  --border-hover: #d1d5db;
+
+  /* Text Variations */
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --text-on-primary: #ffffff;
+  --text-on-secondary: #ffffff;
+
+  /* Primary Variations */
+  --primary-50: #fef2f2;
+  --primary-100: #fee2e2;
+  --primary-200: #fecaca;
+  --primary-300: #fca5a5;
+  --primary-400: #f87171;
+  --primary-500: #ff4238; /* Your main primary */
+  --primary-600: #dc2626;
+  --primary-700: #b91c1c;
+  --primary-800: #991b1b;
+  --primary-900: #7f1d1d;
+
+  /* Secondary Variations */
+  --secondary-50: #faf8f6;
+  --secondary-100: #f5f0e8;
+  --secondary-200: #ebe0d1;
+  --secondary-300: #e0cfb9;
+  --secondary-400: #d5bfa2;
+  --secondary-500: #cda284; /* Your main secondary */
+  --secondary-600: #b8936f;
+  --secondary-700: #a3835b;
+  --secondary-800: #8e7447;
+  --secondary-900: #796533;
+
+  /* Accent Variations */
+  --accent-50: #f7f3f3;
+  --accent-100: #efe7e7;
+  --accent-200: #dfcfce;
+  --accent-300: #cfb6b6;
+  --accent-400: #bf9e9d;
+  --accent-500: #93413e; /* Your main accent */
+  --accent-600: #803735;
+  --accent-700: #6d2d2c;
+  --accent-800: #5a2323;
+  --accent-900: #47191a;
+}
+
+/* CSS Custom Property Classes for easy usage */
+.text-brand {
+  color: var(--text);
+}
+.bg-brand {
+  background-color: var(--background);
+}
+.text-primary {
+  color: var(--primary);
+}
+.bg-primary {
+  background-color: var(--primary);
+}
+.text-secondary {
+  color: var(--secondary);
+}
+.bg-secondary {
+  background-color: var(--secondary);
+}
+.text-accent {
+  color: var(--accent);
+}
+.bg-accent {
+  background-color: var(--accent);
+}
+
+.border-primary {
+  border-color: var(--primary);
+}
+.border-secondary {
+  border-color: var(--secondary);
+}
+.border-accent {
+  border-color: var(--accent);
+}
+
+/* Hover states */
+.hover\:bg-primary:hover {
+  background-color: var(--primary-600);
+}
+.hover\:bg-secondary:hover {
+  background-color: var(--secondary-600);
+}
+.hover\:bg-accent:hover {
+  background-color: var(--accent-600);
+}
