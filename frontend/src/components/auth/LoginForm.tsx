@@ -9,7 +9,7 @@ interface LoginFormProps {
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
-  const { login, isLoading } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
@@ -17,6 +17,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -24,42 +25,55 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       ...prev,
       [name]: value,
     }));
-    // Clear error when user starts typing
-    if (error) setError(null);
+    // Don't clear error immediately on typing - let user see the error message
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSubmitting(true);
+
+    console.log("LoginForm - handleSubmit called with:", formData);
 
     // Validation
     if (!formData.email.trim()) {
+      console.log("LoginForm - Email validation failed");
       setError("Email is required");
+      setIsSubmitting(false);
       return;
     }
 
     if (!formData.password.trim()) {
+      console.log("LoginForm - Password validation failed");
       setError("Password is required");
+      setIsSubmitting(false);
       return;
     }
 
     if (!isValidEmail(formData.email)) {
+      console.log("LoginForm - Email format validation failed");
       setError("Please enter a valid email address");
+      setIsSubmitting(false);
       return;
     }
 
     try {
+      console.log("LoginForm - Attempting login...");
       await login(formData);
       onSuccess?.();
       // Navigate to dashboard after successful login
       navigate("/dashboard");
     } catch (err: any) {
+      console.log("LoginForm - Login error caught:", err);
       const apiError = err as ApiError;
-      setError(apiError.message || "Login failed");
+      const errorMessage = apiError.message || "Login failed";
+      console.log("LoginForm - Setting error:", errorMessage);
+      setError(errorMessage);
+      // Don't clear form data on error - let user retry
+    } finally {
+      setIsSubmitting(false);
     }
-  };
-
-  // Email validation helper function
+  }; // Email validation helper function
   const isValidEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -81,6 +95,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             />
           </div>
 
+          <h2 className="text-2xl font-extrabold text-gray-900">
+            Emergency Dispatch System
+          </h2>
           <p
             className="mt-2 text-sm"
             style={{ color: "var(--text-secondary, #6b7280)" }}
@@ -94,25 +111,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Error Message */}
             {error && (
-              <div className="rounded-md bg-danger-50 p-4 border border-danger-200">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-danger-400"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-danger-800">{error}</p>
-                  </div>
-                </div>
+              <div
+                className="mb-4 p-4 rounded-lg border border-red-300 bg-red-50 text-red-800 text-sm"
+                style={{ display: "block" }}
+              >
+                ⚠️ {error}
               </div>
             )}
 
@@ -129,7 +132,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 name="email"
                 type="email"
                 autoComplete="email"
-                required
                 value={formData.email}
                 onChange={handleChange}
                 className="input-field"
@@ -151,7 +153,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  required
                   value={formData.password}
                   onChange={handleChange}
                   className="input-field pr-10"
@@ -202,69 +203,34 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             <div>
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                disabled={isSubmitting}
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: isLoading
-                    ? "var(--accent)"
-                    : "var(--primary)",
+                  backgroundColor: "var(--primary)",
                   borderColor: "var(--primary)",
                 }}
                 onMouseEnter={(e) => {
-                  if (!isLoading) {
+                  if (!isSubmitting) {
                     e.currentTarget.style.backgroundColor = "var(--accent)";
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (!isLoading) {
+                  if (!isSubmitting) {
                     e.currentTarget.style.backgroundColor = "var(--primary)";
                   }
                 }}
               >
-                {isLoading ? (
-                  <>
-                    <svg
-                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Signing in...
-                  </>
-                ) : (
-                  "Sign in"
-                )}
+                Sign in
               </button>
             </div>
 
-            {/* Sign Up Link */}
+            {/* Admin Note */}
             <div className="text-center">
               <p
-                className="text-sm"
+                className="text-xs"
                 style={{ color: "var(--text-secondary, #6b7280)" }}
               >
-                Don't have an account?{" "}
-                <Link
-                  to="/register"
-                  className="font-medium hover:underline"
-                  style={{ color: "var(--primary)" }}
-                >
-                  Sign up here
-                </Link>
+                User accounts are created by system administrators only
               </p>
             </div>
           </form>

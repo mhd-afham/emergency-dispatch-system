@@ -85,6 +85,19 @@ const userSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
       },
+      // Password reset functionality
+      resetPasswordToken: String,
+      resetPasswordExpire: Date,
+      // Password history to prevent reuse
+      passwordHistory: [
+        {
+          hash: String,
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
       preferences: {
         mapZoom: {
           type: Number,
@@ -217,6 +230,100 @@ userSchema.methods.resetLoginAttempts = function () {
       "settings.lockUntil": 1,
     },
   });
+};
+
+// Generate and hash password reset token
+userSchema.methods.getResetPasswordToken = function () {
+  const resetToken = require("crypto").randomBytes(20).toString("hex");
+
+  // Hash token and set to resetPasswordToken field
+  this.settings.resetPasswordToken = require("crypto")
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Set expire time (10 minutes)
+  this.settings.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
+};
+
+// Check password strength
+userSchema.methods.validatePasswordStrength = function (password) {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  const errors = [];
+
+  if (password.length < minLength) {
+    errors.push(`Password must be at least ${minLength} characters long`);
+  }
+  if (!hasUpperCase) {
+    errors.push("Password must contain at least one uppercase letter");
+  }
+  if (!hasLowerCase) {
+    errors.push("Password must contain at least one lowercase letter");
+  }
+  if (!hasNumbers) {
+    errors.push("Password must contain at least one number");
+  }
+  if (!hasSpecialChar) {
+    errors.push("Password must contain at least one special character");
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors: errors,
+    strength:
+      errors.length === 0 ? "strong" : errors.length <= 2 ? "medium" : "weak",
+  };
+};
+
+// Check if password was used recently (prevent reuse)
+userSchema.methods.isPasswordReused = async function (newPassword) {
+  const maxHistory = 5; // Remember last 5 passwords
+
+  if (
+    !this.settings.passwordHistory ||
+    this.settings.passwordHistory.length === 0
+  ) {
+    return false;
+  }
+
+  for (let historyEntry of this.settings.passwordHistory) {
+    const isMatch = await bcrypt.compare(newPassword, historyEntry.hash);
+    if (isMatch) {
+      return true;
+    }
+  }
+  return false;
+};
+
+// Add current password to history
+userSchema.methods.addPasswordToHistory = async function (password) {
+  const maxHistory = 5;
+  const salt = await bcrypt.genSalt(12);
+  const hashedPassword = await bcrypt.hash(password, salt);
+
+  if (!this.settings.passwordHistory) {
+    this.settings.passwordHistory = [];
+  }
+
+  this.settings.passwordHistory.unshift({
+    hash: hashedPassword,
+    createdAt: new Date(),
+  });
+
+  // Keep only the most recent passwords
+  if (this.settings.passwordHistory.length > maxHistory) {
+    this.settings.passwordHistory = this.settings.passwordHistory.slice(
+      0,
+      maxHistory
+    );
+  }
 };
 
 // Static method to get users by role
