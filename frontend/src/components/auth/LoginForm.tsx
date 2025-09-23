@@ -33,41 +33,33 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     setError(null);
     setIsSubmitting(true);
 
-    console.log("LoginForm - handleSubmit called with:", formData);
-
     // Validation
     if (!formData.email.trim()) {
-      console.log("LoginForm - Email validation failed");
       setError("Email is required");
       setIsSubmitting(false);
       return;
     }
 
     if (!formData.password.trim()) {
-      console.log("LoginForm - Password validation failed");
       setError("Password is required");
       setIsSubmitting(false);
       return;
     }
 
     if (!isValidEmail(formData.email)) {
-      console.log("LoginForm - Email format validation failed");
       setError("Please enter a valid email address");
       setIsSubmitting(false);
       return;
     }
 
     try {
-      console.log("LoginForm - Attempting login...");
       await login(formData);
       onSuccess?.();
       // Navigate to dashboard after successful login
       navigate("/dashboard");
     } catch (err: any) {
-      console.log("LoginForm - Login error caught:", err);
       const apiError = err as ApiError;
       const errorMessage = apiError.message || "Login failed";
-      console.log("LoginForm - Setting error:", errorMessage);
       setError(errorMessage);
       // Don't clear form data on error - let user retry
     } finally {
