@@ -81,6 +81,21 @@ class IncidentController {
       }
 
       // Create the incident
+      const locationData = {
+        address: location.address.trim(),
+        city: location.city.trim(),
+        province: location.province,
+        locationAccuracy: location.locationAccuracy || 'approximate',
+        landmarks: location.landmarks?.trim()
+      };
+
+      // Only add coordinates if they are properly provided
+      if (location.coordinates && location.coordinates.coordinates && 
+          Array.isArray(location.coordinates.coordinates) && 
+          location.coordinates.coordinates.length === 2) {
+        locationData.coordinates = location.coordinates;
+      }
+
       const incident = new Incident({
         callerInfo: {
           name: callerInfo.name.trim(),
@@ -92,14 +107,7 @@ class IncidentController {
         incidentCategory,
         severity: severity || 'medium',
         description: description.trim(),
-        location: {
-          address: location.address.trim(),
-          city: location.city.trim(),
-          province: location.province,
-          coordinates: location.coordinates,
-          locationAccuracy: location.locationAccuracy || 'approximate',
-          landmarks: location.landmarks?.trim()
-        },
+        location: locationData,
         loggedBy: req.user._id,
         possibleDuplicates: possibleDuplicates.map(dup => dup._id),
         estimatedResponseTime,
