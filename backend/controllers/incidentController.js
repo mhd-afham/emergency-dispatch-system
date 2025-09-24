@@ -374,6 +374,57 @@ class IncidentController {
   }
 
   /**
+   * Permanently delete an incident from the database
+   * DELETE /api/incidents/:id
+   */
+  static async deleteIncident(req, res) {
+    try {
+      const { id } = req.params;
+      
+      console.log('🗑️ Permanently deleting incident:', id);
+
+      // Support both MongoDB ObjectId and custom incident ID
+      const query = mongoose.isValidObjectId(id) 
+        ? { _id: id }
+        : { incidentId: id };
+
+      const incident = await Incident.findOne(query);
+
+      if (!incident) {
+        return res.status(404).json({
+          success: false,
+          message: 'Incident not found'
+        });
+      }
+
+      // Store incident ID for logging before deletion
+      const incidentId = incident.incidentId;
+
+      // Permanently delete the incident from database
+      await Incident.deleteOne(query);
+
+      console.log('✅ Incident permanently deleted:', incidentId);
+
+      res.json({
+        success: true,
+        message: 'Incident permanently deleted from database',
+        data: { 
+          deletedIncidentId: incidentId,
+          deletedAt: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error deleting incident:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete incident',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
    * Add a note to an incident
    * POST /api/incidents/:id/notes
    */

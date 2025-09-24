@@ -117,14 +117,13 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
     }
   };
 
-  const handleDelete = async (incidentId: string) => {
-    if (!window.confirm('Are you sure you want to delete this incident?')) {
+  const handleCancelIncident = async (incidentId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this incident?')) {
       return;
     }
 
     try {
       const token = localStorage.getItem('token');
-      // Since we're not changing database schema, we'll update status to 'cancelled' instead of deleting
       const response = await fetch(`http://localhost:5000/api/incidents/${incidentId}`, {
         method: 'PUT',
         headers: {
@@ -137,6 +136,43 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
       if (response.ok) {
         await fetchIncidents(); // Refresh the list
         if (onIncidentUpdate) onIncidentUpdate();
+        alert('Incident cancelled successfully');
+      } else {
+        const error = await response.json();
+        alert(`Error cancelling incident: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Error cancelling incident:', error);
+      alert('Network error: Failed to cancel incident');
+    }
+  };
+
+  const handlePermanentDelete = async (incidentId: string, incidentIdDisplay: string) => {
+    const confirmMessage = `⚠️ PERMANENT DELETE WARNING ⚠️\n\nAre you absolutely sure you want to permanently delete incident ${incidentIdDisplay}?\n\nThis action CANNOT be undone and will remove all data from the database forever.\n\nType "DELETE" below to confirm:`;
+    
+    const userInput = window.prompt(confirmMessage);
+    
+    if (userInput !== 'DELETE') {
+      if (userInput !== null) { // User didn't cancel, but didn't type DELETE
+        alert('Delete cancelled. You must type "DELETE" exactly to confirm permanent deletion.');
+      }
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/incidents/${incidentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        await fetchIncidents(); // Refresh the list
+        if (onIncidentUpdate) onIncidentUpdate();
+        alert('Incident permanently deleted from database');
       } else {
         const error = await response.json();
         alert(`Error deleting incident: ${error.message}`);
@@ -147,7 +183,7 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
     }
   };
 
-  const handleCancel = () => {
+  const handleCancelEdit = () => {
     setEditingIncident(null);
     setEditForm({});
   };
@@ -366,25 +402,31 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
                           Save
                         </button>
                         <button
-                          onClick={handleCancel}
+                          onClick={handleCancelEdit}
                           className="text-gray-600 hover:text-gray-900 text-xs"
                         >
                           Cancel
                         </button>
                       </div>
                     ) : (
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-1">
                         <button
                           onClick={() => handleEdit(incident)}
-                          className="text-indigo-600 hover:text-indigo-900 text-xs"
+                          className="text-indigo-600 hover:text-indigo-900 text-xs px-2 py-1 border border-indigo-200 rounded hover:bg-indigo-50"
                         >
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(incident._id)}
-                          className="text-red-600 hover:text-red-900 text-xs"
+                          onClick={() => handleCancelIncident(incident._id)}
+                          className="text-orange-600 hover:text-orange-900 text-xs px-2 py-1 border border-orange-200 rounded hover:bg-orange-50"
                         >
-                          Delete
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handlePermanentDelete(incident._id, incident.incidentId)}
+                          className="text-red-600 hover:text-red-900 text-xs px-2 py-1 border border-red-200 rounded hover:bg-red-50"
+                        >
+                          🗑️ Delete
                         </button>
                       </div>
                     )}
