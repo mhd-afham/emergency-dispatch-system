@@ -37,16 +37,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const storedUser = localStorage.getItem("user");
 
         if (storedToken && storedUser) {
-          // Verify token is still valid
+          // Set user immediately from localStorage to prevent flash
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+
+          // Verify token is still valid in background
           const isValid = await authAPI.verifyToken();
 
-          if (isValid) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
-          } else {
-            // Token expired, clear storage
+          if (!isValid) {
+            // Token expired, clear storage and state
             localStorage.removeItem("token");
             localStorage.removeItem("user");
+            setToken(null);
+            setUser(null);
           }
         }
       } catch (error) {
@@ -54,6 +57,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Clear invalid data
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        setToken(null);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }

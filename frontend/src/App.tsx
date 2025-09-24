@@ -7,9 +7,15 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
+import AuthRoute from "./components/common/AuthRoute";
+import RoleBasedDashboard from "./components/common/RoleBasedDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
+import CallTakerDashboard from "./pages/CallTakerDashboard";
+import DispatcherDashboard from "./pages/DispatcherDashboard";
+import SupervisorDashboard from "./pages/SupervisorDashboard";
 import LoginForm from "./components/auth/LoginForm";
-import RegisterForm from "./components/auth/RegisterForm";
-import Dashboard from "./pages/Dashboard";
+import ForgotPasswordForm from "./components/auth/ForgotPasswordForm";
+import ResetPasswordForm from "./components/auth/ResetPasswordForm";
 
 // Landing page redirect component
 const LandingRedirect: React.FC = () => {
@@ -57,16 +63,72 @@ function App() {
             {/* Landing page - redirect based on auth status */}
             <Route path="/" element={<LandingRedirect />} />
 
-            {/* Public routes */}
-            <Route path="/login" element={<LoginForm />} />
-            <Route path="/register" element={<RegisterForm />} />
+            {/* Auth routes - redirect to dashboard if already logged in */}
+            <Route
+              path="/login"
+              element={
+                <AuthRoute>
+                  <LoginForm />
+                </AuthRoute>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <AuthRoute>
+                  <ForgotPasswordForm />
+                </AuthRoute>
+              }
+            />
+            <Route
+              path="/reset-password/:token"
+              element={
+                <AuthRoute>
+                  <ResetPasswordForm />
+                </AuthRoute>
+              }
+            />
 
             {/* Protected routes */}
             <Route
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <RoleBasedDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Role-specific dashboard routes */}
+            <Route
+              path="/dashboard/admin"
+              element={
+                <ProtectedRoute requiredRoles={["Admin"]}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/call-taker"
+              element={
+                <ProtectedRoute requiredRoles={["Call Taker"]}>
+                  <CallTakerDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/dispatcher"
+              element={
+                <ProtectedRoute requiredRoles={["Dispatcher"]}>
+                  <DispatcherDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/supervisor"
+              element={
+                <ProtectedRoute requiredRoles={["Supervisor"]}>
+                  <SupervisorDashboard />
                 </ProtectedRoute>
               }
             />
