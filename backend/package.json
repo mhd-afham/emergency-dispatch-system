@@ -8,12 +8,7 @@
     "dev": "nodemon server.js",
     "debug": "nodemon --inspect server.js",
     "seed": "node scripts/seedDatabase.js",
-    "seed:dev": "node scripts/seedDevelopment.js",
-    "seed:clear": "node scripts/seedDatabase.js --clear",
-    "test:models": "node scripts/simpleModelTest.js",
-    "test:models:full": "node scripts/testModels.js",
-    "test:connection": "node scripts/tests/test-atlas.js",
-    "cleanup:indexes": "node scripts/setup/cleanup-indexes.js"
+    "seed:clear": "node scripts/seedDatabase.js --clear"
   },
   "keywords": [],
   "author": "",

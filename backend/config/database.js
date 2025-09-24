@@ -11,16 +11,10 @@ const mongooseOptions = {
   socketTimeoutMS: 45000, // How long a send or receive can take
   connectTimeoutMS: 10000, // How long to wait for connection to be established
 
-  // Buffer configurations for real-time requirements
-  maxBufferSize: 0, // Disable mongoose buffering for immediate writes
-  // bufferCommands: false, // Disabled for development/testing - enable in production only
-
   // Additional connection settings
   maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
   heartbeatFrequencyMS: 10000, // Heartbeat frequency for connection health
   retryWrites: true, // Automatically retry writes on transient network errors
-  w: "majority", // Write concern for data consistency
-  j: true, // Journal writes for data durability
 
   // Replica set configuration
   readPreference: "primaryPreferred", // Read from primary when available

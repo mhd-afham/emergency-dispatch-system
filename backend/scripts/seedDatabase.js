@@ -36,6 +36,12 @@ const {
   crew,
   equipmentTemplates,
   incidents,
+  assignments,
+  communications,
+  equipmentChecks,
+  auditLogs,
+  reports,
+  shifts,
 } = require("./seedData");
 
 // Connect to database
@@ -55,6 +61,7 @@ class DatabaseSeeder {
       "equipment_checks",
       "audit_logs",
       "reports",
+      "shifts",
     ];
   }
 
@@ -62,7 +69,15 @@ class DatabaseSeeder {
     console.log("🔹 Seeding users...");
     try {
       await User.deleteMany({});
-      const createdUsers = await User.insertMany(users);
+
+      // Create users individually to trigger password hashing middleware
+      const createdUsers = [];
+      for (const userData of users) {
+        const user = new User(userData);
+        const savedUser = await user.save();
+        createdUsers.push(savedUser);
+      }
+
       console.log(`✅ Created ${createdUsers.length} users`);
       return createdUsers;
     } catch (error) {
@@ -76,12 +91,14 @@ class DatabaseSeeder {
     try {
       await Station.deleteMany({});
 
-      // Assign commanders to stations
+      // Assign commanders and audit fields to stations
       const stationsWithCommanders = stations.map((station, index) => ({
         ...station,
-        stationInfo: {
-          ...station.stationInfo,
-          commander: createdUsers[index % createdUsers.length]._id,
+        stationCommander: createdUsers[index % createdUsers.length]._id,
+        audit: {
+          createdBy: createdUsers[0]._id, // Admin user creates all stations
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       }));
 
@@ -94,39 +111,35 @@ class DatabaseSeeder {
     }
   }
 
-  async seedVehicles(createdStations) {
+  async seedVehicles(createdStations, createdUsers) {
     console.log("🔹 Seeding vehicles...");
     try {
       await Vehicle.deleteMany({});
 
-      // Assign vehicles to stations
-      const vehiclesWithStations = vehicles.map((vehicle, index) => ({
+      // Assign vehicles to stations and populate required fields
+      const vehiclesWithRequiredFields = vehicles.map((vehicle, index) => ({
         ...vehicle,
-        assignment: {
-          ...vehicle.assignment,
-          currentStation: createdStations[index % createdStations.length]._id,
+        registration: {
+          ...vehicle.registration,
+          approvedBy: createdUsers[0]._id, // Admin approves all vehicles
+        },
+        station: {
+          homeStationId: createdStations[index % createdStations.length]._id,
+          currentStationId: createdStations[index % createdStations.length]._id,
+        },
+        audit: {
+          createdBy: createdUsers[0]._id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       }));
 
-      const createdVehicles = await Vehicle.insertMany(vehiclesWithStations);
+      const createdVehicles = await Vehicle.insertMany(
+        vehiclesWithRequiredFields
+      );
       console.log(`✅ Created ${createdVehicles.length} vehicles`);
 
-      // Update stations with vehicle references
-      for (let i = 0; i < createdStations.length; i++) {
-        const stationVehicles = createdVehicles.filter(
-          (v) =>
-            v.assignment.currentStation.toString() ===
-            createdStations[i]._id.toString()
-        );
-
-        await Station.findByIdAndUpdate(createdStations[i]._id, {
-          $set: {
-            "resources.vehicles": stationVehicles.map((v) => v._id),
-          },
-        });
-      }
-
-      console.log("✅ Updated stations with vehicle references");
+      console.log("✅ Vehicle assignments completed");
       return createdVehicles;
     } catch (error) {
       console.error("❌ Error seeding vehicles:", error.message);
@@ -134,17 +147,18 @@ class DatabaseSeeder {
     }
   }
 
-  async seedCrew(createdStations) {
+  async seedCrew(createdStations, createdUsers) {
     console.log("🔹 Seeding crew members...");
     try {
       await Crew.deleteMany({});
 
-      // Assign crew to stations
+      // Assign crew to stations and populate required fields
       const crewWithStations = crew.map((member, index) => ({
         ...member,
-        assignment: {
-          ...member.assignment,
-          currentStation: createdStations[index % createdStations.length]._id,
+        audit: {
+          createdBy: createdUsers[0]._id, // Admin user creates all crew
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       }));
 
@@ -187,33 +201,326 @@ class DatabaseSeeder {
     try {
       await Incident.deleteMany({});
 
-      const incidentsWithAssignments = incidents.map((incident) => ({
+      const dispatcher = createdUsers.find((u) => u.auth.role === "Dispatcher");
+      if (!dispatcher) {
+        throw new Error("No dispatcher user found to log incidents");
+      }
+
+      const incidentsWithLogger = incidents.map((incident) => ({
         ...incident,
-        assignment: {
-          ...incident.assignment,
-          vehicleId: createdVehicles[0]._id,
-          primaryCrewId: createdCrew[0]._id,
-          additionalCrew: [createdCrew[1]._id],
-          assignedBy: createdUsers.find((u) => u.auth.role === "dispatcher")
-            ._id,
-        },
-        communication: {
-          ...incident.communication,
-          initialCall: {
-            ...incident.communication.initialCall,
-            operatorId: createdUsers.find((u) => u.auth.role === "dispatcher")
-              ._id,
-          },
+        loggedBy: dispatcher._id,
+        assignedDispatcher: dispatcher._id,
+        audit: {
+          createdBy: dispatcher._id,
+          updatedBy: dispatcher._id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       }));
 
-      const createdIncidents = await Incident.insertMany(
-        incidentsWithAssignments
-      );
+      const createdIncidents = await Incident.insertMany(incidentsWithLogger);
       console.log(`✅ Created ${createdIncidents.length} sample incidents`);
       return createdIncidents;
     } catch (error) {
       console.error("❌ Error seeding incidents:", error.message);
+      throw error;
+    }
+  }
+
+  async seedAssignments(
+    createdIncidents,
+    createdVehicles,
+    createdCrew,
+    createdUsers
+  ) {
+    console.log("🔹 Seeding assignments...");
+    try {
+      await Assignment.deleteMany({});
+
+      const dispatcher = createdUsers.find((u) => u.auth.role === "Dispatcher");
+      if (!dispatcher) {
+        throw new Error("No dispatcher user found to create assignments");
+      }
+
+      const assignmentsWithReferences = assignments.map(
+        (assignment, index) => ({
+          ...assignment,
+          incident: {
+            incidentId: createdIncidents[0]._id, // Link to first incident
+          },
+          resource: {
+            vehicleId: createdVehicles[0]._id,
+            primaryCrewId: createdCrew[0]._id,
+            additionalCrew: [createdCrew[1]._id],
+          },
+          dispatch: {
+            ...assignment.dispatch,
+            assignedBy: dispatcher._id,
+          },
+          status: {
+            ...assignment.status,
+            history: assignment.status.history.map((h) => ({
+              ...h,
+              updatedBy: dispatcher._id,
+            })),
+          },
+          audit: {
+            createdBy: dispatcher._id,
+            updatedBy: dispatcher._id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        })
+      );
+
+      const createdAssignments = await Assignment.insertMany(
+        assignmentsWithReferences
+      );
+      console.log(`✅ Created ${createdAssignments.length} assignments`);
+      return createdAssignments;
+    } catch (error) {
+      console.error("❌ Error seeding assignments:", error.message);
+      throw error;
+    }
+  }
+
+  async seedCommunications(createdIncidents, createdUsers, createdCrew) {
+    console.log("🔹 Seeding communications...");
+    try {
+      await Communication.deleteMany({});
+
+      const dispatcher = createdUsers.find((u) => u.auth.role === "Dispatcher");
+      if (!dispatcher) {
+        throw new Error("No dispatcher user found to create communications");
+      }
+
+      const communicationsWithReferences = communications.map(
+        (comm, index) => ({
+          ...comm,
+          sender: {
+            ...comm.sender,
+            userId: dispatcher._id,
+          },
+          recipient: {
+            ...comm.recipient,
+            recipientIds: [createdCrew[index % createdCrew.length]._id],
+          },
+          incident: {
+            incidentId: createdIncidents[index % createdIncidents.length]._id,
+            incidentNumber:
+              createdIncidents[index % createdIncidents.length].incidentId,
+          },
+          audit: {
+            createdBy: dispatcher._id,
+            updatedBy: dispatcher._id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        })
+      );
+
+      const createdCommunications = await Communication.insertMany(
+        communicationsWithReferences
+      );
+      console.log(`✅ Created ${createdCommunications.length} communications`);
+      return createdCommunications;
+    } catch (error) {
+      console.error("❌ Error seeding communications:", error.message);
+      throw error;
+    }
+  }
+
+  async seedEquipmentChecks(
+    createdVehicles,
+    createdCrew,
+    createdTemplates,
+    createdUsers,
+    createdStations
+  ) {
+    console.log("🔹 Seeding equipment checks...");
+    try {
+      await EquipmentCheck.deleteMany({});
+
+      const dispatcher = createdUsers.find((u) => u.auth.role === "Dispatcher");
+      if (!dispatcher) {
+        throw new Error("No dispatcher user found to create equipment checks");
+      }
+
+      const equipmentChecksWithReferences = equipmentChecks.map(
+        (check, index) => ({
+          ...check,
+          vehicleId: createdVehicles[0]._id, // Link to fire engine
+          crewId: createdCrew[0]._id, // Link to first crew member
+          templateId: createdTemplates[0]._id, // Link to fire engine template
+          inspection: {
+            ...check.inspection,
+            checkResults: check.inspection.checkResults.map((result) => ({
+              ...result,
+              checkedBy: createdCrew[0]._id, // Populate checkedBy for each result
+            })),
+            inspectedBy: createdCrew[0]._id,
+            supervisorApproval: {
+              approvedBy: dispatcher._id,
+              approvedAt: new Date(),
+              approved: true,
+              notes: "Inspection completed satisfactorily",
+            },
+          },
+          signatures: {
+            ...check.signatures,
+            crewMember: {
+              ...check.signatures.crewMember,
+              signedBy: createdCrew[0]._id,
+            },
+            supervisor: {
+              ...check.signatures.supervisor,
+              signedBy: dispatcher._id,
+            },
+          },
+          location: {
+            ...check.location,
+            stationId: createdStations[0]._id,
+          },
+          audit: {
+            createdBy: createdCrew[0]._id,
+            updatedBy: dispatcher._id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        })
+      );
+
+      const createdEquipmentChecks = await EquipmentCheck.insertMany(
+        equipmentChecksWithReferences
+      );
+      console.log(
+        `✅ Created ${createdEquipmentChecks.length} equipment checks`
+      );
+      return createdEquipmentChecks;
+    } catch (error) {
+      console.error("❌ Error seeding equipment checks:", error.message);
+      throw error;
+    }
+  }
+
+  async seedAuditLogs(createdUsers, createdIncidents) {
+    console.log("🔹 Seeding audit logs...");
+    try {
+      await AuditLog.deleteMany({});
+
+      const dispatcher = createdUsers.find((u) => u.auth.role === "Dispatcher");
+      if (!dispatcher) {
+        throw new Error("No dispatcher user found to create audit logs");
+      }
+
+      const auditLogsWithReferences = auditLogs.map((log, index) => ({
+        ...log,
+        actor: {
+          ...log.actor,
+          userId: dispatcher._id,
+        },
+        target: {
+          ...log.target,
+          entityId:
+            index === 0
+              ? createdIncidents[0]._id
+              : new mongoose.Types.ObjectId(),
+        },
+        timestamp: new Date(Date.now() - (auditLogs.length - index) * 300000), // 5 minutes apart
+      }));
+
+      const createdAuditLogs = await AuditLog.insertMany(
+        auditLogsWithReferences
+      );
+      console.log(`✅ Created ${createdAuditLogs.length} audit logs`);
+      return createdAuditLogs;
+    } catch (error) {
+      console.error("❌ Error seeding audit logs:", error.message);
+      throw error;
+    }
+  }
+
+  async seedReports(createdUsers) {
+    console.log("🔹 Seeding reports...");
+    try {
+      await Report.deleteMany({});
+
+      const admin = createdUsers.find((u) => u.auth.role === "Admin");
+      const dispatcher = createdUsers.find((u) => u.auth.role === "Dispatcher");
+
+      if (!admin || !dispatcher) {
+        throw new Error("Required users not found to create reports");
+      }
+
+      const reportsWithReferences = reports.map((report) => ({
+        ...report,
+        metadata: {
+          ...report.metadata,
+          generatedBy: dispatcher._id,
+          approvedBy: admin._id,
+        },
+        audit: {
+          createdBy: dispatcher._id,
+          updatedBy: admin._id,
+          createdAt: new Date(Date.now() - 172800000), // 2 days ago
+          updatedAt: new Date(Date.now() - 86400000), // 1 day ago
+        },
+      }));
+
+      const createdReports = await Report.insertMany(reportsWithReferences);
+      console.log(`✅ Created ${createdReports.length} reports`);
+      return createdReports;
+    } catch (error) {
+      console.error("❌ Error seeding reports:", error.message);
+      throw error;
+    }
+  }
+
+  async seedShifts(
+    createdStations,
+    createdCrew,
+    createdVehicles,
+    createdUsers
+  ) {
+    console.log("🔹 Seeding shifts...");
+    try {
+      await Shift.deleteMany({});
+
+      const dispatcher = createdUsers.find((u) => u.auth.role === "Dispatcher");
+      if (!dispatcher) {
+        throw new Error("No dispatcher user found to create shifts");
+      }
+
+      const shiftsWithReferences = shifts.map((shift, index) => ({
+        ...shift,
+        stationId: createdStations[0]._id, // Assign to first station
+        supervision: {
+          ...shift.supervision,
+          supervisorId: dispatcher._id, // Assign dispatcher as supervisor
+        },
+        staffing: {
+          ...shift.staffing,
+          assignedCrew: createdCrew
+            .slice(0, shift.staffing.requiredCrewCount)
+            .map((crew, crewIndex) => ({
+              crewId: crew._id,
+              role: shift.staffing.requiredRoles[crewIndex] || "Firefighter",
+              assignedAt: new Date(),
+              status: "assigned",
+              assignedBy: dispatcher._id,
+            })),
+        },
+        audit: {
+          ...shift.audit,
+          createdBy: dispatcher._id, // Assign dispatcher as creator
+        },
+      }));
+
+      const createdShifts = await Shift.insertMany(shiftsWithReferences);
+      console.log(`✅ Created ${createdShifts.length} shifts`);
+      return createdShifts;
+    } catch (error) {
+      console.error("❌ Error seeding shifts:", error.message);
       throw error;
     }
   }
@@ -246,13 +553,47 @@ class DatabaseSeeder {
       // Seed in proper order due to dependencies
       const createdUsers = await this.seedUsers();
       const createdStations = await this.seedStations(createdUsers);
-      const createdVehicles = await this.seedVehicles(createdStations);
-      const createdCrew = await this.seedCrew(createdStations);
+      const createdVehicles = await this.seedVehicles(
+        createdStations,
+        createdUsers
+      );
+      const createdCrew = await this.seedCrew(createdStations, createdUsers);
       const createdTemplates = await this.seedEquipmentTemplates(createdUsers);
       const createdIncidents = await this.seedIncidents(
         createdUsers,
         createdVehicles,
         createdCrew
+      );
+
+      // Seed additional models that depend on the core models above
+      const createdAssignments = await this.seedAssignments(
+        createdIncidents,
+        createdVehicles,
+        createdCrew,
+        createdUsers
+      );
+      const createdCommunications = await this.seedCommunications(
+        createdIncidents,
+        createdUsers,
+        createdCrew
+      );
+      const createdEquipmentChecks = await this.seedEquipmentChecks(
+        createdVehicles,
+        createdCrew,
+        createdTemplates,
+        createdUsers,
+        createdStations
+      );
+      const createdAuditLogs = await this.seedAuditLogs(
+        createdUsers,
+        createdIncidents
+      );
+      const createdReports = await this.seedReports(createdUsers);
+      const createdShifts = await this.seedShifts(
+        createdStations,
+        createdCrew,
+        createdVehicles,
+        createdUsers
       );
 
       console.log("");
@@ -265,6 +606,12 @@ class DatabaseSeeder {
       console.log(`   Crew: ${createdCrew.length}`);
       console.log(`   Equipment Templates: ${createdTemplates.length}`);
       console.log(`   Incidents: ${createdIncidents.length}`);
+      console.log(`   Assignments: ${createdAssignments.length}`);
+      console.log(`   Communications: ${createdCommunications.length}`);
+      console.log(`   Equipment Checks: ${createdEquipmentChecks.length}`);
+      console.log(`   Audit Logs: ${createdAuditLogs.length}`);
+      console.log(`   Reports: ${createdReports.length}`);
+      console.log(`   Shifts: ${createdShifts.length}`);
       console.log("");
       console.log(
         "🚀 Emergency Dispatch System is ready for development/testing!"
@@ -278,6 +625,7 @@ class DatabaseSeeder {
   async validateSeed() {
     console.log("🔍 Validating seeded data...");
     try {
+      // Count all 12 models
       const counts = {
         users: await User.countDocuments(),
         stations: await Station.countDocuments(),
@@ -285,6 +633,12 @@ class DatabaseSeeder {
         crew: await Crew.countDocuments(),
         templates: await EquipmentChecklistTemplate.countDocuments(),
         incidents: await Incident.countDocuments(),
+        assignments: await Assignment.countDocuments(),
+        communications: await Communication.countDocuments(),
+        equipmentChecks: await EquipmentCheck.countDocuments(),
+        auditLogs: await AuditLog.countDocuments(),
+        reports: await Report.countDocuments(),
+        shifts: await Shift.countDocuments(),
       };
 
       console.log("📊 Current database counts:");
@@ -292,18 +646,27 @@ class DatabaseSeeder {
         console.log(`   ${collection}: ${count}`);
       });
 
-      // Basic validation tests
-      const adminUser = await User.findOne({ "auth.role": "admin" });
-      const activeStation = await Station.findOne({
-        "operational.status": "active",
-      });
+      // Basic validation tests with correct queries
+      const adminUser = await User.findOne({ "auth.role": "Admin" }); // Capital A
+      const activeStation = await Station.findOne({ isActive: true });
       const availableVehicle = await Vehicle.findOne({
-        "status.operational": "Available",
+        "status.operational": "active",
       });
 
-      if (!adminUser) console.warn("⚠️  No admin user found");
-      if (!activeStation) console.warn("⚠️  No active stations found");
-      if (!availableVehicle) console.warn("⚠️  No available vehicles found");
+      // Validation results
+      const validationResults = [];
+      if (!adminUser) validationResults.push("⚠️  No admin user found");
+      if (!activeStation)
+        validationResults.push("⚠️  No active stations found");
+      if (!availableVehicle)
+        validationResults.push("⚠️  No available vehicles found");
+
+      // Show validation results
+      if (validationResults.length > 0) {
+        validationResults.forEach((warning) => console.warn(warning));
+      } else {
+        console.log("✅ All validation checks passed");
+      }
 
       console.log("✅ Validation completed");
     } catch (error) {
@@ -327,13 +690,16 @@ async function main() {
     switch (command) {
       case "clear":
         await seeder.clearDatabase();
+        console.log("✅ Database cleared successfully");
         break;
       case "users":
         await seeder.seedUsers();
+        console.log("✅ Users seeded successfully");
         break;
       case "stations":
         const users = await User.find();
         await seeder.seedStations(users);
+        console.log("✅ Stations seeded successfully");
         break;
       case "validate":
         await seeder.validateSeed();
@@ -342,10 +708,9 @@ async function main() {
       default:
         await seeder.seedAll();
         await seeder.validateSeed();
+        console.log("✅ Operation completed successfully");
         break;
     }
-
-    console.log("✅ Operation completed successfully");
   } catch (error) {
     console.error("❌ Operation failed:", error.message);
     if (process.env.NODE_ENV === "development") {
@@ -353,7 +718,11 @@ async function main() {
     }
     process.exit(1);
   } finally {
-    // Close database connection
+    // Clean up event listeners to prevent automatic reconnection messages
+    mongoose.connection.removeAllListeners("disconnected");
+    mongoose.connection.removeAllListeners("reconnected");
+
+    // Close database connection gracefully
     if (mongoose.connection.readyState === 1) {
       await mongoose.connection.close();
       console.log("🔐 Database connection closed");
