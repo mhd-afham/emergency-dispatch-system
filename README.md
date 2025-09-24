@@ -6,7 +6,7 @@ A comprehensive MERN stack emergency dispatch system for the National Emergency 
 
 ## Team Members
 
-- **M. I. M. Afham** (IT23827912) - Team Leader, Authentication & Security
+- **M. I. M. Afham** (IT23827912) - Team Leader, Authentication & Security, Dispatching, Real-time tracking & Auto-Reassignment, Dynamic Routing & ETA
 - **T. H. C. T. De Silva** (IT23836136) - Emergency Call Logging & Location Management
 - **J. A. J. Spencer** (IT23536166) - Shift Management & Crew Scheduling
 - **D. D. I. Nawanjana** (IT23857162) - Vehicle & Crew Registration

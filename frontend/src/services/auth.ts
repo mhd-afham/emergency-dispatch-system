@@ -34,10 +34,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      window.location.href = "/login";
+      // Only redirect on token expiration, not during login attempts
+      const isLoginRequest = error.config?.url?.includes("/auth/login");
+      if (!isLoginRequest) {
+        // Token expired or invalid for authenticated requests
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   }
@@ -147,7 +151,7 @@ export const authAPI = {
   // Verify token (useful for protected routes)
   verifyToken: async (): Promise<boolean> => {
     try {
-      await api.get("/auth/verify");
+      await api.get("/auth/me");
       return true;
     } catch (error) {
       return false;

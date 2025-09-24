@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { ApiError, User } from "../../types/auth";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import PasswordStrengthIndicator from "./PasswordStrengthIndicator";
 
 interface RegisterFormProps {
   onSuccess?: () => void;
@@ -24,6 +25,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [passwordValidation, setPasswordValidation] = useState<any>(null);
 
   const roles: User["auth"]["role"][] = [
     "Call Taker",
@@ -58,11 +60,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     if (!formData.firstName.trim()) errors.firstName = "First name is required";
     if (!formData.lastName.trim()) errors.lastName = "Last name is required";
     if (!formData.email.trim()) errors.email = "Email is required";
-    if (!formData.password) errors.password = "Password is required";
-    if (formData.password.length < 8)
-      errors.password = "Password must be at least 8 characters";
-    if (formData.password !== formData.confirmPassword)
+
+    // Password validation using strength indicator
+    if (!formData.password) {
+      errors.password = "Password is required";
+    } else if (passwordValidation && !passwordValidation.isValid) {
+      errors.password = "Password does not meet security requirements";
+    }
+
+    if (formData.password !== formData.confirmPassword) {
       errors.confirmPassword = "Passwords do not match";
+    }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -368,6 +376,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   {fieldErrors.password}
                 </p>
               )}
+
+              {/* Password Strength Indicator */}
+              <PasswordStrengthIndicator
+                password={formData.password}
+                onValidationChange={setPasswordValidation}
+                showRequirements={true}
+              />
             </div>
 
             <div>
