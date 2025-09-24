@@ -80,17 +80,14 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
       <div className="max-w-md w-full space-y-8">
         {/* Logo and Header */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-auto mb-6">
+          <div className="mx-auto h-20 w-auto mb-6">
             <img
               src="/images/respondr-vertical.svg"
               alt="Respondr Logo"
-              className="h-16 w-auto mx-auto"
+              className="h-20 w-auto mx-auto"
             />
           </div>
-          <h2
-            className="text-3xl font-extrabold"
-            style={{ color: "var(--text)" }}
-          >
+          <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
             Reset Your Password
           </h2>
           <p

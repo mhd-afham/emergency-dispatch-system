@@ -261,14 +261,14 @@ const ResetPasswordForm: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-16 w-auto mb-6">
+          <div className="mx-auto h-20 w-auto mb-6">
             <img
               src="/images/respondr-vertical.svg"
               alt="Respondr Logo"
-              className="h-16 w-auto mx-auto"
+              className="h-20 w-auto mx-auto"
             />
           </div>
-          <h2 className="mt-6 text-center text-2xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
             Reset Your Password
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
