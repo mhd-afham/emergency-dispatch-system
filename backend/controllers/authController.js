@@ -2,6 +2,7 @@ const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const { sendEmail, emailTemplates } = require("../utils/emailService");
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -74,11 +75,16 @@ const register = async (req, res) => {
       });
     }
 
-    // Validate password strength
-    if (password.length < 8) {
+    // Create temporary user instance for password validation
+    const tempUser = new User();
+    const passwordValidation = tempUser.validatePasswordStrength(password);
+
+    if (!passwordValidation.isValid) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 8 characters long",
+        message: "Password does not meet security requirements",
+        errors: passwordValidation.errors,
+        strength: passwordValidation.strength,
       });
     }
 
@@ -326,6 +332,8 @@ const updateProfile = async (req, res) => {
 
 // @desc    Change password
 // @route   PUT /api/auth/password
+// @desc    Update password
+// @route   PUT /api/auth/updatepassword
 // @access  Private
 const updatePassword = async (req, res) => {
   try {
@@ -345,13 +353,6 @@ const updatePassword = async (req, res) => {
       });
     }
 
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: "New password must be at least 8 characters long",
-      });
-    }
-
     const user = await User.findById(req.user.id).select("+auth.password");
 
     // Check current password
@@ -363,6 +364,30 @@ const updatePassword = async (req, res) => {
       });
     }
 
+    // Validate password strength
+    const passwordValidation = user.validatePasswordStrength(newPassword);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Password does not meet security requirements",
+        errors: passwordValidation.errors,
+        strength: passwordValidation.strength,
+      });
+    }
+
+    // Check if password was used recently
+    const isReused = await user.isPasswordReused(newPassword);
+    if (isReused) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cannot reuse a recently used password. Please choose a different password.",
+      });
+    }
+
+    // Add current password to history before updating
+    await user.addPasswordToHistory(currentPassword);
+
     // Update password
     user.auth.password = newPassword;
     user.auth.passwordChangedAt = new Date();
@@ -371,6 +396,7 @@ const updatePassword = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Password updated successfully",
+      passwordStrength: passwordValidation.strength,
     });
   } catch (error) {
     console.error("Update password error:", error);
@@ -408,35 +434,52 @@ const forgotPassword = async (req, res) => {
     const resetToken = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
 
-    // Create reset url
+    // Create reset url for frontend
     const resetUrl = `${req.protocol}://${req.get(
       "host"
-    )}/api/auth/reset-password/${resetToken}`;
-
-    const message = `
-      You are receiving this email because you (or someone else) has requested a password reset. 
-      Please click on the following link to reset your password: \n\n ${resetUrl}
-      \n\nIf you did not request this, please ignore this email.
-    `;
+    )}/reset-password/${resetToken}`;
 
     try {
-      // TODO: Send email (implement email service)
-      console.log("Password reset email would be sent to:", email);
-      console.log("Reset URL:", resetUrl);
+      // Send password reset email
+      const emailTemplate = emailTemplates.passwordReset(
+        resetUrl,
+        user.personal.firstName || user.personal.email
+      );
 
-      res.status(200).json({
-        success: true,
-        message: "Password reset email sent",
+      const emailResult = await sendEmail({
+        to: user.personal.email,
+        subject: emailTemplate.subject,
+        text: emailTemplate.text,
+        html: emailTemplate.html,
       });
+
+      if (emailResult.success) {
+        console.log("✅ Password reset email sent to:", email);
+        if (emailResult.previewUrl) {
+          console.log("📧 Preview URL:", emailResult.previewUrl);
+        }
+
+        res.status(200).json({
+          success: true,
+          message: "Password reset email sent successfully",
+          // Include preview URL in development for testing
+          ...(process.env.NODE_ENV !== "production" &&
+            emailResult.previewUrl && {
+              previewUrl: emailResult.previewUrl,
+            }),
+        });
+      } else {
+        throw new Error(emailResult.error || "Failed to send email");
+      }
     } catch (error) {
-      console.log("Email send error:", error);
-      user.auth.resetPasswordToken = undefined;
-      user.auth.resetPasswordExpire = undefined;
+      console.error("❌ Email send error:", error);
+      user.settings.resetPasswordToken = undefined;
+      user.settings.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
 
       res.status(500).json({
         success: false,
-        message: "Email could not be sent",
+        message: "Email could not be sent. Please try again later.",
       });
     }
   } catch (error) {
@@ -450,42 +493,49 @@ const forgotPassword = async (req, res) => {
 
 // @desc    Reset password
 // @route   PUT /api/auth/reset-password/:resettoken
+// @route   POST /api/auth/reset-password
 // @access  Public
 const resetPassword = async (req, res) => {
   try {
-    const { password, confirmPassword } = req.body;
+    const { password, confirmPassword, newPassword, token } = req.body;
 
-    if (!password || !confirmPassword) {
+    // Handle both old format (password, confirmPassword) and new format (newPassword, token)
+    const finalPassword = newPassword || password;
+    const finalConfirmPassword = confirmPassword;
+    const resetToken = token || req.params.resettoken;
+
+    if (!finalPassword) {
       return res.status(400).json({
         success: false,
-        message: "Please provide password and confirm password",
+        message: "Please provide password",
       });
     }
 
-    if (password !== confirmPassword) {
+    // Only require confirmPassword if it's the old format
+    if (finalConfirmPassword && finalPassword !== finalConfirmPassword) {
       return res.status(400).json({
         success: false,
         message: "Passwords do not match",
       });
     }
 
-    if (password.length < 8) {
+    if (!resetToken) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 8 characters long",
+        message: "Reset token is required",
       });
     }
 
     // Get hashed token
     const resetPasswordToken = crypto
       .createHash("sha256")
-      .update(req.params.resettoken)
+      .update(resetToken)
       .digest("hex");
 
     const user = await User.findOne({
-      "auth.resetPasswordToken": resetPasswordToken,
-      "auth.resetPasswordExpire": { $gt: Date.now() },
-    });
+      "settings.resetPasswordToken": resetPasswordToken,
+      "settings.resetPasswordExpire": { $gt: Date.now() },
+    }).select("+auth.password");
 
     if (!user) {
       return res.status(400).json({
@@ -494,11 +544,42 @@ const resetPassword = async (req, res) => {
       });
     }
 
+    // Validate password strength
+    const passwordValidation = user.validatePasswordStrength(finalPassword);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Password does not meet security requirements",
+        errors: passwordValidation.errors,
+        strength: passwordValidation.strength,
+      });
+    }
+
+    // Check if password was used recently
+    const isReused = await user.isPasswordReused(finalPassword);
+    if (isReused) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cannot reuse a recently used password. Please choose a different password.",
+      });
+    }
+
+    // Add current password to history before updating (if it exists)
+    if (user.auth.password) {
+      await user.addPasswordToHistory(user.auth.password);
+    }
+
     // Set new password
-    user.auth.password = password;
+    user.auth.password = finalPassword;
     user.auth.passwordChangedAt = new Date();
-    user.auth.resetPasswordToken = undefined;
-    user.auth.resetPasswordExpire = undefined;
+    user.settings.resetPasswordToken = undefined;
+    user.settings.resetPasswordExpire = undefined;
+
+    // Reset any login attempt restrictions
+    user.settings.loginAttempts = 0;
+    user.settings.lockUntil = undefined;
+
     await user.save();
 
     sendTokenResponse(user, 200, res);
@@ -507,6 +588,97 @@ const resetPassword = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error resetting password",
+    });
+  }
+};
+
+// @desc    Verify reset password token
+// @route   POST /api/auth/verify-reset-token
+// @access  Public
+const verifyResetToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide reset token",
+        valid: false,
+      });
+    }
+
+    // Get hashed token
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      "settings.resetPasswordToken": resetPasswordToken,
+      "settings.resetPasswordExpire": { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset token",
+        valid: false,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Reset token is valid",
+      valid: true,
+    });
+  } catch (error) {
+    console.error("Verify reset token error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error verifying reset token",
+      valid: false,
+    });
+  }
+};
+
+// @desc    Validate password strength
+// @route   POST /api/auth/validate-password
+// @access  Public
+const validatePassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide password to validate",
+      });
+    }
+
+    // Create a temporary user instance to use validation method
+    const tempUser = new User();
+    const validation = tempUser.validatePasswordStrength(password);
+
+    res.status(200).json({
+      success: true,
+      validation: {
+        isValid: validation.isValid,
+        strength: validation.strength,
+        errors: validation.errors,
+        requirements: {
+          minLength: password.length >= 8,
+          hasUpperCase: /[A-Z]/.test(password),
+          hasLowerCase: /[a-z]/.test(password),
+          hasNumbers: /\d/.test(password),
+          hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Password validation error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error validating password",
     });
   }
 };
@@ -548,6 +720,124 @@ const verifyEmail = async (req, res) => {
   }
 };
 
+// @desc    Admin create user
+// @route   POST /api/auth/admin/create-user
+// @access  Private (Admin only)
+const adminCreateUser = async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+      employeeId,
+      role,
+      department,
+      phone,
+      password,
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !employeeId ||
+      !role ||
+      !department ||
+      !phone ||
+      !password
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide all required fields",
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [{ "personal.email": email }, { "auth.employeeId": employeeId }],
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this email or employee ID already exists",
+      });
+    }
+
+    // Validate password strength
+    const tempUser = new User();
+    const passwordValidation = tempUser.validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Password does not meet security requirements",
+        errors: passwordValidation.errors,
+      });
+    }
+
+    // Create user
+    const user = await User.create({
+      personal: {
+        firstName,
+        lastName,
+        email,
+        phone,
+      },
+      auth: {
+        employeeId,
+        password,
+        role,
+      },
+      work: {
+        department,
+      },
+      settings: {
+        emailNotifications: true,
+        smsNotifications: true,
+      },
+    });
+
+    // Add password to history
+    await user.addPasswordToHistory(password);
+    await user.save();
+
+    // Remove password from response
+    const userResponse = await User.findById(user._id).select(
+      "-auth.password -auth.passwordHistory"
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "User account created successfully",
+      data: userResponse,
+    });
+
+    // Log the action
+    console.log(
+      `✅ User created by admin ${req.user.personal.email}: ${email} (${role})`
+    );
+  } catch (error) {
+    console.error("Admin create user error:", error);
+
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({
+        success: false,
+        message: `A user with this ${
+          field.includes("email") ? "email" : "employee ID"
+        } already exists`,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Server error creating user account",
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -557,5 +847,8 @@ module.exports = {
   updatePassword,
   forgotPassword,
   resetPassword,
+  verifyResetToken,
+  validatePassword,
   verifyEmail,
+  adminCreateUser,
 };
