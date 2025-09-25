@@ -63,15 +63,14 @@ A **workspace** is npm's built-in monorepo solution that allows managing multipl
 // Root package.json
 "workspaces": {
   "packages": [
-    "apps/backend",      // ← These directories contain package.json
-    "apps/web",
-    "packages/*"         // ← Wildcard matches all subdirs in packages/
-  ],
-  "nohoist": [
-    "**/react-native",        // Don't hoist React Native
-    "**/expo",               // Don't hoist Expo
-    "**/@react-native*"      // Don't hoist RN-related packages
+    "apps/backend",           // ← Node.js API server
+    "apps/web",              // ← React web application
+    "apps/mobile",           // ← React Native mobile app
+    "packages/shared",       // ← Shared constants & types
+    "packages/api-client",   // ← Unified HTTP client
+    "packages/ui-components" // ← Reusable UI components
   ]
+  // ← No nohoist needed! Metro handles everything
 }
 ```
 
@@ -97,9 +96,9 @@ The mobile app is now **fully integrated** into the npm workspace using a **Metr
 **Technical Implementation:**
 
 - **Metro Configuration**: Custom metro.config.js handles workspace module resolution
-- **Targeted Nohoist**: Only essential React Native/Expo packages excluded from hoisting
-- **Workspace Package References**: Direct version references instead of file: paths
-- **Proper Module Resolution**: Metro bundler configured for monorepo support
+- **No Nohoist Required**: Metro configuration handles all workspace resolution correctly
+- **Direct Package References**: Version-based references instead of file: paths
+- **Clean Workspace**: All 6 packages included without exclusions
 
 **Metro Configuration (`apps/mobile/metro.config.js`):**
 
@@ -187,13 +186,11 @@ config.resolver.nodeModulesPath = [
 {
   "name": "@emergency-dispatch/mobile",
   "dependencies": {
-    "@emergency-dispatch/api-client": "^1.0.0", // Workspace package - direct import
-    "@emergency-dispatch/shared": "^1.0.0", // Workspace package - direct import
+    "@emergency-dispatch/api-client": "^1.0.0", // Workspace package - direct version
+    "@emergency-dispatch/shared": "^1.0.0", // Workspace package - direct version
     "expo": "~54.0.10", // Mobile framework
     "react-native": "0.81.4", // Native platform
-    "@react-native-async-storage/async-storage": "^2.2.0", // Secure storage
-    "@emergency-dispatch/shared": "file:../../packages/shared", // Our shared constants
-    "@emergency-dispatch/api-client": "file:../../packages/api-client" // Our shared API
+    "@react-native-async-storage/async-storage": "^2.2.0" // Secure storage
   },
   "scripts": {
     "start": "expo start", // Development server with QR code
@@ -484,18 +481,13 @@ export default function DashboardScreen({ user, onLogout }) {
 ### **🔧 Dependencies Installation Sequence:**
 
 ```bash
-# Phase 1: Root workspace setup
-npm install  # Installs concurrently and workspace tools
+# Single command installs everything!
+npm install  # Installs all workspace packages and dependencies
 
-# Phase 2: Shared packages (avoid workspace conflicts)
-cd packages/shared && npm install --no-workspaces
-cd packages/api-client && npm install --no-workspaces
+# That's it! All 6 packages (backend, web, mobile, shared, api-client, ui-components)
+# are installed and configured automatically with proper workspace resolution.
 
-# Phase 3: Mobile app (separate from workspace)
-cd apps/mobile && npm install --no-workspaces
-
-# Phase 4: Backend & Web (handled by workspace automatically)
-# These work normally within the workspace system
+# No more manual individual package installations needed!
 ```
 
 ### **🏗️ TypeScript Configuration Files:**
@@ -736,10 +728,10 @@ class ApiClient {
 #### **1. Workspace Dependency Conflicts:**
 
 ```bash
-# Problem: npm install fails with "Cannot read properties of null"
-# Cause: React Native conflicts with workspace hoisting
-# Solution: Use --no-workspaces flag
-cd apps/mobile && npm install --no-workspaces
+# Problem: npm install fails with dependency conflicts
+# Solution: Clean workspace and reinstall
+rm -rf node_modules package-lock.json
+npm install
 ```
 
 #### **2. Metro Bundler Cache Issues:**

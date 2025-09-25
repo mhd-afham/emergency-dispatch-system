@@ -41,25 +41,28 @@ config.resolver.nodeModulesPath = [
 ];
 ```
 
-### **✅ Targeted Nohoist Rules**
+### **✅ No Nohoist Rules Needed!**
+
+**Major Discovery**: The targeted nohoist rules are **completely unnecessary**!
 
 ```json
-// package.json workspace configuration
-"nohoist": [
-  "apps/mobile/**/@react-native-*",
-  "apps/mobile/**/react-native",
-  "apps/mobile/**/react-native-*",
-  "apps/mobile/**/expo",
-  "apps/mobile/**/expo-*",
-  "apps/mobile/**/@expo/*"
-]
+// package.json workspace configuration - Clean and Simple
+"workspaces": {
+  "packages": [
+    "apps/backend", "apps/web", "apps/mobile",
+    "packages/shared", "packages/api-client", "packages/ui-components"
+  ]
+  // No nohoist needed! Metro configuration handles everything
+}
 ```
 
-**Why Targeted Nohoist?**
+**Why No Nohoist is Better:**
 
-- Only excludes essential React Native/Expo packages from workspace hoisting
-- All other dependencies (including shared packages) use workspace resolution
-- Eliminates broad exclusions that caused unexpected issues
+- Metro configuration alone handles all workspace resolution correctly
+- Cleaner, simpler workspace configuration
+- Faster dependency installation with fewer exclusions
+- Better performance with standard workspace practices
+- No maintenance overhead for nohoist rule updates
 
 ---
 
@@ -73,8 +76,14 @@ config.resolver.nodeModulesPath = [
     "packages": [
       "apps/backend",
       "apps/web",
-      "apps/mobile", // ← Now included
+      "apps/mobile",           // ← Now included
       "packages/shared",
+      "packages/api-client",
+      "packages/ui-components" // ← All packages included
+    ]
+  }
+}
+```
       "packages/api-client"
     ]
   }
