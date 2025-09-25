@@ -1,4 +1,4 @@
-// Shared constants and utilities
+// Local constants for mobile app
 export const API_ENDPOINTS = {
   AUTH: "/api/auth",
   INCIDENTS: "/api/incidents",
@@ -48,5 +48,3 @@ export const VEHICLE_STATUS = {
 
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 export type IncidentType = (typeof INCIDENT_TYPES)[keyof typeof INCIDENT_TYPES];
-export type VehicleStatus =
-  (typeof VEHICLE_STATUS)[keyof typeof VEHICLE_STATUS];

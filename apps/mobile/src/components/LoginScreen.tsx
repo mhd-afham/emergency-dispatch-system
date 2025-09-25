@@ -8,8 +8,8 @@ import {
   Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { apiClient } from "@emergency-dispatch/api-client";
-import { API_ENDPOINTS } from "@emergency-dispatch/shared";
+import { apiClient } from "../services/apiClient";
+import { API_ENDPOINTS } from "../constants";
 
 interface LoginScreenProps {
   onLogin: (token: string, user: any) => void;
@@ -28,8 +28,8 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
     setLoading(true);
     try {
-      // Use the shared API client
-      const response = await apiClient.login({ email, password });
+      // Use the local API client
+      const response = await apiClient.login(email, password);
 
       if (response.data.success) {
         onLogin(response.data.token, response.data.user);

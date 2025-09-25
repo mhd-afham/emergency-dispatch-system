@@ -8,8 +8,8 @@ import {
   Alert,
   RefreshControl,
 } from "react-native";
-import { apiClient } from "@emergency-dispatch/api-client";
-import { USER_ROLES, INCIDENT_TYPES } from "@emergency-dispatch/shared";
+import { apiClient } from "../services/apiClient";
+import { USER_ROLES, INCIDENT_TYPES } from "../constants";
 
 interface DashboardScreenProps {
   user: any;

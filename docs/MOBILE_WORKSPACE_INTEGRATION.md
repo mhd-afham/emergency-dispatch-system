@@ -1,60 +1,65 @@
-# 📱 Mobile App Workspace Integration Guide
+# 📱 Mobile App - Isolated Architecture Guide
 
-## ✅ **Successfully Implemented: Workspace Integration Approach**
+## ✅ **Successfully Implemented: Isolated App Approach**
 
-The mobile app has been successfully integrated into the npm workspace, replacing the previous `--no-workspaces` exclusion approach with a proper Metro-based monorepo configuration.
+The mobile app has been configured as a fully isolated application within the monorepo, using its own local code instead of shared packages for maximum simplicity and reliability.
 
 ---
 
 ## 🎯 **What We Achieved**
 
-### **✅ Single Dependency Management**
+### **✅ Complete App Isolation**
 
-- **Before**: Mobile app excluded from workspace with `--no-workspaces`
-- **After**: Mobile app included in workspace with proper nohoist configuration
-- **Benefit**: Single `npm install` manages all dependencies consistently
+- **Before**: Complex shared package dependencies with build issues
+- **After**: Fully self-contained mobile app with local constants and API client
+- **Benefit**: Zero module resolution issues, faster builds, easier debugging
 
-### **✅ Proper Module Resolution**
+### **✅ Local Code Organization**
 
-- **Before**: Brittle `file:../../packages/shared` references
-- **After**: Direct imports `@emergency-dispatch/shared`
-- **Benefit**: TypeScript, IDE support, and Metro bundler work seamlessly
+```
+apps/mobile/src/
+├── components/          # React Native components
+├── constants/           # Local constants (API endpoints, user roles, etc.)
+├── services/           # Local API client with AsyncStorage
+└── [other directories] # Standard React Native structure
+```
 
-### **✅ Metro Monorepo Configuration**
+### **✅ Simplified Metro Configuration**
 
 ```javascript
-// apps/mobile/metro.config.js
+// apps/mobile/metro.config.js - Clean and Simple
 const { getDefaultConfig } = require("@expo/metro-config");
-const path = require("path");
 
-const projectRoot = __dirname;
-const workspaceRoot = path.resolve(projectRoot, "../..");
-const config = getDefaultConfig(projectRoot);
+// Standard Metro configuration for isolated app
+const config = getDefaultConfig(__dirname);
 
-// Watch all files within the workspace
-config.watchFolders = [workspaceRoot];
-
-// Configure Metro to resolve packages from workspace
-config.resolver.nodeModulesPath = [
-  path.resolve(projectRoot, "node_modules"),
-  path.resolve(workspaceRoot, "node_modules"),
-];
+module.exports = config;
 ```
 
-### **✅ No Nohoist Rules Needed!**
-
-**Major Discovery**: The targeted nohoist rules are **completely unnecessary**!
+### **✅ Local Dependencies**
 
 ```json
-// package.json workspace configuration - Clean and Simple
-"workspaces": {
-  "packages": [
-    "apps/backend", "apps/web", "apps/mobile",
-    "packages/shared", "packages/api-client", "packages/ui-components"
-  ]
-  // No nohoist needed! Metro configuration handles everything
+// apps/mobile/package.json - Only what's needed
+{
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "axios": "^1.6.0",
+    "expo": "~54.0.10",
+    "expo-status-bar": "~3.0.8",
+    "react": "19.1.0",
+    "react-native": "0.81.4"
+  }
 }
 ```
+
+"packages": [
+"apps/backend", "apps/web", "apps/mobile",
+"packages/shared", "packages/api-client", "packages/ui-components"
+]
+// No nohoist needed! Metro configuration handles everything
+}
+
+````
 
 **Why No Nohoist is Better:**
 
@@ -83,7 +88,7 @@ config.resolver.nodeModulesPath = [
     ]
   }
 }
-```
+````
 
       "packages/api-client"
     ]

@@ -32,10 +32,7 @@
     "packages": [
       "apps/backend",
       "apps/web",
-      "apps/mobile",
-      "packages/shared",
-      "packages/api-client",
-      "packages/ui-components"
+      "apps/mobile"
     ]
   },
   "devDependencies": {
