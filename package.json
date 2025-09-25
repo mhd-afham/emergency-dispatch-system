@@ -5,14 +5,19 @@
   "main": "index.js",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "cd backend && npm run dev",
-    "client": "cd frontend && npm start",
-    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "server": "cd apps/backend && npm run dev",
+    "client": "cd apps/web && npm start",
+    "mobile": "cd apps/mobile && npm start",
+    "android": "cd apps/mobile && npm run android",
+    "ios": "cd apps/mobile && npm run ios",
+    "install-all": "npm install",
     "start": "npm run dev",
-    "server-only": "cd backend && npm start",
-    "client-only": "cd frontend && npm start",
-    "build": "cd frontend && npm run build",
-    "test": "cd backend && npm test && cd ../frontend && npm test"
+    "server-only": "cd apps/backend && npm start",
+    "client-only": "cd apps/web && npm start",
+    "build": "cd apps/web && npm run build",
+    "test": "cd apps/backend && npm test && cd ../web && npm test",
+    "workspace:check": "npm list --all",
+    "workspace:audit": "npm audit"
   },
   "keywords": [
     "emergency",
@@ -23,6 +28,7 @@
   ],
   "author": "Emergency Dispatch Team",
   "license": "MIT",
+  "private": true,
   "devDependencies": {
     "concurrently": "^8.2.0"
   }
