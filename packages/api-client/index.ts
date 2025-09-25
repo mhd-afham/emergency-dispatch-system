@@ -1,15 +1,15 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosResponse } from "axios";
 
 class ApiClient {
   private instance: AxiosInstance;
-  private authToken: string = '';
+  private authToken: string = "";
 
-  constructor(baseURL: string = 'http://localhost:5000') {
+  constructor(baseURL: string = "http://localhost:5000") {
     this.instance = axios.create({
       baseURL,
       timeout: 10000,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -45,7 +45,7 @@ class ApiClient {
 
   private getAuthToken(): string | null {
     // Return the stored token, preference for explicit token over localStorage
-    return this.authToken || localStorage?.getItem('token') || null;
+    return this.authToken || localStorage?.getItem("token") || null;
   }
 
   public setAuthToken(token: string): void {
@@ -53,35 +53,35 @@ class ApiClient {
   }
 
   public clearAuthToken(): void {
-    this.authToken = '';
+    this.authToken = "";
   }
 
   private handleAuthError() {
     // Handle authentication errors
     // This will be implemented differently for web vs mobile
-    console.log('Authentication error - redirecting to login');
+    console.log("Authentication error - redirecting to login");
   }
 
   // Auth endpoints
   async login(credentials: { email: string; password: string }) {
-    return this.instance.post('/api/auth/login', credentials);
+    return this.instance.post("/api/auth/login", credentials);
   }
 
   async logout() {
-    return this.instance.post('/api/auth/logout');
+    return this.instance.post("/api/auth/logout");
   }
 
   async refreshToken() {
-    return this.instance.post('/api/auth/refresh');
+    return this.instance.post("/api/auth/refresh");
   }
 
   // Incident endpoints
   async getIncidents(params?: any) {
-    return this.instance.get('/api/incidents', { params });
+    return this.instance.get("/api/incidents", { params });
   }
 
   async createIncident(data: any) {
-    return this.instance.post('/api/incidents', data);
+    return this.instance.post("/api/incidents", data);
   }
 
   async updateIncident(id: string, data: any) {
@@ -94,7 +94,7 @@ class ApiClient {
 
   // Vehicle endpoints
   async getVehicles(params?: any) {
-    return this.instance.get('/api/vehicles', { params });
+    return this.instance.get("/api/vehicles", { params });
   }
 
   async updateVehicleStatus(id: string, status: string) {
@@ -102,7 +102,10 @@ class ApiClient {
   }
 
   // Generic CRUD methods
-  async get<T = any>(endpoint: string, params?: any): Promise<AxiosResponse<T>> {
+  async get<T = any>(
+    endpoint: string,
+    params?: any
+  ): Promise<AxiosResponse<T>> {
     return this.instance.get(endpoint, { params });
   }
 
@@ -114,7 +117,10 @@ class ApiClient {
     return this.instance.put(endpoint, data);
   }
 
-  async patch<T = any>(endpoint: string, data?: any): Promise<AxiosResponse<T>> {
+  async patch<T = any>(
+    endpoint: string,
+    data?: any
+  ): Promise<AxiosResponse<T>> {
     return this.instance.patch(endpoint, data);
   }
 

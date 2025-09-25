@@ -7,7 +7,13 @@
     "build": "tsc",
     "dev": "tsc --watch"
   },
-  "keywords": ["emergency", "dispatch", "ui", "components", "react"],
+  "keywords": [
+    "emergency",
+    "dispatch",
+    "ui",
+    "components",
+    "react"
+  ],
   "author": "",
   "license": "ISC",
   "peerDependencies": {

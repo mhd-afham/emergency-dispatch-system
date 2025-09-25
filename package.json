@@ -14,7 +14,7 @@
     "install-packages": "cd packages/shared && npm install && cd ../api-client && npm install && cd ../ui-components && npm install",
     "start": "npm run dev",
     "server-only": "cd apps/backend && npm start",
-    "client-only": "cd apps/web && npm start", 
+    "client-only": "cd apps/web && npm start",
     "build": "cd apps/web && npm run build",
     "build-packages": "cd packages/shared && npm run build && cd ../api-client && npm run build && cd ../ui-components && npm run build",
     "test": "cd apps/backend && npm test && cd ../web && npm test"
@@ -33,6 +33,14 @@
       "apps/backend",
       "apps/web", 
       "packages/*"
+    ],
+    "nohoist": [
+      "**/react-native",
+      "**/react-native/**",
+      "**/expo",
+      "**/expo/**",
+      "**/@react-native*",
+      "**/@react-native*/**"
     ]
   },
   "devDependencies": {
