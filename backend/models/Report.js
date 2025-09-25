@@ -1,0 +1,632 @@
+const mongoose = require("mongoose");
+
+const reportSchema = new mongoose.Schema(
+  {
+    // Report Identification
+    reportId: {
+      type: String,
+      required: [true, "Report ID is required"],
+      unique: true,
+      trim: true,
+      match: [/^RPT-\d{4}-\d{6}$/, "Report ID format must be RPT-YYYY-NNNNNN"],
+    },
+    title: {
+      type: String,
+      required: [true, "Report title is required"],
+      trim: true,
+      maxlength: [200, "Title cannot exceed 200 characters"],
+    },
+    type: {
+      type: String,
+      required: [true, "Report type is required"],
+      enum: [
+        "incident_summary",
+        "performance_analysis",
+        "resource_utilization",
+        "response_time",
+        "equipment_status",
+        "crew_performance",
+        "operational_metrics",
+        "compliance_audit",
+        "financial_summary",
+        "maintenance_report",
+        "training_report",
+        "custom",
+      ],
+    },
+    category: {
+      type: String,
+      required: [true, "Report category is required"],
+      enum: [
+        "operational",
+        "administrative",
+        "compliance",
+        "financial",
+        "analytical",
+      ],
+    },
+
+    // Report Content
+    description: {
+      type: String,
+      trim: true,
+      maxlength: [1000, "Description cannot exceed 1000 characters"],
+    },
+    summary: {
+      type: String,
+      trim: true,
+      maxlength: [2000, "Summary cannot exceed 2000 characters"],
+    },
+
+    // Data and Analysis
+    data: {
+      period: {
+        startDate: {
+          type: Date,
+          required: [true, "Start date is required"],
+        },
+        endDate: {
+          type: Date,
+          required: [true, "End date is required"],
+          validate: {
+            validator: function (endDate) {
+              return endDate >= this.data.period.startDate;
+            },
+            message: "End date must be after start date",
+          },
+        },
+      },
+      filters: {
+        stations: [
+          {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Station",
+          },
+        ],
+        incidentTypes: [String],
+        vehicles: [
+          {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Vehicle",
+          },
+        ],
+        crews: [
+          {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Crew",
+          },
+        ],
+        customFilters: {
+          type: mongoose.Schema.Types.Mixed,
+        },
+      },
+      metrics: [
+        {
+          name: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+          value: {
+            type: mongoose.Schema.Types.Mixed,
+            required: true,
+          },
+          unit: {
+            type: String,
+            trim: true,
+          },
+          trend: {
+            type: String,
+            enum: ["up", "down", "stable", "unknown"],
+            default: "unknown",
+          },
+          comparison: {
+            previousValue: mongoose.Schema.Types.Mixed,
+            changePercent: Number,
+            changeDescription: String,
+          },
+        },
+      ],
+      charts: [
+        {
+          type: {
+            type: String,
+            enum: ["line", "bar", "pie", "scatter", "histogram", "heatmap"],
+            required: true,
+          },
+          title: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+          data: {
+            type: mongoose.Schema.Types.Mixed,
+            required: true,
+          },
+          config: {
+            type: mongoose.Schema.Types.Mixed, // Chart configuration options
+          },
+        },
+      ],
+      tables: [
+        {
+          title: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+          headers: [
+            {
+              type: String,
+              required: true,
+            },
+          ],
+          rows: [
+            {
+              type: [mongoose.Schema.Types.Mixed],
+              required: true,
+            },
+          ],
+          summary: String,
+        },
+      ],
+    },
+
+    // Generation Details
+    generation: {
+      method: {
+        type: String,
+        required: [true, "Generation method is required"],
+        enum: ["manual", "scheduled", "automated", "api_request"],
+      },
+      template: {
+        templateId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "ReportTemplate",
+        },
+        templateVersion: String,
+      },
+      parameters: {
+        type: mongoose.Schema.Types.Mixed, // Parameters used to generate report
+      },
+      query: {
+        type: mongoose.Schema.Types.Mixed, // Database queries used
+      },
+      processingTime: {
+        type: Number, // in milliseconds
+        min: 0,
+      },
+    },
+
+    // Status and Workflow
+    status: {
+      current: {
+        type: String,
+        enum: [
+          "draft",
+          "generating",
+          "generated",
+          "reviewed",
+          "approved",
+          "published",
+          "archived",
+          "failed",
+        ],
+        default: "draft",
+      },
+      generatedAt: Date,
+      reviewedAt: Date,
+      reviewedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      approvedAt: Date,
+      approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      publishedAt: Date,
+      archivedAt: Date,
+    },
+
+    // Output Formats
+    outputs: [
+      {
+        format: {
+          type: String,
+          enum: ["pdf", "excel", "csv", "html", "json", "xml"],
+          required: true,
+        },
+        filename: {
+          type: String,
+          required: true,
+        },
+        url: {
+          type: String,
+          required: true,
+        },
+        size: {
+          type: Number, // in bytes
+          min: 0,
+        },
+        generatedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        downloadCount: {
+          type: Number,
+          min: 0,
+          default: 0,
+        },
+      },
+    ],
+
+    // Access Control
+    access: {
+      visibility: {
+        type: String,
+        enum: ["public", "internal", "restricted", "confidential"],
+        default: "internal",
+      },
+      authorizedRoles: [
+        {
+          type: String,
+          enum: ["admin", "dispatcher", "crew_chief", "crew_member"],
+        },
+      ],
+      authorizedUsers: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      accessHistory: [
+        {
+          userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+          },
+          accessedAt: {
+            type: Date,
+            default: Date.now,
+          },
+          action: {
+            type: String,
+            enum: ["view", "download", "share"],
+            required: true,
+          },
+          ipAddress: String,
+          userAgent: String,
+        },
+      ],
+    },
+
+    // Scheduling (for recurring reports)
+    schedule: {
+      isRecurring: {
+        type: Boolean,
+        default: false,
+      },
+      frequency: {
+        type: String,
+        enum: ["daily", "weekly", "monthly", "quarterly", "yearly"],
+      },
+      cronExpression: String,
+      nextRunAt: Date,
+      lastRunAt: Date,
+      isActive: {
+        type: Boolean,
+        default: true,
+      },
+    },
+
+    // Comments and Collaboration
+    comments: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        comment: {
+          type: String,
+          required: true,
+          maxlength: [1000, "Comment cannot exceed 1000 characters"],
+        },
+        commentedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        isInternal: {
+          type: Boolean,
+          default: true,
+        },
+      },
+    ],
+
+    // Distribution
+    distribution: {
+      recipients: [
+        {
+          userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          },
+          email: {
+            type: String,
+            validate: {
+              validator: function (email) {
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+              },
+              message: "Invalid email format",
+            },
+          },
+          method: {
+            type: String,
+            enum: ["email", "dashboard", "download_link"],
+            default: "email",
+          },
+          deliveredAt: Date,
+        },
+      ],
+      distributedAt: Date,
+      distributedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    },
+
+    // Metadata
+    metadata: {
+      tags: [
+        {
+          type: String,
+          trim: true,
+          maxlength: [50, "Tag cannot exceed 50 characters"],
+        },
+      ],
+      customFields: {
+        type: mongoose.Schema.Types.Mixed,
+      },
+      version: {
+        type: String,
+        default: "1.0",
+        match: [/^\d+\.\d+$/, "Version must be in format X.Y"],
+      },
+      previousVersions: [
+        {
+          version: String,
+          reportId: String,
+          createdAt: Date,
+        },
+      ],
+    },
+
+    // Audit Fields
+    audit: {
+      createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+      updatedAt: {
+        type: Date,
+        default: Date.now,
+      },
+      updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    },
+  },
+  {
+    timestamps: true,
+    collection: "reports",
+  }
+);
+
+// Indexes for performance
+reportSchema.index({ reportId: 1 });
+reportSchema.index({ type: 1, category: 1 });
+reportSchema.index({ "status.current": 1 });
+reportSchema.index({ "audit.createdAt": -1 });
+reportSchema.index({ "data.period.startDate": -1, "data.period.endDate": -1 });
+reportSchema.index({ "generation.method": 1 });
+reportSchema.index({ "schedule.nextRunAt": 1 });
+reportSchema.index({ "access.visibility": 1 });
+
+// Compound indexes
+reportSchema.index({ type: 1, "audit.createdAt": -1 });
+reportSchema.index({ "audit.createdBy": 1, "audit.createdAt": -1 });
+reportSchema.index({ category: 1, "status.current": 1 });
+
+// Pre-save middleware
+reportSchema.pre("save", function (next) {
+  this.audit.updatedAt = Date.now();
+
+  // Generate report ID if not provided
+  if (!this.reportId && this.isNew) {
+    const year = new Date().getFullYear();
+    const sequence = String(Date.now()).slice(-6); // Last 6 digits of timestamp
+    this.reportId = `RPT-${year}-${sequence}`;
+  }
+
+  // Validate date range
+  if (this.data && this.data.period) {
+    const { startDate, endDate } = this.data.period;
+    if (endDate < startDate) {
+      return next(new Error("End date must be after start date"));
+    }
+  }
+
+  next();
+});
+
+// Virtual for report age
+reportSchema.virtual("age").get(function () {
+  if (!this.audit.createdAt) return 0;
+  return Math.floor(
+    (Date.now() - this.audit.createdAt) / (1000 * 60 * 60 * 24)
+  ); // Days
+});
+
+// Virtual for data period length
+reportSchema.virtual("periodLength").get(function () {
+  if (!this.data || !this.data.period) return 0;
+  const { startDate, endDate } = this.data.period;
+  return Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)); // Days
+});
+
+// Method to add comment
+reportSchema.methods.addComment = function (
+  userId,
+  comment,
+  isInternal = true
+) {
+  this.comments.push({
+    userId,
+    comment,
+    isInternal,
+    commentedAt: new Date(),
+  });
+
+  return this.save();
+};
+
+// Method to update status
+reportSchema.methods.updateStatus = function (newStatus, userId) {
+  const oldStatus = this.status.current;
+  this.status.current = newStatus;
+
+  const timestamp = new Date();
+
+  switch (newStatus) {
+    case "generated":
+      this.status.generatedAt = timestamp;
+      break;
+    case "reviewed":
+      this.status.reviewedAt = timestamp;
+      this.status.reviewedBy = userId;
+      break;
+    case "approved":
+      this.status.approvedAt = timestamp;
+      this.status.approvedBy = userId;
+      break;
+    case "published":
+      this.status.publishedAt = timestamp;
+      break;
+    case "archived":
+      this.status.archivedAt = timestamp;
+      break;
+  }
+
+  this.audit.updatedBy = userId;
+
+  return this.save();
+};
+
+// Method to add output format
+reportSchema.methods.addOutput = function (format, filename, url, size) {
+  this.outputs.push({
+    format,
+    filename,
+    url,
+    size,
+    generatedAt: new Date(),
+  });
+
+  return this.save();
+};
+
+// Method to record access
+reportSchema.methods.recordAccess = function (
+  userId,
+  action,
+  ipAddress,
+  userAgent
+) {
+  this.access.accessHistory.push({
+    userId,
+    action,
+    ipAddress,
+    userAgent,
+    accessedAt: new Date(),
+  });
+
+  // Update download count
+  if (action === "download") {
+    this.outputs.forEach((output) => {
+      output.downloadCount += 1;
+    });
+  }
+
+  return this.save();
+};
+
+// Static method to find reports by criteria
+reportSchema.statics.findByCriteria = function (criteria) {
+  const query = {};
+
+  if (criteria.type) query.type = criteria.type;
+  if (criteria.category) query.category = criteria.category;
+  if (criteria.status) query["status.current"] = criteria.status;
+  if (criteria.createdBy) query["audit.createdBy"] = criteria.createdBy;
+
+  if (criteria.startDate || criteria.endDate) {
+    query["audit.createdAt"] = {};
+    if (criteria.startDate) query["audit.createdAt"].$gte = criteria.startDate;
+    if (criteria.endDate) query["audit.createdAt"].$lte = criteria.endDate;
+  }
+
+  return this.find(query)
+    .populate("audit.createdBy audit.updatedBy")
+    .sort({ "audit.createdAt": -1 });
+};
+
+// Static method to find scheduled reports
+reportSchema.statics.findScheduledReports = function () {
+  return this.find({
+    "schedule.isRecurring": true,
+    "schedule.isActive": true,
+    "schedule.nextRunAt": { $lte: new Date() },
+  }).sort({ "schedule.nextRunAt": 1 });
+};
+
+// Static method to get report statistics
+reportSchema.statics.getStatistics = function (startDate, endDate) {
+  return this.aggregate([
+    {
+      $match: {
+        "audit.createdAt": {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          type: "$type",
+          status: "$status.current",
+        },
+        count: { $sum: 1 },
+        avgProcessingTime: { $avg: "$generation.processingTime" },
+        totalDownloads: {
+          $sum: {
+            $sum: "$outputs.downloadCount",
+          },
+        },
+      },
+    },
+    {
+      $sort: { "_id.type": 1, "_id.status": 1 },
+    },
+  ]);
+};
+
+module.exports = mongoose.model("Report", reportSchema);
