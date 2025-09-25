@@ -76,7 +76,7 @@ config.resolver.nodeModulesPath = [
     "packages": [
       "apps/backend",
       "apps/web",
-      "apps/mobile",           // ← Now included
+      "apps/mobile", // ← Now included
       "packages/shared",
       "packages/api-client",
       "packages/ui-components" // ← All packages included
@@ -84,11 +84,14 @@ config.resolver.nodeModulesPath = [
   }
 }
 ```
+
       "packages/api-client"
     ]
-  }
+
 }
-```
+}
+
+````
 
 ### **2. Mobile Package Dependencies**
 
@@ -103,7 +106,7 @@ config.resolver.nodeModulesPath = [
     "react-native": "0.81.4"
   }
 }
-```
+````
 
 ### **3. Development Scripts Simplified**
 
