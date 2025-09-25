@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationModal from '../common/NotificationModal';
+import { useNotification } from '../../hooks/useNotification';
 
 interface Incident {
   _id: string;
@@ -32,6 +34,7 @@ interface IncidentListProps {
 
 const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
   const { user } = useAuth();
+  const { notification, showSuccess, showError, showConfirm, hideNotification, handleConfirm } = useNotification();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingIncident, setEditingIncident] = useState<string | null>(null);
@@ -107,80 +110,122 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
         setEditingIncident(null);
         setEditForm({});
         if (onIncidentUpdate) onIncidentUpdate();
+        showSuccess(
+          'Incident Updated Successfully!',
+          'The incident details have been updated and saved.',
+          'Continue'
+        );
       } else {
         const error = await response.json();
-        alert(`Error updating incident: ${error.message}`);
+        showError(
+          'Failed to Update Incident',
+          error.message || 'An error occurred while updating the incident. Please try again.',
+          'Try Again'
+        );
       }
     } catch (error) {
       console.error('Error updating incident:', error);
-      alert('Network error: Failed to update incident');
+      showError(
+        'Connection Error',
+        'Failed to connect to the server. Please check your internet connection and try again.',
+        'Retry'
+      );
     }
   };
 
   const handleCancelIncident = async (incidentId: string) => {
-    if (!window.confirm('Are you sure you want to cancel this incident?')) {
-      return;
-    }
+    const performCancel = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:5000/api/incidents/${incidentId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'cancelled' })
+        });
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/incidents/${incidentId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: 'cancelled' })
-      });
-
-      if (response.ok) {
-        await fetchIncidents(); // Refresh the list
-        if (onIncidentUpdate) onIncidentUpdate();
-        alert('Incident cancelled successfully');
-      } else {
-        const error = await response.json();
-        alert(`Error cancelling incident: ${error.message}`);
+        if (response.ok) {
+          await fetchIncidents(); // Refresh the list
+          if (onIncidentUpdate) onIncidentUpdate();
+          showSuccess(
+            'Incident Cancelled Successfully!',
+            'The incident status has been changed to cancelled.',
+            'Continue'
+          );
+        } else {
+          const error = await response.json();
+          showError(
+            'Failed to Cancel Incident',
+            error.message || 'An error occurred while cancelling the incident. Please try again.',
+            'Try Again'
+          );
+        }
+      } catch (error) {
+        console.error('Error cancelling incident:', error);
+        showError(
+          'Connection Error',
+          'Failed to connect to the server. Please check your internet connection and try again.',
+          'Retry'
+        );
       }
-    } catch (error) {
-      console.error('Error cancelling incident:', error);
-      alert('Network error: Failed to cancel incident');
-    }
+    };
+
+    showConfirm(
+      'Cancel Incident',
+      'Are you sure you want to cancel this incident? This will change the status to cancelled but keep the record.',
+      performCancel,
+      'Cancel Incident',
+      'Keep Active'
+    );
   };
 
   const handlePermanentDelete = async (incidentId: string, incidentIdDisplay: string) => {
-    const confirmMessage = `⚠️ PERMANENT DELETE WARNING ⚠️\n\nAre you absolutely sure you want to permanently delete incident ${incidentIdDisplay}?\n\nThis action CANNOT be undone and will remove all data from the database forever.\n\nType "DELETE" below to confirm:`;
-    
-    const userInput = window.prompt(confirmMessage);
-    
-    if (userInput !== 'DELETE') {
-      if (userInput !== null) { // User didn't cancel, but didn't type DELETE
-        alert('Delete cancelled. You must type "DELETE" exactly to confirm permanent deletion.');
-      }
-      return;
-    }
+    const performDelete = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:5000/api/incidents/${incidentId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/incidents/${incidentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+        if (response.ok) {
+          await fetchIncidents(); // Refresh the list
+          if (onIncidentUpdate) onIncidentUpdate();
+          showSuccess(
+            'Incident Permanently Deleted!',
+            `Incident ${incidentIdDisplay} has been permanently removed from the database.`,
+            'Continue'
+          );
+        } else {
+          const error = await response.json();
+          showError(
+            'Failed to Delete Incident',
+            error.message || 'An error occurred while deleting the incident. Please try again.',
+            'Try Again'
+          );
         }
-      });
-
-      if (response.ok) {
-        await fetchIncidents(); // Refresh the list
-        if (onIncidentUpdate) onIncidentUpdate();
-        alert('Incident permanently deleted from database');
-      } else {
-        const error = await response.json();
-        alert(`Error deleting incident: ${error.message}`);
+      } catch (error) {
+        console.error('Error deleting incident:', error);
+        showError(
+          'Connection Error',
+          'Failed to connect to the server. Please check your internet connection and try again.',
+          'Retry'
+        );
       }
-    } catch (error) {
-      console.error('Error deleting incident:', error);
-      alert('Network error: Failed to delete incident');
-    }
+    };
+
+    showConfirm(
+      '⚠️ Permanent Delete Warning',
+      `Are you absolutely sure you want to permanently delete incident ${incidentIdDisplay}?\n\nThis action CANNOT be undone and will remove all data from the database forever.`,
+      performDelete,
+      'Delete Permanently',
+      'Keep Incident'
+    );
   };
 
   const handleCancelEdit = () => {
@@ -437,6 +482,18 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
           </table>
         </div>
       )}
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        onConfirm={handleConfirm}
+        title={notification.title}
+        message={notification.message}
+        type={notification.type}
+        confirmText={notification.confirmText}
+        cancelText={notification.cancelText}
+      />
     </div>
   );
 };

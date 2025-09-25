@@ -12,7 +12,7 @@ const CallTakerDashboard: React.FC = () => {
     console.log('Incident created successfully:', result);
     setShowIncidentForm(false);
     setRefreshTrigger(prev => prev + 1); // Trigger list refresh
-    alert('Emergency incident created successfully!');
+    // The success notification is now handled by the IncidentForm component
   };
 
   const handleIncidentUpdate = () => {
