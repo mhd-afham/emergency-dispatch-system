@@ -10,11 +10,11 @@ const bcrypt = require("bcryptjs");
 const users = [
   {
     personal: {
-      firstName: "Priya",
-      lastName: "Fernando",
+      firstName: "Mohamed",
+      lastName: "Afham",
       email: "admin@respondr.lk",
       dateOfBirth: new Date("1985-03-15"),
-      gender: "female",
+      gender: "male",
       address: {
         street: "45 Independence Avenue",
         city: "Colombo",
@@ -25,7 +25,7 @@ const users = [
       phone: "+94771234567",
     },
     auth: {
-      password: "Admin123!",
+      password: "admin123",
       role: "Admin",
       employeeId: "EMP000001",
     },
@@ -41,9 +41,9 @@ const users = [
   },
   {
     personal: {
-      firstName: "Kamal",
-      lastName: "Perera",
-      email: "dispatch@respondr.lk",
+      firstName: "Mohamed",
+      lastName: "Afham",
+      email: "dispatcher@respondr.lk",
       dateOfBirth: new Date("1988-07-22"),
       gender: "male",
       address: {
@@ -56,9 +56,71 @@ const users = [
       phone: "+94771234569",
     },
     auth: {
-      password: "Dispatch123!",
+      password: "dispatcher123",
       role: "Dispatcher",
       employeeId: "EMP000002",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+      preferences: {
+        mapZoom: 14,
+        notificationSound: true,
+        theme: "light",
+      },
+    },
+  },
+  {
+    personal: {
+      firstName: "Chirath",
+      lastName: "De Silva",
+      email: "calltaker@respondr.lk",
+      dateOfBirth: new Date("1997-08-27"),
+      gender: "male",
+      address: {
+        street: "45 Galle Road",
+        city: "Colombo",
+        province: "Western Province",
+        postalCode: "00300",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234869",
+    },
+    auth: {
+      password: "calltaker123",
+      role: "Call Taker",
+      employeeId: "EMP000003",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+      preferences: {
+        mapZoom: 14,
+        notificationSound: true,
+        theme: "light",
+      },
+    },
+  },
+  {
+    personal: {
+      firstName: "Julien",
+      lastName: "Spencer",
+      email: "supervisor@respondr.lk",
+      dateOfBirth: new Date("1985-01-13"),
+      gender: "male",
+      address: {
+        street: "45 Galle Road",
+        city: "Colombo",
+        province: "Western Province",
+        postalCode: "00300",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234456",
+    },
+    auth: {
+      password: "supervisor123",
+      role: "Supervisor",
+      employeeId: "EMP000004",
     },
     settings: {
       isActive: true,
