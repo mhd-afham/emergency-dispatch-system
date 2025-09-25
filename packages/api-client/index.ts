@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 
 class ApiClient {
   private instance: AxiosInstance;
+  private authToken: string = '';
 
   constructor(baseURL: string = 'http://localhost:5000') {
     this.instance = axios.create({
@@ -43,8 +44,16 @@ class ApiClient {
   }
 
   private getAuthToken(): string | null {
-    // This will be implemented differently for web vs mobile
-    return localStorage?.getItem('token') || null;
+    // Return the stored token, preference for explicit token over localStorage
+    return this.authToken || localStorage?.getItem('token') || null;
+  }
+
+  public setAuthToken(token: string): void {
+    this.authToken = token;
+  }
+
+  public clearAuthToken(): void {
+    this.authToken = '';
   }
 
   private handleAuthError() {

@@ -7,9 +7,9 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd apps/backend && npm run dev",
     "client": "cd apps/web && npm start",
-    "mobile": "cd apps/mobile && npx react-native start",
-    "android": "cd apps/mobile && npx react-native run-android",
-    "ios": "cd apps/mobile && npx react-native run-ios",
+    "mobile": "cd apps/mobile && npm start",
+    "android": "cd apps/mobile && npm run android",
+    "ios": "cd apps/mobile && npm run ios",
     "install-all": "npm install && cd apps/backend && npm install && cd ../web && npm install",
     "install-packages": "cd packages/shared && npm install && cd ../api-client && npm install && cd ../ui-components && npm install",
     "start": "npm run dev",
@@ -28,10 +28,13 @@
   ],
   "author": "Emergency Dispatch Team",
   "license": "MIT",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "workspaces": {
+    "packages": [
+      "apps/backend",
+      "apps/web", 
+      "packages/*"
+    ]
+  },
   "devDependencies": {
     "concurrently": "^8.2.0"
   }
