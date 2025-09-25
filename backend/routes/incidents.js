@@ -126,6 +126,26 @@ router.put('/:id', (req, res, next) => {
 });
 
 /**
+ * @route   DELETE /api/incidents/:id
+ * @desc    Permanently delete an incident from the database
+ * @access  Call Takers, Dispatchers, Supervisors, Admins (with confirmation required)
+ */
+router.delete('/:id', (req, res, next) => {
+  const allowedRoles = ['Call Taker', 'Dispatcher', 'Supervisor', 'Admin'];
+  
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to permanently delete incidents',
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role
+    });
+  }
+
+  IncidentController.deleteIncident(req, res, next);
+});
+
+/**
  * @route   POST /api/incidents/:id/notes
  * @desc    Add a note to an incident
  * @access  All authenticated users who can view the incident

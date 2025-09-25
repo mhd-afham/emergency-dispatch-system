@@ -138,17 +138,18 @@ const IncidentSchema = new mongoose.Schema({
       enum: ['Western', 'Central', 'Southern', 'Northern', 'Eastern', 'North Western', 'North Central', 'Uva', 'Sabaragamuwa']
     },
     
-    // GPS Coordinates - GeoJSON Point format for geospatial queries
+    // GPS Coordinates - GeoJSON Point format for geospatial queries (optional)
     coordinates: {
       type: {
         type: String,
-        enum: ['Point'],
-        default: 'Point'
+        enum: ['Point']
       },
       coordinates: {
         type: [Number], // [longitude, latitude]
         validate: {
           validator: function(coords) {
+            // Only validate if coordinates are provided
+            if (!coords || coords.length !== 2) return true;
             // Validate coordinates are within Sri Lankan boundaries
             const [lng, lat] = coords;
             return lng >= 79.5 && lng <= 81.9 && lat >= 5.9 && lat <= 9.9;
@@ -273,7 +274,8 @@ const IncidentSchema = new mongoose.Schema({
 });
 
 // Geospatial Index for location-based queries (duplicate detection, nearest unit finding)
-IncidentSchema.index({ "location.coordinates": "2dsphere" });
+// Sparse index - only indexes documents that have coordinates
+IncidentSchema.index({ "location.coordinates": "2dsphere" }, { sparse: true });
 
 // Compound index for efficient querying by status and creation time
 IncidentSchema.index({ status: 1, createdAt: -1 });

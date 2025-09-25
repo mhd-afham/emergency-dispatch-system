@@ -81,6 +81,21 @@ class IncidentController {
       }
 
       // Create the incident
+      const locationData = {
+        address: location.address.trim(),
+        city: location.city.trim(),
+        province: location.province,
+        locationAccuracy: location.locationAccuracy || 'approximate',
+        landmarks: location.landmarks?.trim()
+      };
+
+      // Only add coordinates if they are properly provided
+      if (location.coordinates && location.coordinates.coordinates && 
+          Array.isArray(location.coordinates.coordinates) && 
+          location.coordinates.coordinates.length === 2) {
+        locationData.coordinates = location.coordinates;
+      }
+
       const incident = new Incident({
         callerInfo: {
           name: callerInfo.name.trim(),
@@ -92,14 +107,7 @@ class IncidentController {
         incidentCategory,
         severity: severity || 'medium',
         description: description.trim(),
-        location: {
-          address: location.address.trim(),
-          city: location.city.trim(),
-          province: location.province,
-          coordinates: location.coordinates,
-          locationAccuracy: location.locationAccuracy || 'approximate',
-          landmarks: location.landmarks?.trim()
-        },
+        location: locationData,
         loggedBy: req.user._id,
         possibleDuplicates: possibleDuplicates.map(dup => dup._id),
         estimatedResponseTime,
@@ -360,6 +368,57 @@ class IncidentController {
       res.status(500).json({
         success: false,
         message: 'Failed to update incident',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Permanently delete an incident from the database
+   * DELETE /api/incidents/:id
+   */
+  static async deleteIncident(req, res) {
+    try {
+      const { id } = req.params;
+      
+      console.log('🗑️ Permanently deleting incident:', id);
+
+      // Support both MongoDB ObjectId and custom incident ID
+      const query = mongoose.isValidObjectId(id) 
+        ? { _id: id }
+        : { incidentId: id };
+
+      const incident = await Incident.findOne(query);
+
+      if (!incident) {
+        return res.status(404).json({
+          success: false,
+          message: 'Incident not found'
+        });
+      }
+
+      // Store incident ID for logging before deletion
+      const incidentId = incident.incidentId;
+
+      // Permanently delete the incident from database
+      await Incident.deleteOne(query);
+
+      console.log('✅ Incident permanently deleted:', incidentId);
+
+      res.json({
+        success: true,
+        message: 'Incident permanently deleted from database',
+        data: { 
+          deletedIncidentId: incidentId,
+          deletedAt: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error deleting incident:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete incident',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }

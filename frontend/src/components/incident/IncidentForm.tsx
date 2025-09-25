@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationModal from '../common/NotificationModal';
+import { useNotification } from '../../hooks/useNotification';
 
 /**
  * Emergency Incident Intake Form Component
@@ -50,6 +52,7 @@ interface IncidentFormProps {
 
 const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
 
   // Form state management
   const [isLoading, setIsLoading] = useState(false);
@@ -327,17 +330,33 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
       if (response.ok) {
         // Success
         console.log('✅ Incident created successfully:', result);
-        if (onSuccess) {
-          onSuccess(result);
-        }
+        showSuccess(
+          'Incident Created Successfully!',
+          `Emergency incident ${result.data.incident.incidentId} has been logged and is now pending dispatch.`,
+          'Continue'
+        );
+        // Delay the onSuccess callback to allow user to see the success message
+        setTimeout(() => {
+          if (onSuccess) {
+            onSuccess(result);
+          }
+        }, 2000);
       } else {
         // Error from API
         console.error('❌ Error creating incident:', result);
-        alert(`Error: ${result.message || 'Failed to create incident'}`);
+        showError(
+          'Failed to Create Incident',
+          result.message || 'An error occurred while creating the incident. Please check your information and try again.',
+          'Try Again'
+        );
       }
     } catch (error) {
       console.error('Network error:', error);
-      alert('Network error: Failed to connect to server');
+      showError(
+        'Connection Error',
+        'Failed to connect to the server. Please check your internet connection and try again.',
+        'Retry'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -714,6 +733,18 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
           </button>
         </div>
       </form>
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={hideNotification}
+        onConfirm={hideNotification}
+        title={notification.title}
+        message={notification.message}
+        type={notification.type}
+        confirmText={notification.confirmText}
+        cancelText={notification.cancelText}
+      />
     </div>
   );
 };
