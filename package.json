@@ -34,15 +34,8 @@
       "apps/web",
       "apps/mobile",
       "packages/shared",
-      "packages/api-client"
-    ],
-    "nohoist": [
-      "apps/mobile/**/@react-native-*",
-      "apps/mobile/**/react-native",
-      "apps/mobile/**/react-native-*",
-      "apps/mobile/**/expo",
-      "apps/mobile/**/expo-*",
-      "apps/mobile/**/@expo/*"
+      "packages/api-client",
+      "packages/ui-components"
     ]
   },
   "devDependencies": {
