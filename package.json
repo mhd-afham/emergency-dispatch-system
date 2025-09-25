@@ -31,7 +31,7 @@
   "workspaces": {
     "packages": [
       "apps/backend",
-      "apps/web", 
+      "apps/web",
       "packages/*"
     ],
     "nohoist": [
