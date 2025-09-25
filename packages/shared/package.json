@@ -1,0 +1,16 @@
+{
+  "name": "@emergency-dispatch/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities and constants for Emergency Dispatch System",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["emergency", "dispatch", "shared", "utilities"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

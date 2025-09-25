@@ -1,0 +1,21 @@
+{
+  "name": "@emergency-dispatch/ui-components",
+  "version": "1.0.0",
+  "description": "Shared UI components for Emergency Dispatch System",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["emergency", "dispatch", "ui", "components", "react"],
+  "author": "",
+  "license": "ISC",
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-native": "^0.72.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/react": "^18.0.0"
+  }
+}
