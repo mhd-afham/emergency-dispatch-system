@@ -1,7 +1,7 @@
 # 🔌 Essential VS Code Extensions for Emergency Dispatch System
 
 **Required Extensions for Cross-Platform Development**  
-*Updated: September 25, 2025*
+_Updated: September 25, 2025_
 
 ---
 
@@ -18,7 +18,9 @@ msjsdiag.vscode-react-native,dsznajder.es7-react-js-snippets,expo.vscode-expo-to
 ## 📱 **Extension Details & Purposes**
 
 ### **1. React Native Tools (`msjsdiag.vscode-react-native`)**
+
 **Purpose**: Primary React Native development support
+
 - **Debugging**: Debug React Native apps directly in VS Code
 - **IntelliSense**: Auto-completion for React Native APIs and components
 - **Commands**: Integrated commands for running iOS/Android simulators
@@ -27,9 +29,11 @@ msjsdiag.vscode-react-native,dsznajder.es7-react-js-snippets,expo.vscode-expo-to
 
 **Why Essential**: Core functionality for mobile app development
 
-### **2. ES7+ React Snippets (`dsznajder.es7-react-js-snippets`)**  
+### **2. ES7+ React Snippets (`dsznajder.es7-react-js-snippets`)**
+
 **Purpose**: Productivity enhancement through code snippets
-- **Component Generation**: 
+
+- **Component Generation**:
   - `rafce` → React Arrow Function Component Export
   - `rfc` → React Function Component
   - `useState` → useState hook setup
@@ -39,7 +43,9 @@ msjsdiag.vscode-react-native,dsznajder.es7-react-js-snippets,expo.vscode-expo-to
 **Why Essential**: Dramatically improves development speed for React/React Native
 
 ### **3. Expo Tools (`expo.vscode-expo-tools`)**
+
 **Purpose**: Enhanced Expo development experience
+
 - **Expo IntelliSense**: Auto-completion for Expo SDK APIs
 - **Config Previews**: Preview app.json and eas.json configurations
 - **Build Integration**: EAS (Expo Application Services) integration
@@ -48,7 +54,9 @@ msjsdiag.vscode-react-native,dsznajder.es7-react-js-snippets,expo.vscode-expo-to
 **Why Essential**: Specialized tooling for our Expo-based mobile app
 
 ### **4. ESLint (`dbaeumer.vscode-eslint`)**
+
 **Purpose**: Code quality and consistency enforcement
+
 - **Real-time Linting**: Immediate error and warning detection
 - **Style Enforcement**: Consistent coding standards across team
 - **Auto-fix**: Automatic correction of common issues
@@ -58,7 +66,9 @@ msjsdiag.vscode-react-native,dsznajder.es7-react-js-snippets,expo.vscode-expo-to
 **Why Essential**: Maintains code quality across monorepo
 
 ### **5. Prettier (`esbenp.prettier-vscode`)**
+
 **Purpose**: Automatic code formatting
+
 - **Format on Save**: Consistent code style automatically applied
 - **Multi-language**: Formats TypeScript, JavaScript, JSON, CSS, Markdown
 - **Team Consistency**: Same formatting rules across all developers
@@ -68,7 +78,9 @@ msjsdiag.vscode-react-native,dsznajder.es7-react-js-snippets,expo.vscode-expo-to
 **Why Essential**: Ensures consistent code style across all platforms
 
 ### **6. Android iOS Emulator (`diemasmichiels.emulate`)**
+
 **Purpose**: Device emulator management
+
 - **Quick Access**: Launch Android/iOS emulators from VS Code
 - **Device Management**: Manage multiple virtual devices
 - **Testing Workflow**: Streamlined mobile app testing
@@ -82,12 +94,14 @@ msjsdiag.vscode-react-native,dsznajder.es7-react-js-snippets,expo.vscode-expo-to
 ## 🚀 **Installation Instructions**
 
 ### **Method 1: VS Code Extensions Panel**
+
 1. Open VS Code
 2. Press `Ctrl+Shift+X` (Windows) or `Cmd+Shift+X` (Mac)
 3. Search for each extension by name or ID
 4. Click "Install" for each extension
 
 ### **Method 2: Command Line Installation**
+
 ```bash
 # Install all extensions at once
 code --install-extension msjsdiag.vscode-react-native
@@ -99,7 +113,9 @@ code --install-extension diemasmichiels.emulate
 ```
 
 ### **Method 3: Extensions Quick Install**
+
 Copy this line and paste in VS Code Extensions search:
+
 ```
 @id:msjsdiag.vscode-react-native @id:dsznajder.es7-react-js-snippets @id:expo.vscode-expo-tools @id:dbaeumer.vscode-eslint @id:esbenp.prettier-vscode @id:diemasmichiels.emulate
 ```
@@ -109,7 +125,9 @@ Copy this line and paste in VS Code Extensions search:
 ## 🔧 **Extension Configuration**
 
 ### **1. React Native Tools Configuration**
+
 Create `.vscode/settings.json` in project root:
+
 ```json
 {
   "react-native-tools.projectRoot": "./apps/mobile",
@@ -119,13 +137,17 @@ Create `.vscode/settings.json` in project root:
 ```
 
 ### **2. ESLint Configuration**
+
 Already configured in project:
+
 - Root: `.eslintrc.js` (workspace-wide rules)
 - Web: `apps/web/.eslintrc.js` (React-specific rules)
 - Mobile: Uses Expo's built-in ESLint configuration
 
 ### **3. Prettier Configuration**
+
 Create `.prettierrc` in project root:
+
 ```json
 {
   "semi": true,
@@ -138,11 +160,14 @@ Create `.prettierrc` in project root:
 ```
 
 ### **4. Android Emulator Setup**
+
 For `diemasmichiels.emulate` extension:
+
 1. Install Android Studio
 2. Create Android Virtual Devices (AVD)
 3. Extension will auto-detect available emulators
 4. Configure in VS Code settings:
+
 ```json
 {
   "emulate.android": "/path/to/android-studio/emulator",
@@ -158,7 +183,7 @@ For `diemasmichiels.emulate` extension:
 
 1. **Open Project**: VS Code opens with all extensions loaded
 2. **Start Backend**: Terminal → `npm run server`
-3. **Start Web**: Terminal → `npm run client`  
+3. **Start Web**: Terminal → `npm run client`
 4. **Start Mobile**: Terminal → `npm run mobile`
 5. **Launch Emulator**: Use Android iOS Emulator extension
 6. **Code with IntelliSense**: React Native Tools + ES7 Snippets
@@ -167,6 +192,7 @@ For `diemasmichiels.emulate` extension:
 9. **Debug**: React Native Tools debugger
 
 ### **🎯 Key Keyboard Shortcuts:**
+
 - `Ctrl+Shift+P` → Command palette
 - `rafce` → Create React component
 - `Ctrl+S` → Save + auto-format (Prettier)
@@ -180,21 +206,25 @@ For `diemasmichiels.emulate` extension:
 ### **🤝 How Extensions Work Together:**
 
 **React Native Tools + Expo Tools**:
+
 - React Native Tools handles core RN functionality
 - Expo Tools adds Expo-specific features
 - Together provide complete mobile development environment
 
 **ESLint + Prettier**:
+
 - ESLint catches code quality issues
 - Prettier handles formatting automatically
 - Both work together for complete code quality
 
 **ES7 Snippets + All Extensions**:
+
 - Snippets generate code templates
 - Other extensions provide IntelliSense and validation
 - Results in rapid, high-quality code development
 
 **Android iOS Emulator + React Native Tools**:
+
 - Emulator extension manages device launching
 - React Native Tools handles debugging and development
 - Seamless mobile testing workflow
@@ -206,6 +236,7 @@ For `diemasmichiels.emulate` extension:
 ### **Common Problems & Solutions:**
 
 #### **React Native Tools Not Working:**
+
 ```bash
 # Solution 1: Reload window
 Ctrl+Shift+P → "Developer: Reload Window"
@@ -215,6 +246,7 @@ cd apps/mobile && npx react-native start --reset-cache
 ```
 
 #### **ESLint Not Linting:**
+
 ```bash
 # Check ESLint output panel
 View → Output → Select "ESLint" from dropdown
@@ -224,6 +256,7 @@ Ctrl+Shift+P → "ESLint: Restart ESLint Server"
 ```
 
 #### **Prettier Not Formatting:**
+
 ```json
 // In VS Code settings.json
 {
@@ -233,6 +266,7 @@ Ctrl+Shift+P → "ESLint: Restart ESLint Server"
 ```
 
 #### **Expo Tools Not Recognizing Project:**
+
 ```bash
 # Ensure you're in mobile directory
 cd apps/mobile
@@ -246,6 +280,7 @@ cd apps/mobile
 ## 📊 **Extension Performance Impact**
 
 ### **📈 Resource Usage:**
+
 - **React Native Tools**: Moderate (adds debugging capabilities)
 - **ES7 Snippets**: Minimal (just code snippets)
 - **Expo Tools**: Low (lightweight Expo integration)
@@ -254,6 +289,7 @@ cd apps/mobile
 - **Android Emulator**: Minimal (just UI integration)
 
 ### **⚡ Performance Tips:**
+
 - Disable extensions in non-React projects
 - Use workspace-specific extension recommendations
 - Close unused terminal sessions
@@ -264,18 +300,21 @@ cd apps/mobile
 ## 🎯 **Advanced Extension Features**
 
 ### **React Native Debugging:**
+
 1. Set breakpoints in TypeScript/JavaScript
 2. Press F5 or use Debug panel
 3. Choose "Debug Android" or "Debug iOS"
 4. Full debugging experience in VS Code
 
 ### **Expo Development:**
+
 1. IntelliSense for Expo SDK APIs
 2. Preview app configuration changes
 3. EAS build integration
 4. Expo developer tools integration
 
 ### **Code Quality Automation:**
+
 1. Auto-fix ESLint errors on save
 2. Format code with Prettier automatically
 3. Real-time error highlighting
@@ -286,12 +325,14 @@ cd apps/mobile
 ## 🔄 **Extension Updates & Maintenance**
 
 ### **📅 Regular Maintenance:**
+
 - **Monthly**: Check for extension updates
 - **Project Changes**: Update configurations as needed
 - **Team Sync**: Ensure all developers have same extensions
 - **Performance Review**: Disable unused extensions
 
 ### **🔍 Update Monitoring:**
+
 ```bash
 # Check installed extensions
 code --list-extensions
@@ -305,6 +346,7 @@ Ctrl+Shift+P → "Extensions: Show Outdated Extensions"
 ## 🎉 **Summary**
 
 These 6 essential extensions provide:
+
 - **Complete Mobile Development**: React Native + Expo support
 - **Code Quality**: ESLint + Prettier integration
 - **Developer Productivity**: Snippets + IntelliSense
