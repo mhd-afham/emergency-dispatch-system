@@ -10,14 +10,14 @@
     "mobile": "cd apps/mobile && npm start",
     "android": "cd apps/mobile && npm run android",
     "ios": "cd apps/mobile && npm run ios",
-    "install-all": "npm install && cd apps/backend && npm install && cd ../web && npm install",
-    "install-packages": "cd packages/shared && npm install && cd ../api-client && npm install && cd ../ui-components && npm install",
+    "install-all": "npm install",
     "start": "npm run dev",
     "server-only": "cd apps/backend && npm start",
     "client-only": "cd apps/web && npm start",
     "build": "cd apps/web && npm run build",
-    "build-packages": "cd packages/shared && npm run build && cd ../api-client && npm run build && cd ../ui-components && npm run build",
-    "test": "cd apps/backend && npm test && cd ../web && npm test"
+    "test": "cd apps/backend && npm test && cd ../web && npm test",
+    "workspace:check": "npm list --all",
+    "workspace:audit": "npm audit"
   },
   "keywords": [
     "emergency",
@@ -32,18 +32,21 @@
     "packages": [
       "apps/backend",
       "apps/web",
-      "packages/*"
+      "apps/mobile",
+      "packages/shared",
+      "packages/api-client"
     ],
     "nohoist": [
-      "**/react-native",
-      "**/react-native/**",
-      "**/expo",
-      "**/expo/**",
-      "**/@react-native*",
-      "**/@react-native*/**"
+      "apps/mobile/**/@react-native-*",
+      "apps/mobile/**/react-native",
+      "apps/mobile/**/react-native-*",
+      "apps/mobile/**/expo",
+      "apps/mobile/**/expo-*",
+      "apps/mobile/**/@expo/*"
     ]
   },
   "devDependencies": {
+    "@expo/metro-config": "^54.0.5",
     "concurrently": "^8.2.0"
   }
 }

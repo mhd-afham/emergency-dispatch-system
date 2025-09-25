@@ -82,23 +82,35 @@ A **workspace** is npm's built-in monorepo solution that allows managing multipl
 3. **Cross-Package References**: Packages can depend on each other
 4. **Unified Scripts**: Run commands across all packages from root
 
-#### **🚨 Mobile App Exclusion from Workspace:**
+#### **✅ Mobile App Workspace Integration:**
 
-React Native and Expo have **very specific dependency requirements** that conflict with workspace dependency hoisting:
+The mobile app is now **fully integrated** into the npm workspace using a **Metro monorepo configuration** approach:
 
-**Problems without proper configuration:**
+**Workspace Integration Benefits:**
 
-- React Native expects dependencies in specific locations
-- Metro bundler (RN's JavaScript bundler) gets confused with hoisted deps
-- Expo CLI can't find required packages
-- Native modules fail to link properly
+- **Single `npm install`**: All dependencies managed from root
+- **Direct Package Imports**: `import { API_ENDPOINTS } from '@emergency-dispatch/shared'`
+- **Consistent Versions**: Shared packages use same versions across all apps
+- **Better TypeScript Support**: Full IntelliSense and type resolution
+- **Simplified Development**: Standard workspace commands work for mobile
 
-**Our Solution:**
+**Technical Implementation:**
 
-- **nohoist configuration**: Prevents React Native/Expo from being hoisted
-- **Independent mobile installation**: Mobile app manages its own dependencies
-- **`--no-workspaces` flag**: Used during installations to avoid conflicts
-- **Local package references**: Mobile app still imports shared packages via `file:../../packages/` references
+- **Metro Configuration**: Custom metro.config.js handles workspace module resolution
+- **Targeted Nohoist**: Only essential React Native/Expo packages excluded from hoisting
+- **Workspace Package References**: Direct version references instead of file: paths
+- **Proper Module Resolution**: Metro bundler configured for monorepo support
+
+**Metro Configuration (`apps/mobile/metro.config.js`):**
+
+```javascript
+const config = getDefaultConfig(projectRoot);
+config.watchFolders = [workspaceRoot];
+config.resolver.nodeModulesPath = [
+  path.resolve(projectRoot, "node_modules"),
+  path.resolve(workspaceRoot, "node_modules"),
+];
+```
 
 ---
 
@@ -169,12 +181,14 @@ React Native and Expo have **very specific dependency requirements** that confli
 
 #### **4. Mobile Package.json (`/apps/mobile/package.json`):**
 
-**Purpose**: React Native mobile app dependencies
+**Purpose**: React Native mobile app with workspace integration
 
 ```json
 {
   "name": "@emergency-dispatch/mobile",
   "dependencies": {
+    "@emergency-dispatch/api-client": "^1.0.0", // Workspace package - direct import
+    "@emergency-dispatch/shared": "^1.0.0", // Workspace package - direct import
     "expo": "~54.0.10", // Mobile framework
     "react-native": "0.81.4", // Native platform
     "@react-native-async-storage/async-storage": "^2.2.0", // Secure storage
