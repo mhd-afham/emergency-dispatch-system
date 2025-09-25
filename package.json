@@ -28,15 +28,8 @@
   ],
   "author": "Emergency Dispatch Team",
   "license": "MIT",
-  "workspaces": {
-    "packages": [
-      "apps/backend",
-      "apps/web",
-      "apps/mobile"
-    ]
-  },
+  "private": true,
   "devDependencies": {
-    "@expo/metro-config": "^54.0.5",
     "concurrently": "^8.2.0"
   }
 }
