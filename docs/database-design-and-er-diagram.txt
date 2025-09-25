@@ -14,17 +14,21 @@ No. Name with Initials Student ID Student E-mail Contact Number
 4 D. D. I. Nawanjana IT23857162 it23857162@my.sliit.lk 0702797842
 5 W. P. L. P. Udayanga IT23827158 it23827158@my.sliit.lk 0706362786
 
-Date of Submission: 30.08.2025
+Date of Submission: 24.09.2025
 
 ===============================================================================
 
 Table of Contents
 1. Comprehensive ER Diagram Design
 2. Database Normalization Process (1NF, 2NF, 3NF)
-3. Normalized Relational Schema
+3. Normalized Relational Schema (Academic Reference)
 4. MongoDB-Optimized Design Transformation
-5. Database Implementation with Constraints and Indexes
-6. Justification of Design Decisions
+5. Database Implementation with Constraints and Indexes (Current MongoDB Implementation)
+6. Justification of Design Decisions (Updated for Current Implementation)
+
+===============================================================================
+
+IMPORTANT NOTE: This document reflects the current implementation state where the incident intake management has been partially completed by De Silva (T. H. C. T.) and the dispatch management system is being developed by Afham (M. I. M.). The database design has been updated to align with the actual MongoDB schema implementation and current system requirements.
 
 ===============================================================================
 
@@ -49,201 +53,294 @@ Primary Entities:
 - Report: Post-incident reports and analytics
 - AuditLog: System audit trail for compliance
 
-1.2 Entity Attributes
+1.2 Entity Attributes (Current Implementation Aligned)
 
-User Entity:
-- user_id (Primary Key)
-- email
-- password_hash
-- role (Call Taker, Dispatcher, Field Crew, Supervisor, Admin, Analyst)
-- first_name
-- last_name
-- phone_number
-- is_active
-- last_login
-- created_at
-- updated_at
+User Entity (Matches User.js):
+- user_id (Primary Key - ObjectId)
+- personal.firstName (required, max 100 characters)
+- personal.lastName (required, max 100 characters)
+- personal.email (unique, required, validated format)
+- personal.phone (Sri Lankan format: +94XXXXXXXXX)
+- auth.password (hashed, min 8 characters, select: false)
+- auth.role (Call Taker, Dispatcher, Field Crew, Supervisor, Admin, Citizen)
+- auth.employeeId (sparse unique, format: EMP123456)
+- settings.isActive (default: true)
+- settings.lastLogin
+- settings.loginAttempts (default: 0)
+- settings.lockUntil
+- settings.emailVerified (default: false)
+- settings.resetPasswordToken
+- settings.resetPasswordExpire
+- settings.passwordHistory[]
+- settings.preferences.mapZoom (8-18, default: 12)
+- settings.preferences.notificationSound (default: true)
+- settings.preferences.theme (light, dark, system, default: system)
+- audit.createdBy (ObjectId reference)
+- audit.createdAt, audit.updatedAt, audit.lastPasswordChange
+- createdAt, updatedAt (timestamps)
 
-Incident Entity:
-- incident_id (Primary Key)
-- caller_name
-- caller_phone
-- incident_type (Medical, Fire, Rescue)
-- severity (High, Medium, Low)
-- description
-- status (Reported, Assigned, En Route, On Scene, Cleared, Closed)
-- reported_at
-- closed_at
-- location_latitude
-- location_longitude
+Incident Entity (Matches Incident.js):
+- incident_id (Primary Key - ObjectId)
+- incidentId (Auto-generated string: INC-YYYYMMDD-XXXXX)
+- callerInfo.name (required, 2-100 characters)
+- callerInfo.contactNumber (required, Sri Lankan format validation)
+- callerInfo.alternateContact (optional, Sri Lankan format)
+- callerInfo.reportingMethod (phone_call, mobile_app, sms, walk_in, third_party)
+- incidentType (medical, fire, rescue, hazmat, traffic, other)
+- incidentCategory (validated against incidentType mapping)
+- severity (low, medium, high, critical, default: medium)
+- description (required, 10-1000 characters)
+- location.address (required, max 200 characters)
+- location.city (required, max 50 characters)
+- location.province (Western, Central, Southern, Northern, Eastern, North Western, North Central, Uva, Sabaragamuwa)
+- location.coordinates (GeoJSON Point, Sri Lankan boundaries validated)
+- location.locationAccuracy (exact, approximate, general_area)
+- location.landmarks (max 200 characters)
+- status (pending, assigned, en_route, on_scene, resolved, cancelled, default: pending)
+- loggedBy (required ObjectId reference to User)
+- assignedDispatcher (ObjectId reference to User)
+- assignedResources[] (array with resourceId, assignedAt, status)
+- possibleDuplicates[] (array of ObjectId references)
+- mergedWith (ObjectId reference)
+- notes[] (array with note, addedBy, timestamp)
+- createdAt, updatedAt (timestamps)
+- resolvedAt
+- estimatedResponseTime (1-120 minutes)
+- actualResponseTime
+
+Vehicle Entity (Implementation Structure):
+- vehicle_id (Primary Key - ObjectId)
+- registration.plateNumber (unique, Sri Lankan format)
+- registration.vehicleType (Ambulance, Fire Engine, Rescue Vehicle, Support Vehicle)
+- registration.make
+- registration.model
+- registration.year
+- status.operational (Available, En Route, On Scene, Maintenance, Out of Service)
+- status.currentLocation (GeoJSON Point for GPS tracking)
+- assignment.currentIncidentId (Foreign Key: Incident ObjectId)
+- station.homeStationId (Foreign Key: Station ObjectId)
+- isActive
+- registeredAt (timestamp)
+
+Crew Entity (Implementation Structure):
+- crew_id (Primary Key - ObjectId)  
+- personal.firstName
+- personal.lastName
+- personal.employeeId (unique)
+- personal.email
+- personal.phone (Sri Lankan format)
+- professional.role (EMT, Paramedic, Firefighter, Driver, Supervisor)
+- professional.certificationLevel (Basic, Intermediate, Advanced, Expert)
+- professional.certifications[] (array with type, number, expiry)
+- professional.hireDate
+- currentStatus.availability (Available, On Duty, Off Duty, On Leave, Training)
+- currentStatus.location (GeoJSON Point for GPS tracking)
+- settings.isActive
+- createdAt, updatedAt (timestamps)
+
+Station Entity (Reference Entity):
+- station_id (Primary Key - ObjectId)
+- stationName
 - address
-- location_confirmed
-- created_by (Foreign Key: User)
-- assigned_to (Foreign Key: User - Dispatcher)
+- coordinates (GeoJSON Point - Sri Lankan boundaries)
+- province (Sri Lankan provinces)
+- contactPhone
+- createdAt (timestamp)
 
-Location Entity:
-- location_id (Primary Key)
-- address
-- latitude
-- longitude
-- location_type (Incident, Station, Hospital)
-- verified
-- created_at
+Shift Entity (Scheduling Structure):
+- shift_id (Primary Key - ObjectId)
+- shift.name
+- shift.type (regular, overtime, emergency)
+- schedule.startTime
+- schedule.endTime  
+- schedule.date
+- staffing.requiredCrewCount
+- staffing.assignedCrew[] (array of crew assignments)
+- staffing.assignedVehicles[] (array of vehicle assignments)
+- supervision.supervisorId (Foreign Key: User ObjectId)
+- status.current (planned, active, completed, cancelled)
+- audit.createdBy, audit.createdAt, audit.updatedAt
 
-Vehicle Entity:
-- vehicle_id (Primary Key)
-- plate_number
-- vehicle_type (Ambulance, Fire Engine, Rescue)
-- make
-- model
-- year
-- status (Available, En Route, On Scene, Maintenance, Out of Service)
-- current_latitude
-- current_longitude
-- last_location_update
-- station_location_id (Foreign Key: Location)
-- is_active
-- registered_at
-- approved_by (Foreign Key: User)
+Assignment Entity (Dispatch Operations):
+- assignment_id (Primary Key - ObjectId)
+- incident.incidentId (Foreign Key: Incident ObjectId)
+- resource.vehicleId (Foreign Key: Vehicle ObjectId)
+- resource.primaryCrewId (Foreign Key: Crew ObjectId)
+- dispatch.assignedBy (Foreign Key: User ObjectId)
+- dispatch.assignedAt (timestamp)
+- response.status (assigned, accepted, declined, en_route, on_scene, completed, cancelled)
+- response.acceptedAt, response.enRouteAt, response.onSceneAt, response.completedAt
+- performance.responseTime (seconds)
+- performance.arrivalTime (seconds)
+- audit.createdAt, audit.updatedAt
 
-Crew Entity:
-- crew_id (Primary Key)
-- employee_id
-- first_name
-- last_name
-- role (EMT, Paramedic, Firefighter, Driver)
-- phone_number
-- email
-- certification_level
-- certification_expiry
-- hire_date
-- is_active
-- created_by (Foreign Key: User)
+Communication Entity (Notification System):
+- communication_id (Primary Key - ObjectId)
+- target.type (incident, crew, citizen, supervisor)
+- target.incidentId (Foreign Key: Incident)
+- target.recipientId (User/Crew ID)
+- target.recipientPhone
+- target.recipientEmail
+- message.type (sms, push_notification, email, radio)
+- message.template (incident_assigned, status_update, arrival_eta, etc.)
+- message.content
+- message.priority (low, normal, high, critical)
+- delivery.status (pending, sent, delivered, failed, read)
+- delivery.sentAt
+- delivery.deliveredAt
+- delivery.readAt
+- delivery.failureReason
+- delivery.retryCount
+- metadata.sender (Foreign Key: User)
+- metadata.source (system, manual, automated)
+- metadata.contextData
+- audit.createdAt
 
-Shift Entity:
-- shift_id (Primary Key)
-- shift_name
-- start_time
-- end_time
-- date
-- required_crew_count
-- required_roles
-- status (Planned, Active, Completed)
-- supervisor_id (Foreign Key: User)
-- created_at
+EquipmentCheck Entity (Vehicle Inspection):
+- check_id (Primary Key - ObjectId)
+- vehicleId (Foreign Key: Vehicle ObjectId)
+- crewId (Foreign Key: Crew ObjectId)
+- templateId (Foreign Key: EquipmentChecklistTemplate ObjectId)
+- inspection.overallStatus (pass, fail, conditional)
+- inspection.checkResults[] (array of individual check items)
+- location.coordinates (GeoJSON Point where check performed)
+- timing.startedAt, timing.completedAt, timing.duration
+- signatures.crewMember, signatures.supervisor
+- audit.createdBy, audit.createdAt
 
-Equipment Entity:
-- equipment_id (Primary Key)
-- equipment_name
-- equipment_type
-- serial_number
-- vehicle_id (Foreign Key: Vehicle)
-- status (Operational, Maintenance, Out of Service)
-- last_check_date
-- next_maintenance_date
+AuditLog Entity (Compliance Tracking):
+- audit_id (Primary Key - ObjectId)
+- activity.userId (Foreign Key: User ObjectId)
+- activity.action (create, read, update, delete, login, logout, assign, approve)
+- activity.entityType (incident, vehicle, crew, assignment, user)
+- activity.entityId
+- activity.description
+- changes.beforeState (JSON)
+- changes.afterState (JSON)
+- changes.modifiedFields (array)
+- context.sessionId
+- context.ipAddress
+- context.userAgent
+- context.geolocation (GeoJSON Point)
+- context.timestamp
+- security.riskLevel (low, medium, high)
+- security.flags (unauthorized_access, privilege_escalation, etc.)
+- metadata.source (web, mobile, api)
+- metadata.correlationId
+- retention.expiresAt (for data retention policies)
 
-EquipmentChecklistTemplate Entity:
-- template_id (Primary Key)
-- vehicle_type
-- checklist_name
-- checklist_items (JSON array)
-- is_active
-- created_at
-- updated_at
-
-EquipmentCheck Entity:
-- check_id (Primary Key)
-- vehicle_id (Foreign Key: Vehicle)
-- crew_id (Foreign Key: Crew)
-- template_id (Foreign Key: EquipmentChecklistTemplate)
-- check_results (JSON)
-- overall_status (Pass, Fail)
-- check_location_latitude
-- check_location_longitude
-- checked_at
-- issues_reported
-
+EquipmentCheck Entity (Vehicle Inspection):
+- check_id (Primary Key - ObjectId)
+- vehicleId (Foreign Key: Vehicle ObjectId)
+- crewId (Foreign Key: Crew ObjectId)
+- templateId (Foreign Key: EquipmentChecklistTemplate ObjectId)
+- inspection.checkResults (array with item, status, notes, photos)
+- inspection.overallStatus (pass, fail, conditional)
+- inspection.criticalIssues (array of critical failures)
+- inspection.recommendedActions
+- location.coordinates (GeoJSON Point)
+- location.address
+- timing.startedAt
+- timing.completedAt
+- timing.duration
+- signatures.crewMember
+- signatures.supervisor
+- audit.createdBy (Foreign Key: User)
+- audit.createdAt
 Assignment Entity:
-- assignment_id (Primary Key)
-- incident_id (Foreign Key: Incident)
-- vehicle_id (Foreign Key: Vehicle)
-- crew_id (Foreign Key: Crew)
-- assigned_by (Foreign Key: User)
-- assigned_at
-- accepted_at
-- response_time_seconds
-- arrival_time
-- cleared_at
-- status (Assigned, Accepted, Declined, En Route, Arrived, Cleared)
-
-Communication Entity:
-- communication_id (Primary Key)
-- incident_id (Foreign Key: Incident)
-- recipient_phone
-- message_type (SMS, Push Notification)
-- message_content
-- delivery_status (Sent, Delivered, Failed)
-- sent_at
-- delivered_at
+- assignment_id (Primary Key - ObjectId)
+- incident.incidentId (Foreign Key: Incident)
+- resource.vehicleId (Foreign Key: Vehicle)
+- resource.primaryCrewId (Foreign Key: Crew)
+- resource.additionalCrew (array of Crew references)
+- dispatch.assignedBy (Foreign Key: User)
+- dispatch.assignedAt
+- dispatch.priority (routine, urgent, emergency)
+- dispatch.estimatedArrivalTime
+- response.status (assigned, accepted, declined, en_route, on_scene, completed, cancelled)
+- response.acceptedAt
+- response.declinedAt
+- response.declineReason
+- response.enRouteAt
+- response.onSceneAt
+- response.completedAt
+- performance.responseTime (seconds)
+- performance.arrivalTime
+- performance.onSceneTime
+- performance.totalDuration
+- location.dispatchLocation (GeoJSON Point)
+- location.arrivalLocation (GeoJSON Point)
+- communication.notifications (array of notification records)
+- communication.updates (array of status updates)
+- audit.createdAt
+- audit.updatedAt
 
 Report Entity:
-- report_id (Primary Key)
-- incident_id (Foreign Key: Incident)
-- created_by (Foreign Key: User)
-- report_type (Post-Incident, Performance, Analytics)
-- content
-- attachments (JSON array)
-- created_at
-- approved_by (Foreign Key: User)
-- approved_at
+- report_id (Primary Key - ObjectId)
+- incident.incidentId (Foreign Key: Incident)
+- report.type (incident_summary, performance_analysis, equipment_check, shift_report)
+- report.title
+- report.summary
+- report.content (structured data)
+- report.findings
+- report.recommendations
+- attachments.files (array with filename, type, size, url)
+- attachments.photos (array of image metadata)
+- attachments.documents (array of document references)
+- workflow.createdBy (Foreign Key: User)
+- workflow.reviewedBy (Foreign Key: User)
+- workflow.approvedBy (Foreign Key: User)
+- workflow.status (draft, submitted, under_review, approved, published)
+- timing.createdAt
+- timing.reviewedAt
+- timing.approvedAt
+- timing.publishedAt
+- access.visibility (private, team, department, public)
+- access.permissions (view, edit, approve)
+- audit.version
+- audit.revisionHistory
 
-AuditLog Entity:
-- audit_id (Primary Key)
-- user_id (Foreign Key: User)
-- action (Create, Update, Delete, Login, Logout)
-- entity_type
-- entity_id
-- old_values (JSON)
-- new_values (JSON)
-- timestamp
-- ip_address
+1.3 Relationship Analysis (Current MongoDB Implementation)
 
-1.3 Relationship Analysis
+Document Embedding Relationships (One-to-Many embedded in parent):
+- Incident → callerInfo (embedded caller details)
+- Incident → location (embedded GeoJSON coordinates and address)
+- Incident → duplicateChecks[] (embedded array of duplicate detection results)
+- Incident → statusHistory[] (embedded array of status changes)
+- User → personal (embedded personal information)
+- User → auth (embedded authentication details)  
+- User → settings (embedded user preferences)
+- Vehicle → registration (embedded vehicle registration details)
+- Vehicle → status (embedded current operational status)
+- Vehicle → assignment (embedded current incident assignment)
+- Crew → personal (embedded personal details)
+- Crew → professional (embedded role and certifications)
+- Crew → currentStatus (embedded availability and location)
+- Shift → schedule (embedded shift timing details)
+- Shift → staffing (embedded crew and vehicle assignments)
 
-One-to-Many Relationships:
-- User → Incident (created_by)
-- User → Vehicle (approved_by)
-- User → Crew (created_by)
-- User → Shift (supervisor_id)
-- User → Assignment (assigned_by)
-- User → Report (created_by)
-- User → AuditLog (user_id)
-- Vehicle → Equipment (vehicle_id)
-- Vehicle → EquipmentCheck (vehicle_id)
-- Vehicle → Assignment (vehicle_id)
-- Incident → Assignment (incident_id)
-- Incident → Communication (incident_id)
-- Incident → Report (incident_id)
-- Crew → EquipmentCheck (crew_id)
-- Crew → Assignment (crew_id)
-- EquipmentChecklistTemplate → EquipmentCheck (template_id)
-- Location → Vehicle (station_location_id)
+Reference Relationships (Foreign Key ObjectId references):
+- Incident.loggedBy → User._id (who logged the incident)
+- Vehicle.assignment.currentIncidentId → Incident._id (current assignment)
+- Assignment.incident.incidentId → Incident._id (assigned incident)
+- Assignment.resource.vehicleId → Vehicle._id (assigned vehicle)
+- Assignment.resource.crewId → Crew._id (assigned crew)
+- Communication.target.incidentId → Incident._id (related incident)
+- Communication.target.recipientId → User._id (message recipient)
+- EquipmentCheck.vehicleId → Vehicle._id (vehicle being checked)
+- EquipmentCheck.crewId → Crew._id (crew performing check)
+- AuditLog.activity.userId → User._id (user who performed action)
 
-Many-to-Many Relationships:
-- Crew ↔ Shift (through CrewShiftAssignment junction table)
-- Vehicle ↔ Shift (through VehicleShiftAssignment junction table)
+Array References (Multiple ObjectId references in arrays):
+- Shift.staffing.assignedCrew[].crewId → Crew._id (assigned crew members)
+- Shift.staffing.assignedVehicles[].vehicleId → Vehicle._id (assigned vehicles)
+- Assignment.resource.crewMembers[] → Crew._id (multiple crew members)
 
-Junction Tables:
-CrewShiftAssignment:
-- crew_id (Foreign Key: Crew)
-- shift_id (Foreign Key: Shift)
-- assigned_at
-- status (Assigned, Confirmed, Completed)
-
-VehicleShiftAssignment:
-- vehicle_id (Foreign Key: Vehicle)
-- shift_id (Foreign Key: Shift)
-- assigned_at
+MongoDB Implementation Benefits:
+- Embedded relationships eliminate joins for frequently accessed data
+- Reference relationships maintain data consistency for normalized entities
+- Array references support many-to-many relationships efficiently
+- Mixed approach optimizes for both performance and data integrity
 - status (Assigned, Active, Completed)
 
 ===============================================================================
@@ -268,43 +365,72 @@ Problems in 0NF:
 - Insertion anomalies
 - Deletion anomalies
 
-2.2 First Normal Form (1NF)
+2.2 First Normal Form (1NF) - Based on Current Implementation
 
 Objective: Eliminate repeating groups and ensure atomic values.
 
-Rules Applied:
-1. Each cell contains only atomic (indivisible) values
-2. Each column contains values of the same type
-3. Each row is unique
-4. No repeating groups or arrays
+Before normalization, we identify the unnormalized table that would contain all emergency dispatch data:
 
-Transformation Steps:
+Emergency_Dispatch_Unnormalized:
+incident_id | incident_type | severity | description | status | caller_name | caller_phone | 
+caller_address | location_address | location_coordinates | location_province | duplicate_incidents |
+status_changes | logged_by_user | logged_by_name | logged_by_role | assigned_vehicle_id | 
+vehicle_plate | vehicle_type | vehicle_status | crew_member_names | crew_roles | 
+equipment_items | equipment_status
+
+Issues with Unnormalized Form:
+- Multiple values in single cells (duplicate_incidents, status_changes, crew_member_names)
+- Repeating groups (multiple crew members, equipment items)
+- Non-atomic values (location_coordinates as compound value)
+
+Transformation to 1NF:
 1. Separate repeating groups into individual rows
-2. Create unique identifiers for each row
+2. Create unique identifiers for each entity
 3. Ensure all attributes are atomic
+4. Maintain current implementation structure
 
-Result - Tables in 1NF:
+Result - Tables in 1NF (Based on Current Schema):
 
 Incident_1NF:
-incident_id | caller_name | caller_phone | incident_type | severity | description | 
-address | latitude | longitude | dispatcher_name | dispatcher_phone | report_content
+incident_id | incidentId | incident_type (medical, fire, rescue, hazmat, traffic, other) | 
+incident_category | severity (low, medium, high, critical) | description | 
+status (pending, assigned, en_route, on_scene, resolved, cancelled) | 
+caller_name | caller_phone | caller_alternate | caller_reporting_method |
+location_address | location_city | location_lat | location_lng | location_province | 
+location_accuracy | location_landmarks | logged_by_user_id | assigned_dispatcher_id |
+created_at | updated_at | resolved_at | estimated_response_time | actual_response_time
 
-VehicleAssignment_1NF:
-assignment_id | incident_id | vehicle_plate | vehicle_type | vehicle_make | vehicle_model
+User_1NF:
+user_id | first_name | last_name | email | phone | employee_id | password_hash |
+role (Call Taker, Dispatcher, Field Crew, Supervisor, Admin, Citizen) | 
+is_active | last_login | login_attempts | lock_until | email_verified | 
+map_zoom | notification_sound | theme | created_at | updated_at
 
-CrewAssignment_1NF:
-crew_assignment_id | assignment_id | crew_name | crew_role | crew_phone
+Vehicle_1NF:
+vehicle_id | plate_number | vehicle_type | make | model | year | 
+operational_status | current_location_lat | current_location_lng | 
+assigned_incident_id
 
-EquipmentStatus_1NF:
-equipment_status_id | assignment_id | equipment_name | equipment_status
+Assignment_1NF:
+assignment_id | incident_id | resource_id | assigned_at | status | completed_at
+
+DuplicateCheck_1NF:
+duplicate_id | incident_id | possible_duplicate_id | checked_at
+
+StatusHistory_1NF (Embedded in incident as notes array):
+note_id | incident_id | note_content | added_by_user_id | timestamp
 
 Achievements:
+✅ Eliminated repeating groups (duplicate incidents separated)
+✅ All values are atomic (coordinates split into lat/lng)
+✅ Each row is uniquely identifiable
+✅ Matches current implementation structure with correct enum values
 ✅ Eliminated repeating groups
 ✅ All values are atomic
 ✅ Each row is uniquely identifiable
 ✅ Columns contain homogeneous data types
 
-2.3 Second Normal Form (2NF)
+2.3 Second Normal Form (2NF) - Current Implementation Analysis
 
 Objective: Eliminate partial dependencies on composite primary keys.
 
@@ -313,59 +439,59 @@ Rules Applied:
 2. All non-key attributes must be fully functionally dependent on the entire primary key
 3. No partial dependencies
 
-Analysis of Functional Dependencies:
+Analysis of Functional Dependencies in Current Schema:
 
-In VehicleAssignment_1NF:
-- assignment_id → incident_id (full dependency)
-- assignment_id → vehicle_plate (full dependency)
-- vehicle_plate → vehicle_type, vehicle_make, vehicle_model (partial dependency - problem!)
+In Assignment_1NF (composite key: assignment_id):
+- assignment_id → incident_id, vehicle_id, crew_id (full dependency - correct)
+- assignment_id → assigned_at, assigned_by, dispatch_status (full dependency - correct)
+- vehicle_id → plate_number, vehicle_type, make, model (partial dependency - needs separation)
+- crew_id → first_name, last_name, role, certification_level (partial dependency - needs separation)
 
-In CrewAssignment_1NF:
-- crew_assignment_id → assignment_id, crew_name (full dependency)
-- crew_name → crew_role, crew_phone (transitive dependency - will handle in 3NF)
+In StatusHistory_1NF:
+- status_id → incident_id, previous_status, new_status (full dependency - correct)
+- changed_by_user_id → user details (would create partial dependency if included)
 
 Transformation Steps:
-1. Identify partial dependencies
-2. Create separate tables for partially dependent attributes
-3. Reference using foreign keys
+1. Separate vehicle attributes from assignment table
+2. Separate crew attributes from assignment table  
+3. Separate user attributes from incident and status tables
+4. Use foreign keys to maintain relationships
 
-Result - Tables in 2NF:
+Result - Tables in 2NF (Matching Current Implementation):
 
 Incident_2NF:
-incident_id (PK) | caller_name | caller_phone | incident_type | severity | description | 
-address | latitude | longitude | dispatcher_id
+incident_id (PK) | incidentId | incident_type (medical, fire, rescue, hazmat, traffic, other) | 
+incident_category | severity (low, medium, high, critical) | description | 
+status (pending, assigned, en_route, on_scene, resolved, cancelled) | 
+caller_name | caller_phone | caller_alternate | caller_reporting_method |
+location_address | location_city | location_lat | location_lng | location_province | 
+location_accuracy | location_landmarks | logged_by_user_id (FK) | assigned_dispatcher_id (FK) |
+created_at | updated_at | resolved_at | estimated_response_time | actual_response_time
 
 User_2NF:
-user_id (PK) | name | phone | role
+user_id (PK) | first_name | last_name | email | phone | employee_id | password_hash |
+role (Call Taker, Dispatcher, Field Crew, Supervisor, Admin, Citizen) | 
+is_active | last_login | login_attempts | lock_until | email_verified | 
+map_zoom | notification_sound | theme (light, dark, system) | created_at | updated_at
 
-Vehicle_2NF:
-vehicle_id (PK) | plate_number | vehicle_type | make | model
+AssignedResource_2NF:
+resource_id (PK) | incident_id (FK) | vehicle_id (FK) | assigned_at | 
+status (assigned, en_route, on_scene, completed)
 
-Assignment_2NF:
-assignment_id (PK) | incident_id (FK) | vehicle_id (FK)
+PossibleDuplicate_2NF:
+duplicate_id (PK) | incident_id (FK) | possible_duplicate_incident_id (FK)
 
-CrewAssignment_2NF:
-crew_assignment_id (PK) | assignment_id (FK) | crew_id (FK)
-
-Crew_2NF:
-crew_id (PK) | crew_name | crew_role | crew_phone
-
-Equipment_2NF:
-equipment_id (PK) | equipment_name | vehicle_id (FK)
-
-EquipmentStatus_2NF:
-status_id (PK) | equipment_id (FK) | assignment_id (FK) | status
-
-Report_2NF:
-report_id (PK) | incident_id (FK) | content
+IncidentNote_2NF:
+note_id (PK) | incident_id (FK) | note_content | added_by_user_id (FK) | timestamp
 
 Achievements:
 ✅ Eliminated partial dependencies
-✅ Vehicle attributes properly separated
+✅ User attributes properly separated
 ✅ All non-key attributes fully dependent on primary key
-✅ Reduced data redundancy
+✅ Foreign key relationships established with correct enum values
+✅ Structure aligns with current MongoDB implementation approach
 
-2.4 Third Normal Form (3NF)
+2.4 Third Normal Form (3NF) - Current Implementation Aligned
 
 Objective: Eliminate transitive dependencies.
 
@@ -374,79 +500,99 @@ Rules Applied:
 2. No transitive dependencies (non-key attribute depending on another non-key attribute)
 3. All non-key attributes directly dependent on primary key only
 
-Analysis of Transitive Dependencies:
+Analysis of Transitive Dependencies in Current Schema:
 
 In Incident_2NF:
-- incident_id → address → latitude, longitude (transitive dependency)
+- incident_id → location_province (direct dependency - correct)
+- incident_id → caller_address → location details (potential transitive, but kept embedded for performance)
+
+In User_2NF:
+- user_id → role → department (transitive dependency - needs separation)
+- user_id → employee_id → department (transitive dependency)
+
+In Vehicle_2NF:
+- vehicle_id → station_id → station_name, station_address (transitive dependency)
 
 In Crew_2NF:
-- crew_id → crew_role → responsibilities, certification_requirements (potential transitive)
+- crew_id → role → certification_requirements (transitive dependency)
 
-Transformation Steps:
-1. Identify transitive dependencies
-2. Create separate tables for transitively dependent attributes
-3. Use foreign keys to maintain relationships
+Transformation Steps (Academic 3NF):
+1. Separate role information from user table
+2. Separate station information from vehicle table
+3. Separate certification requirements from crew table
+4. Create lookup tables for enhanced data integrity
 
-Result - Tables in 3NF:
+Result - Tables in 3NF (Current Implementation Structure):
 
 User_3NF:
-user_id (PK) | email | password_hash | first_name | last_name | phone | role | is_active | last_login | created_at
+user_id (PK) | first_name | last_name | email | phone | employee_id | role_id (FK) | 
+is_active | last_login | created_at | updated_at
+
+Role_3NF:
+role_id (PK) | role_name | permissions | department | created_at
 
 Incident_3NF:
-incident_id (PK) | caller_name | caller_phone | incident_type | severity | description | 
-location_id (FK) | status | reported_at | created_by (FK) | assigned_to (FK)
-
-Location_3NF:
-location_id (PK) | address | latitude | longitude | location_type | verified | created_at
+incident_id (PK) | incident_type | severity | description | status | caller_name | 
+caller_phone | caller_address | location_address | location_lat | location_lng | 
+location_province | logged_by_user_id (FK) | created_at | updated_at
 
 Vehicle_3NF:
-vehicle_id (PK) | plate_number | vehicle_type | make | model | year | status | 
-current_latitude | current_longitude | station_location_id (FK) | is_active | registered_at
+vehicle_id (PK) | plate_number | vehicle_type | make | model | year | 
+operational_status | current_location_lat | current_location_lng | station_id (FK) | 
+is_active | registered_at
+
+Station_3NF:
+station_id (PK) | station_name | address | latitude | longitude | province | 
+contact_phone | created_at
 
 Crew_3NF:
-crew_id (PK) | employee_id | first_name | last_name | role | phone | email | 
-certification_level | certification_expiry | hire_date | is_active
-
-Equipment_3NF:
-equipment_id (PK) | equipment_name | equipment_type | serial_number | vehicle_id (FK) | 
-status | last_check_date
+crew_id (PK) | first_name | last_name | employee_id | role_id (FK) | phone | email | 
+certification_level | certification_expiry | availability_status | 
+current_location_lat | current_location_lng | hire_date | is_active
 
 Assignment_3NF:
-assignment_id (PK) | incident_id (FK) | vehicle_id (FK) | crew_id (FK) | assigned_by (FK) | 
-assigned_at | status | response_time_seconds
+assignment_id (PK) | incident_id (FK) | vehicle_id (FK) | assigned_by (FK) | 
+assigned_at | dispatch_status | response_time | arrival_time | completion_time
 
-EquipmentCheck_3NF:
-check_id (PK) | vehicle_id (FK) | crew_id (FK) | template_id (FK) | overall_status | 
-check_location_latitude | check_location_longitude | checked_at
+DuplicateCheck_3NF:
+duplicate_id (PK) | incident_id (FK) | potential_duplicate_id (FK) | 
+similarity_score | check_result | algorithm_used | checked_at
 
-EquipmentChecklistTemplate_3NF:
-template_id (PK) | vehicle_type | checklist_name | is_active | created_at
+StatusHistory_3NF:
+status_id (PK) | incident_id (FK) | previous_status | new_status | 
+changed_at | changed_by_user_id (FK) | reason
 
 Communication_3NF:
-communication_id (PK) | incident_id (FK) | recipient_phone | message_type | message_content | 
-delivery_status | sent_at | delivered_at
-
-Report_3NF:
-report_id (PK) | incident_id (FK) | created_by (FK) | report_type | content | created_at | 
-approved_by (FK)
-
-Shift_3NF:
-shift_id (PK) | shift_name | start_time | end_time | date | required_crew_count | 
-supervisor_id (FK) | status | created_at
-
-CrewShiftAssignment_3NF:
-crew_id (FK) | shift_id (FK) | assigned_at | status
+communication_id (PK) | incident_id (FK) | sender_id (FK) | recipient_id (FK) | 
+message_type | content | sent_at | delivery_status | priority
 
 AuditLog_3NF:
-audit_id (PK) | user_id (FK) | action | entity_type | entity_id | timestamp | ip_address
+audit_id (PK) | user_id (FK) | entity_type | entity_id | action | 
+old_values | new_values | timestamp | ip_address
+
+Shift_3NF:
+shift_id (PK) | shift_name | start_time | end_time | supervisor_id (FK) | 
+shift_date | status | created_at
+
+CrewShiftAssignment_3NF:
+assignment_id (PK) | crew_id (FK) | shift_id (FK) | assigned_at | 
+assignment_status | confirmed_at
+
+Equipment_3NF:
+equipment_id (PK) | equipment_name | equipment_type | serial_number | 
+vehicle_id (FK) | status | last_maintenance_date
+
+EquipmentCheck_3NF:
+check_id (PK) | equipment_id (FK) | crew_id (FK) | check_date | 
+check_result | notes | next_check_due
 
 Achievements:
-✅ Eliminated transitive dependencies
-✅ Location data properly normalized
-✅ All tables in 3NF
-✅ Minimized data redundancy
-✅ Improved data integrity
-✅ Reduced update, insert, and delete anomalies
+✅ Eliminated all transitive dependencies
+✅ Role-based permissions properly separated
+✅ Station information normalized
+✅ Equipment maintenance tracking separated
+✅ All entities in 3NF while maintaining performance considerations
+✅ Structure supports current MongoDB implementation approach
 
 2.5 Normalization Benefits Achieved
 
@@ -467,90 +613,125 @@ Maintenance Benefits:
 
 ===============================================================================
 
-3. Normalized Relational Schema
+3. Normalized Relational Schema (Academic Reference)
 
-3.1 Final Normalized Table Structures
+3.1 Final Normalized Table Structures (Current Implementation Aligned)
 
 User Table:
 CREATE TABLE User (
     user_id VARCHAR(24) PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20),
-    role ENUM('Call Taker', 'Dispatcher', 'Field Crew', 'Supervisor', 'Admin', 'Analyst') NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(15), -- Sri Lankan phone format: +94XXXXXXXXX
+    password_hash VARCHAR(255) NOT NULL, -- Bcrypt hash
+    role ENUM('Call Taker', 'Dispatcher', 'Field Crew', 'Supervisor', 'Admin', 'Citizen') NOT NULL,
+    employee_id VARCHAR(10) UNIQUE, -- Format: EMP123456, sparse (can be null)
     is_active BOOLEAN DEFAULT TRUE,
     last_login TIMESTAMP,
+    login_attempts INT DEFAULT 0,
+    lock_until TIMESTAMP NULL,
+    email_verified BOOLEAN DEFAULT FALSE,
+    reset_password_token VARCHAR(255),
+    reset_password_expire TIMESTAMP,
+    map_zoom INT DEFAULT 12, -- 8-18 range
+    notification_sound BOOLEAN DEFAULT TRUE,
+    theme ENUM('light', 'dark', 'system') DEFAULT 'system',
+    created_by VARCHAR(24),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_password_change TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES User(user_id)
 );
 
-Location Table:
-CREATE TABLE Location (
-    location_id VARCHAR(24) PRIMARY KEY,
+Role Table:
+CREATE TABLE Role (
+    role_id VARCHAR(24) PRIMARY KEY,
+    role_name ENUM('Call Taker', 'Dispatcher', 'Field Crew', 'Supervisor', 'Admin', 'Citizen') NOT NULL,
+    permissions JSON, -- Role-based permissions
+    department VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+Station Table:
+CREATE TABLE Station (
+    station_id VARCHAR(24) PRIMARY KEY,
+    station_name VARCHAR(100) NOT NULL,
     address TEXT NOT NULL,
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
-    location_type ENUM('Incident', 'Station', 'Hospital') NOT NULL,
-    verified BOOLEAN DEFAULT FALSE,
+    latitude DECIMAL(10, 8) NOT NULL, -- Sri Lankan coordinate range
+    longitude DECIMAL(11, 8) NOT NULL, -- Sri Lankan coordinate range  
+    province ENUM('Western', 'Central', 'Southern', 'Northern', 'Eastern', 
+                 'North Western', 'North Central', 'Uva', 'Sabaragamuwa') NOT NULL,
+    contact_phone VARCHAR(15),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 Incident Table:
 CREATE TABLE Incident (
     incident_id VARCHAR(24) PRIMARY KEY,
-    caller_name VARCHAR(255),
-    caller_phone VARCHAR(20),
-    incident_type ENUM('Medical', 'Fire', 'Rescue') NOT NULL,
-    severity ENUM('High', 'Medium', 'Low') NOT NULL,
-    description TEXT,
-    location_id VARCHAR(24) NOT NULL,
-    status ENUM('Reported', 'Assigned', 'En Route', 'On Scene', 'Cleared', 'Closed') DEFAULT 'Reported',
-    reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    closed_at TIMESTAMP NULL,
-    created_by VARCHAR(24) NOT NULL,
-    assigned_to VARCHAR(24),
-    FOREIGN KEY (location_id) REFERENCES Location(location_id),
-    FOREIGN KEY (created_by) REFERENCES User(user_id),
-    FOREIGN KEY (assigned_to) REFERENCES User(user_id)
+    incident_id_string VARCHAR(50) UNIQUE NOT NULL, -- Format: INC-YYYYMMDD-XXXXX
+    incident_type ENUM('medical', 'fire', 'rescue', 'hazmat', 'traffic', 'other') NOT NULL,
+    incident_category VARCHAR(50) NOT NULL, -- Validated against incident_type
+    severity ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+    description TEXT NOT NULL,
+    status ENUM('pending', 'assigned', 'en_route', 'on_scene', 'resolved', 'cancelled') DEFAULT 'pending',
+    caller_name VARCHAR(100) NOT NULL,
+    caller_contact_number VARCHAR(15) NOT NULL, -- Sri Lankan phone format
+    caller_alternate_contact VARCHAR(15), -- Optional alternate contact
+    caller_reporting_method ENUM('phone_call', 'mobile_app', 'sms', 'walk_in', 'third_party') DEFAULT 'phone_call',
+    location_address VARCHAR(200) NOT NULL,
+    location_city VARCHAR(50) NOT NULL,
+    location_province ENUM('Western', 'Central', 'Southern', 'Northern', 'Eastern', 
+                          'North Western', 'North Central', 'Uva', 'Sabaragamuwa') NOT NULL,
+    location_lat DECIMAL(10, 8) NOT NULL, -- Sri Lankan boundaries: 5.9-9.9
+    location_lng DECIMAL(11, 8) NOT NULL, -- Sri Lankan boundaries: 79.5-81.9
+    location_accuracy ENUM('exact', 'approximate', 'general_area') DEFAULT 'approximate',
+    location_landmarks VARCHAR(200),
+    logged_by_user_id VARCHAR(24) NOT NULL,
+    assigned_dispatcher_id VARCHAR(24),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP NULL,
+    estimated_response_time INT, -- Minutes (1-120)
+    actual_response_time INT, -- Minutes
+    FOREIGN KEY (logged_by_user_id) REFERENCES User(user_id),
+    FOREIGN KEY (assigned_dispatcher_id) REFERENCES User(user_id)
 );
 
 Vehicle Table:
 CREATE TABLE Vehicle (
     vehicle_id VARCHAR(24) PRIMARY KEY,
-    plate_number VARCHAR(20) UNIQUE NOT NULL,
-    vehicle_type ENUM('Ambulance', 'Fire Engine', 'Rescue') NOT NULL,
+    plate_number VARCHAR(15) UNIQUE NOT NULL, -- Sri Lankan plate format
+    vehicle_type ENUM('Ambulance', 'Fire Engine', 'Rescue Vehicle', 'Support Vehicle') NOT NULL,
     make VARCHAR(100) NOT NULL,
     model VARCHAR(100) NOT NULL,
     year YEAR NOT NULL,
-    status ENUM('Available', 'En Route', 'On Scene', 'Maintenance', 'Out of Service') DEFAULT 'Available',
-    current_latitude DECIMAL(10, 8),
-    current_longitude DECIMAL(11, 8),
-    last_location_update TIMESTAMP,
-    station_location_id VARCHAR(24),
+    operational_status ENUM('Available', 'En Route', 'On Scene', 'Maintenance', 'Out of Service') DEFAULT 'Available',
+    current_location_lat DECIMAL(10, 8), -- Current GPS position
+    current_location_lng DECIMAL(11, 8),
+    station_id VARCHAR(24) NOT NULL, -- Home station
     is_active BOOLEAN DEFAULT TRUE,
     registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    approved_by VARCHAR(24),
-    FOREIGN KEY (station_location_id) REFERENCES Location(location_id),
-    FOREIGN KEY (approved_by) REFERENCES User(user_id)
+    FOREIGN KEY (station_id) REFERENCES Station(station_id)
 );
 
 Crew Table:
 CREATE TABLE Crew (
     crew_id VARCHAR(24) PRIMARY KEY,
-    employee_id VARCHAR(50) UNIQUE NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    role ENUM('EMT', 'Paramedic', 'Firefighter', 'Driver') NOT NULL,
-    phone VARCHAR(20),
+    employee_id VARCHAR(20) UNIQUE NOT NULL,
+    role_id VARCHAR(24) NOT NULL, -- References role table for normalization
+    phone VARCHAR(15), -- Sri Lankan phone format
     email VARCHAR(255),
-    certification_level VARCHAR(100),
+    certification_level ENUM('Basic', 'Intermediate', 'Advanced', 'Expert'),
     certification_expiry DATE,
+    availability_status ENUM('Available', 'On Duty', 'Off Duty', 'On Leave', 'Training'),
+    current_location_lat DECIMAL(10, 8), -- Current GPS position
+    current_location_lng DECIMAL(11, 8),
     hire_date DATE NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
-    created_by VARCHAR(24) NOT NULL,
-    FOREIGN KEY (created_by) REFERENCES User(user_id)
+    FOREIGN KEY (role_id) REFERENCES Role(role_id)
 );
 
 Assignment Table:
@@ -558,18 +739,71 @@ CREATE TABLE Assignment (
     assignment_id VARCHAR(24) PRIMARY KEY,
     incident_id VARCHAR(24) NOT NULL,
     vehicle_id VARCHAR(24) NOT NULL,
-    crew_id VARCHAR(24) NOT NULL,
     assigned_by VARCHAR(24) NOT NULL,
     assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    accepted_at TIMESTAMP NULL,
-    response_time_seconds INT,
-    arrival_time TIMESTAMP NULL,
-    cleared_at TIMESTAMP NULL,
-    status ENUM('Assigned', 'Accepted', 'Declined', 'En Route', 'Arrived', 'Cleared') DEFAULT 'Assigned',
+    dispatch_status ENUM('assigned', 'accepted', 'declined', 'en_route', 'on_scene', 'completed', 'cancelled'),
+    response_time INT, -- Seconds to respond
+    arrival_time TIMESTAMP,
+    completion_time TIMESTAMP,
     FOREIGN KEY (incident_id) REFERENCES Incident(incident_id),
     FOREIGN KEY (vehicle_id) REFERENCES Vehicle(vehicle_id),
-    FOREIGN KEY (crew_id) REFERENCES Crew(crew_id),
     FOREIGN KEY (assigned_by) REFERENCES User(user_id)
+);
+
+DuplicateCheck Table:
+CREATE TABLE DuplicateCheck (
+    duplicate_id VARCHAR(24) PRIMARY KEY,
+    incident_id VARCHAR(24) NOT NULL,
+    potential_duplicate_id VARCHAR(24) NOT NULL,
+    similarity_score DECIMAL(5,4), -- 0.0000 to 1.0000
+    check_result ENUM('duplicate', 'similar', 'unique'),
+    algorithm_used VARCHAR(100),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (incident_id) REFERENCES Incident(incident_id),
+    FOREIGN KEY (potential_duplicate_id) REFERENCES Incident(incident_id)
+);
+
+StatusHistory Table:
+CREATE TABLE StatusHistory (
+    status_id VARCHAR(24) PRIMARY KEY,
+    incident_id VARCHAR(24) NOT NULL,
+    previous_status ENUM('pending', 'assigned', 'en_route', 'on_scene', 'resolved', 'cancelled'),
+    new_status ENUM('pending', 'assigned', 'en_route', 'on_scene', 'resolved', 'cancelled'),
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    changed_by_user_id VARCHAR(24) NOT NULL,
+    reason TEXT,
+    FOREIGN KEY (incident_id) REFERENCES Incident(incident_id),
+    FOREIGN KEY (changed_by_user_id) REFERENCES User(user_id)
+);
+
+Communication Table:
+CREATE TABLE Communication (
+    communication_id VARCHAR(24) PRIMARY KEY,
+    incident_id VARCHAR(24) NOT NULL,
+    sender_id VARCHAR(24),
+    recipient_id VARCHAR(24),
+    message_type ENUM('sms', 'push_notification', 'email', 'radio'),
+    content TEXT,
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    delivery_status ENUM('pending', 'sent', 'delivered', 'failed'),
+    priority ENUM('low', 'normal', 'high', 'critical'),
+    FOREIGN KEY (incident_id) REFERENCES Incident(incident_id),
+    FOREIGN KEY (sender_id) REFERENCES User(user_id),
+    FOREIGN KEY (recipient_id) REFERENCES User(user_id)
+);
+
+AuditLog Table:
+CREATE TABLE AuditLog (
+    audit_id VARCHAR(24) PRIMARY KEY,
+    user_id VARCHAR(24) NOT NULL,
+    entity_type ENUM('incident', 'vehicle', 'crew', 'assignment', 'user'),
+    entity_id VARCHAR(24) NOT NULL,
+    action ENUM('create', 'read', 'update', 'delete', 'login', 'logout', 'assign', 'approve'),
+    old_values JSON, -- Previous state
+    new_values JSON, -- New state  
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45), -- IPv6 support
+    FOREIGN KEY (user_id) REFERENCES User(user_id)
 );
 
 3.2 Constraints and Indexes
@@ -629,119 +863,560 @@ Reference Strategy:
 - Maintain data consistency for shared resources
 - Support efficient updates for status changes
 
-4.3 MongoDB Collection Designs
+4.3 MongoDB Collection Designs (Current Implementation)
 
 Users Collection:
 {
   "_id": ObjectId("..."),
-  "email": "dispatcher@nercc.lk",
-  "passwordHash": "$2b$10$...",
-  "profile": {
+  "personal": {
     "firstName": "John",
     "lastName": "Silva",
-    "phone": "+94771234567",
-    "role": "Dispatcher"
+    "email": "dispatcher@respondr.lk",
+    "phone": "+94771234567"
+  },
+  "auth": {
+    "password": "$2b$12$...", // Hashed password (select: false)
+    "role": "Dispatcher", // Call Taker, Dispatcher, Field Crew, Supervisor, Admin, Citizen
+    "employeeId": "EMP123456" // For staff members only, format: EMP123456
   },
   "settings": {
     "isActive": true,
-    "lastLogin": ISODate("2025-08-30T08:30:00Z"),
+    "lastLogin": ISODate("2025-09-24T08:30:00Z"),
+    "loginAttempts": 0,
+    "lockUntil": null,
+    "emailVerified": false,
+    "resetPasswordToken": null,
+    "resetPasswordExpire": null,
+    "passwordHistory": [],
     "preferences": {
-      "mapZoom": 12,
-      "notificationSound": true
+      "mapZoom": 12, // 8-18 range
+      "notificationSound": true,
+      "theme": "system" // light, dark, system
     }
   },
-  "createdAt": ISODate("2025-01-15T09:00:00Z"),
-  "updatedAt": ISODate("2025-08-30T08:30:00Z")
+  "audit": {
+    "createdBy": ObjectId("..."),
+    "createdAt": ISODate("2025-01-15T09:00:00Z"),
+    "updatedAt": ISODate("2025-09-24T08:30:00Z"),
+    "lastPasswordChange": ISODate("2025-01-15T09:00:00Z")
+  }
 }
 
-Incidents Collection:
+Incidents Collection (Currently Implemented):
 {
   "_id": ObjectId("..."),
-  "incidentNumber": "INC-2025-001234",
-  "caller": {
+  "incidentId": "INC-20250924-A8X9K", // Auto-generated format: INC-YYYYMMDD-XXXXX
+  "callerInfo": {
     "name": "Sarah Johnson",
-    "phone": "+94771234568",
-    "alternateContact": "+94112345678"
+    "contactNumber": "+94771234567",
+    "alternateContact": "+94771234568",
+    "reportingMethod": "phone_call" // phone_call, mobile_app, sms, walk_in, third_party
   },
-  "incident": {
-    "type": "Medical",
-    "severity": "High",
-    "description": "Cardiac arrest at shopping mall",
-    "keywords": ["cardiac", "arrest", "unconscious"]
-  },
+  "incidentType": "medical", // medical, fire, rescue, hazmat, traffic, other
+  "incidentCategory": "cardiac_arrest", // Validated against incidentType
+  "severity": "critical", // low, medium, high, critical
+  "description": "65-year-old male experiencing chest pain and difficulty breathing",
   "location": {
-    "address": "Colombo City Centre, Lotus Road, Colombo 01",
+    "address": "123 Galle Road",
+    "city": "Colombo",
+    "province": "Western", // Sri Lankan provinces
     "coordinates": {
       "type": "Point",
-      "coordinates": [79.8612, 6.9271]
+      "coordinates": [79.861778, 6.927221] // [longitude, latitude] - Sri Lankan boundaries
     },
-    "verified": true,
-    "verificationMethod": "GPS",
-    "landmark": "Near main entrance"
+    "locationAccuracy": "exact", // exact, approximate, general_area
+    "landmarks": "Near People's Bank, opposite bus stop"
   },
-  "status": {
-    "current": "En Route",
-    "history": [
-      {"status": "Reported", "timestamp": ISODate("2025-08-30T10:15:00Z"), "updatedBy": ObjectId("...")},
-      {"status": "Assigned", "timestamp": ISODate("2025-08-30T10:16:30Z"), "updatedBy": ObjectId("...")},
-      {"status": "En Route", "timestamp": ISODate("2025-08-30T10:17:45Z"), "updatedBy": ObjectId("...")}
-    ]
-  },
-  "assignment": {
-    "vehicleId": ObjectId("..."),
-    "crewId": ObjectId("..."),
-    "assignedBy": ObjectId("..."),
-    "assignedAt": ISODate("2025-08-30T10:16:30Z"),
-    "acceptedAt": ISODate("2025-08-30T10:17:00Z"),
-    "estimatedArrival": ISODate("2025-08-30T10:25:00Z"),
-    "actualArrival": null
-  },
-  "timeline": {
-    "reportedAt": ISODate("2025-08-30T10:15:00Z"),
-    "assignedAt": ISODate("2025-08-30T10:16:30Z"),
-    "enRouteAt": ISODate("2025-08-30T10:17:45Z"),
-    "arrivedAt": null,
-    "clearedAt": null,
-    "closedAt": null
-  },
-  "createdBy": ObjectId("..."),
-  "createdAt": ISODate("2025-08-30T10:15:00Z"),
-  "updatedAt": ISODate("2025-08-30T10:17:45Z")
+  "status": "assigned", // pending, assigned, en_route, on_scene, resolved, cancelled
+  "loggedBy": ObjectId("..."), // Call Taker who logged
+  "assignedDispatcher": ObjectId("..."), // Dispatcher handling
+  "assignedResources": [
+    {
+      "resourceId": ObjectId("..."), // Vehicle reference
+      "assignedAt": ISODate("2025-09-24T10:15:30Z"),
+      "status": "en_route" // assigned, en_route, on_scene, completed
+    }
+  ],
+  "possibleDuplicates": [ObjectId("...")], // Array of similar incident ObjectIds
+  "mergedWith": null,
+  "notes": [
+    {
+      "note": "Ambulance B-101 dispatched with paramedic crew",
+      "addedBy": ObjectId("..."),
+      "timestamp": ISODate("2025-09-24T10:15:35Z")
+    }
+  ],
+  "createdAt": ISODate("2025-09-24T10:15:00Z"),
+  "updatedAt": ISODate("2025-09-24T10:15:35Z"),
+  "resolvedAt": null,
+  "estimatedResponseTime": 8, // minutes
+  "actualResponseTime": null
 }
 
 Vehicles Collection:
 {
   "_id": ObjectId("..."),
   "registration": {
-    "plateNumber": "EM-1234",
-    "vehicleType": "Ambulance",
+    "plateNumber": "CAB-1234",
+    "vehicleType": "Ambulance", // Ambulance, Fire Engine, Rescue Vehicle, Support Vehicle
     "make": "Toyota",
     "model": "Hiace",
-    "year": 2023
-  },
-  "specifications": {
-    "capacity": 2,
-    "fuelType": "Diesel",
-    "emergencyEquipment": ["Defibrillator", "Oxygen Tank", "Stretcher", "First Aid Kit"]
+    "year": 2023,
+    "registrationDate": ISODate("2025-01-15T00:00:00Z"),
+    "approvedBy": ObjectId("...") // Supervisor who approved
   },
   "status": {
-    "operational": "Available",
-    "lastUpdate": ISODate("2025-08-30T10:00:00Z"),
+    "operational": "active", // active, maintenance, out_of_service
+    "currentStatus": "available", // available, assigned, en_route, on_scene, returning
     "currentLocation": {
       "type": "Point",
-      "coordinates": [79.8590, 6.9200]
+      "coordinates": [79.861778, 6.927221]
     },
-    "heading": 45,
-    "speed": 0
+    "lastLocationUpdate": ISODate("2025-09-24T10:20:00Z")
   },
   "assignment": {
-    "currentIncidentId": null,
-    "assignedCrewId": ObjectId("..."),
-    "shiftId": ObjectId("...")
+    "currentIncidentId": null, // ObjectId when assigned
+    "assignedAt": null,
+    "crew": [] // Array of crew member ObjectIds
+  },
+  "equipment": {
+    "checklistTemplateId": ObjectId("..."),
+    "lastCheckDate": ISODate("2025-09-24T06:00:00Z"),
+    "nextMaintenanceDate": ISODate("2025-10-24T00:00:00Z"),
+    "items": [
+      {
+        "name": "Defibrillator",
+        "type": "medical_equipment",
+        "serialNumber": "DEF-001",
+        "status": "operational",
+        "lastChecked": ISODate("2025-09-24T06:00:00Z")
+      },
+      {
+        "name": "Oxygen Tank",
+        "type": "medical_supply",
+        "serialNumber": "OXY-002",
+        "status": "operational",
+        "quantity": 2
+      }
+    ]
   },
   "station": {
-    "name": "Colombo Central Station",
-    "address": "Galle Road, Colombo 03",
+    "homeStationId": ObjectId("..."), // Primary station
+    "currentStationId": ObjectId("...") // Current location station
+  },
+  "audit": {
+    "createdBy": ObjectId("..."),
+    "createdAt": ISODate("2025-01-15T09:00:00Z"),
+    "updatedAt": ISODate("2025-09-24T10:20:00Z")
+  }
+}
+
+Crews Collection:
+{
+  "_id": ObjectId("..."),
+  "personal": {
+    "employeeId": "EMP654321",
+    "firstName": "Michael",
+    "lastName": "Fernando",
+    "email": "michael.fernando@respondr.lk",
+    "phone": "+94771234569"
+  },
+  "professional": {
+    "role": "paramedic",
+    "certificationLevel": "Advanced Life Support",
+    "certifications": [
+      {
+        "type": "Paramedic License",
+        "number": "PL-2023-001",
+        "issuedBy": "Sri Lanka Medical Council",
+        "expiryDate": ISODate("2025-12-31T00:00:00Z")
+      }
+    ],
+    "specializations": ["cardiac_care", "trauma"],
+    "hireDate": ISODate("2023-03-01T00:00:00Z")
+  },
+  "currentStatus": {
+    "availability": "on_duty", // available, on_duty, off_duty, on_leave
+    "shiftId": ObjectId("..."),
+    "assignedVehicleId": ObjectId("..."),
+    "location": {
+      "type": "Point",
+      "coordinates": [79.861778, 6.927221]
+    },
+    "lastLocationUpdate": ISODate("2025-09-24T10:20:00Z")
+  },
+  "settings": {
+    "isActive": true,
+    "emergencyContact": {
+      "name": "Priya Fernando",
+      "relationship": "Spouse",
+      "phone": "+94771234570"
+    }
+  },
+  "audit": {
+    "createdBy": ObjectId("..."),
+    "createdAt": ISODate("2023-03-01T09:00:00Z"),
+    "updatedAt": ISODate("2025-09-24T08:00:00Z")
+  }
+}
+
+Shifts Collection:
+{
+  "_id": ObjectId("..."),
+  "shift": {
+    "name": "Day Shift A",
+    "type": "regular", // regular, overtime, emergency
+  },
+  "schedule": {
+    "startTime": "06:00",
+    "endTime": "18:00",
+    "date": ISODate("2025-09-24T00:00:00Z"),
+    "recurrence": "daily" // none, daily, weekly, custom
+  },
+  "staffing": {
+    "requiredCrewCount": 6,
+    "requiredRoles": ["paramedic", "emt", "driver"],
+    "minimumCertificationLevel": "Basic Life Support",
+    "assignedCrew": [
+      {
+        "crewId": ObjectId("..."),
+        "role": "paramedic",
+        "assignedAt": ISODate("2025-09-23T15:00:00Z"),
+        "status": "confirmed" // assigned, confirmed, completed, absent
+      }
+    ],
+    "vehicleAssignments": [
+      {
+        "vehicleId": ObjectId("..."),
+        "primaryCrewId": ObjectId("..."),
+        "additionalCrew": [ObjectId("...")],
+        "assignedAt": ISODate("2025-09-23T15:00:00Z")
+      }
+    ]
+  },
+  "supervision": {
+    "supervisorId": ObjectId("..."),
+    "supervisorNotes": "All positions filled, backup crew on standby"
+  },
+  "status": {
+    "current": "active", // planned, active, completed, cancelled
+    "actualStartTime": ISODate("2025-09-24T06:00:00Z"),
+    "actualEndTime": null
+  },
+  "audit": {
+    "createdBy": ObjectId("..."),
+    "createdAt": ISODate("2025-09-23T12:00:00Z"),
+    "updatedAt": ISODate("2025-09-24T06:00:00Z")
+  }
+}
+
+EquipmentChecklistTemplates Collection:
+{
+  "_id": ObjectId("..."),
+  "vehicleType": "ambulance",
+  "template": {
+    "name": "Ambulance Daily Inspection",
+    "description": "Standard daily checklist for ambulance vehicles",
+    "version": "2.1"
+  },
+  "checklist": {
+    "categories": [
+      {
+        "name": "Medical Equipment",
+        "items": [
+          {
+            "name": "Defibrillator",
+            "type": "equipment",
+            "required": true,
+            "critical": true,
+            "checkType": "functional_test"
+          },
+          {
+            "name": "Oxygen Supply",
+            "type": "supply",
+            "required": true,
+            "critical": true,
+            "checkType": "quantity_pressure"
+          }
+        ]
+      },
+      {
+        "name": "Vehicle Systems",
+        "items": [
+          {
+            "name": "Engine",
+            "type": "system",
+            "required": true,
+            "critical": true,
+            "checkType": "visual_operational"
+          }
+        ]
+      }
+    ],
+    "instructions": "Complete all checks before going on duty. Report any failures immediately."
+  },
+  "settings": {
+    "isActive": true,
+    "isDefault": true
+  },
+  "audit": {
+    "createdBy": ObjectId("..."),
+    "createdAt": ISODate("2025-01-15T09:00:00Z"),
+    "updatedAt": ISODate("2025-08-15T14:30:00Z")
+  }
+}
+
+EquipmentChecks Collection:
+{
+  "_id": ObjectId("..."),
+  "vehicleId": ObjectId("..."),
+  "crewId": ObjectId("..."),
+  "templateId": ObjectId("..."),
+  "inspection": {
+    "checkResults": [
+      {
+        "item": "Defibrillator",
+        "category": "Medical Equipment",
+        "status": "pass", // pass, fail, warning
+        "notes": "Functional test completed successfully",
+        "photos": [
+          {
+            "filename": "defibrillator_check_001.jpg",
+            "url": "/uploads/equipment-checks/2025/09/24/defibrillator_check_001.jpg",
+            "timestamp": ISODate("2025-09-24T06:15:00Z")
+          }
+        ],
+        "checkedAt": ISODate("2025-09-24T06:15:00Z")
+      }
+    ],
+    "overallStatus": "pass", // pass, fail, conditional
+    "criticalIssues": [],
+    "recommendedActions": []
+  },
+  "location": {
+    "coordinates": {
+      "type": "Point",
+      "coordinates": [79.861778, 6.927221]
+    },
+    "address": "Colombo Central Station"
+  },
+  "timing": {
+    "startedAt": ISODate("2025-09-24T06:00:00Z"),
+    "completedAt": ISODate("2025-09-24T06:30:00Z"),
+    "duration": 30 // minutes
+  },
+  "signatures": {
+    "crewMember": "digital_signature_hash_crew",
+    "supervisor": "digital_signature_hash_supervisor"
+  },
+  "audit": {
+    "createdBy": ObjectId("..."),
+    "createdAt": ISODate("2025-09-24T06:30:00Z")
+  }
+}
+
+Assignments Collection:
+{
+  "_id": ObjectId("..."),
+  "incident": {
+    "incidentId": ObjectId("...")
+  },
+  "resource": {
+    "vehicleId": ObjectId("..."),
+    "primaryCrewId": ObjectId("..."),
+    "additionalCrew": [ObjectId("...")]
+  },
+  "dispatch": {
+    "assignedBy": ObjectId("..."),
+    "assignedAt": ISODate("2025-09-24T10:16:30Z"),
+    "priority": "emergency", // routine, urgent, emergency
+    "estimatedArrivalTime": ISODate("2025-09-24T10:25:00Z")
+  },
+  "response": {
+    "status": "en_route", // assigned, accepted, declined, en_route, on_scene, completed, cancelled
+    "acceptedAt": ISODate("2025-09-24T10:17:00Z"),
+    "declinedAt": null,
+    "declineReason": null,
+    "enRouteAt": ISODate("2025-09-24T10:17:30Z"),
+    "onSceneAt": null,
+    "completedAt": null
+  },
+  "performance": {
+    "responseTime": 60, // seconds from assignment to acceptance
+    "arrivalTime": null, // seconds from assignment to on scene
+    "onSceneTime": null, // seconds spent on scene
+    "totalDuration": null
+  },
+  "location": {
+    "dispatchLocation": {
+      "type": "Point",
+      "coordinates": [79.859000, 6.920000]
+    },
+    "arrivalLocation": null
+  },
+  "communication": {
+    "notifications": [
+      {
+        "type": "assignment",
+        "sentAt": ISODate("2025-09-24T10:16:35Z"),
+        "deliveryStatus": "delivered"
+      }
+    ],
+    "updates": [
+      {
+        "status": "accepted",
+        "timestamp": ISODate("2025-09-24T10:17:00Z"),
+        "notes": "Crew confirmed and en route"
+      }
+    ]
+  },
+  "audit": {
+    "createdAt": ISODate("2025-09-24T10:16:30Z"),
+    "updatedAt": ISODate("2025-09-24T10:17:30Z")
+  }
+}
+
+Communications Collection:
+{
+  "_id": ObjectId("..."),
+  "target": {
+    "type": "crew", // incident, crew, citizen, supervisor
+    "incidentId": ObjectId("..."),
+    "recipientId": ObjectId("..."),
+    "recipientPhone": "+94771234569",
+    "recipientEmail": "crew@respondr.lk"
+  },
+  "message": {
+    "type": "sms", // sms, push_notification, email, radio
+    "template": "incident_assigned",
+    "content": "Emergency assignment: Medical incident at 123 Galle Road. Accept within 30 seconds.",
+    "priority": "high" // low, normal, high, critical
+  },
+  "delivery": {
+    "status": "delivered", // pending, sent, delivered, failed, read
+    "sentAt": ISODate("2025-09-24T10:16:35Z"),
+    "deliveredAt": ISODate("2025-09-24T10:16:37Z"),
+    "readAt": ISODate("2025-09-24T10:16:45Z"),
+    "failureReason": null,
+    "retryCount": 0
+  },
+  "metadata": {
+    "sender": ObjectId("..."),
+    "source": "system", // system, manual, automated
+    "contextData": {
+      "incidentSeverity": "critical",
+      "assignmentType": "primary"
+    }
+  },
+  "audit": {
+    "createdAt": ISODate("2025-09-24T10:16:35Z")
+  }
+}
+
+Reports Collection:
+{
+  "_id": ObjectId("..."),
+  "incident": {
+    "incidentId": ObjectId("...")
+  },
+  "report": {
+    "type": "incident_summary", // incident_summary, performance_analysis, equipment_check, shift_report
+    "title": "Medical Emergency Response - INC-20250924-A8X9K",
+    "summary": "Successful cardiac arrest response with patient transported to hospital",
+    "content": {
+      "responseMetrics": {
+        "responseTime": "8 minutes 45 seconds",
+        "onSceneTime": "23 minutes",
+        "transportTime": "12 minutes"
+      },
+      "outcome": "Patient stabilized and transported",
+      "crewPerformance": "Excellent adherence to protocols"
+    },
+    "findings": [
+      "Response time met target of <10 minutes",
+      "All equipment functioned properly",
+      "Crew performed advanced life support effectively"
+    ],
+    "recommendations": [
+      "Continue current response protocols",
+      "Consider additional ALS training for new crew members"
+    ]
+  },
+  "attachments": {
+    "files": [],
+    "photos": [
+      {
+        "filename": "scene_photo_001.jpg",
+        "type": "scene_documentation",
+        "size": 2048576,
+        "url": "/uploads/reports/2025/09/24/scene_photo_001.jpg"
+      }
+    ],
+    "documents": []
+  },
+  "workflow": {
+    "createdBy": ObjectId("..."),
+    "reviewedBy": null,
+    "approvedBy": null,
+    "status": "submitted" // draft, submitted, under_review, approved, published
+  },
+  "timing": {
+    "createdAt": ISODate("2025-09-24T14:30:00Z"),
+    "reviewedAt": null,
+    "approvedAt": null,
+    "publishedAt": null
+  },
+  "access": {
+    "visibility": "department", // private, team, department, public
+    "permissions": ["view", "edit"] // view, edit, approve
+  },
+  "audit": {
+    "version": 1,
+    "revisionHistory": []
+  }
+}
+
+AuditLogs Collection:
+{
+  "_id": ObjectId("..."),
+  "activity": {
+    "userId": ObjectId("..."),
+    "action": "update", // create, read, update, delete, login, logout, assign, approve
+    "entityType": "incident",
+    "entityId": ObjectId("..."),
+    "description": "Updated incident status from 'assigned' to 'en_route'"
+  },
+  "changes": {
+    "beforeState": {
+      "status": "assigned"
+    },
+    "afterState": {
+      "status": "en_route"
+    },
+    "modifiedFields": ["status", "updatedAt"]
+  },
+  "context": {
+    "sessionId": "sess_abc123xyz",
+    "ipAddress": "192.168.1.100",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "geolocation": {
+      "type": "Point",
+      "coordinates": [79.861778, 6.927221]
+    },
+    "timestamp": ISODate("2025-09-24T10:17:30Z")
+  },
+  "security": {
+    "riskLevel": "low", // low, medium, high
+    "flags": [] // unauthorized_access, privilege_escalation, etc.
+  },
+  "metadata": {
+    "source": "web", // web, mobile, api
+    "correlationId": "corr_xyz789abc"
+  },
+  "retention": {
+    "expiresAt": ISODate("2026-09-24T00:00:00Z") // 1 year retention
+  }
+}
     "coordinates": {
       "type": "Point",
       "coordinates": [79.8590, 6.9200]
@@ -1000,28 +1675,87 @@ AuditLogs Collection:
   "timestamp": ISODate("2025-08-30T10:17:45Z")
 }
 
-4.4 Indexing Strategy for MongoDB
+4.4 Indexing Strategy for MongoDB (Current Implementation)
 
-Geospatial Indexes:
+Geospatial Indexes for Location-Based Queries:
+// Essential for incident duplicate detection and resource positioning
 db.incidents.createIndex({"location.coordinates": "2dsphere"})
 db.vehicles.createIndex({"status.currentLocation": "2dsphere"})
 db.crews.createIndex({"currentStatus.location": "2dsphere"})
+db.equipmentChecks.createIndex({"location.coordinates": "2dsphere"})
 
-Compound Indexes for Common Queries:
-db.incidents.createIndex({"status.current": 1, "createdAt": -1})
+Primary Performance Indexes:
+// Critical for dashboard and operational queries
+db.incidents.createIndex({"status": 1, "createdAt": -1})
+db.incidents.createIndex({"incidentId": 1}) // Unique incident ID lookups
+db.incidents.createIndex({"loggedBy": 1, "createdAt": -1}) // Call taker performance
 db.vehicles.createIndex({"status.operational": 1, "registration.vehicleType": 1})
+db.vehicles.createIndex({"assignment.currentIncidentId": 1})
 db.crews.createIndex({"currentStatus.availability": 1, "professional.role": 1})
 
-Performance Indexes:
-db.incidents.createIndex({"assignment.vehicleId": 1})
-db.vehicles.createIndex({"assignment.currentIncidentId": 1})
-db.communications.createIndex({"incidentId": 1, "createdAt": -1})
+Assignment and Dispatch Indexes:
+// For real-time dispatch operations
+db.assignments.createIndex({"incident.incidentId": 1})
+db.assignments.createIndex({"resource.vehicleId": 1, "response.status": 1})
+db.assignments.createIndex({"dispatch.assignedAt": -1})
+db.assignments.createIndex({"response.status": 1, "dispatch.assignedAt": -1})
+
+Communication Indexes:
+// For notification tracking and delivery status
+db.communications.createIndex({"target.incidentId": 1, "audit.createdAt": -1})
+db.communications.createIndex({"target.recipientId": 1, "delivery.status": 1})
+db.communications.createIndex({"delivery.status": 1, "delivery.sentAt": -1})
+
+Shift Management Indexes:
+// For crew scheduling and availability
+db.shifts.createIndex({"schedule.date": 1, "status.current": 1})
+db.shifts.createIndex({"staffing.assignedCrew.crewId": 1, "schedule.date": -1})
+
+Equipment and Maintenance Indexes:
+// For equipment tracking and maintenance scheduling
+db.equipmentChecks.createIndex({"vehicleId": 1, "timing.completedAt": -1})
+db.equipmentChecklistTemplates.createIndex({"vehicleType": 1, "settings.isActive": 1})
 
 Text Search Indexes:
-db.incidents.createIndex({"incident.description": "text", "incident.keywords": "text"})
+// For search functionality across key text fields
+db.incidents.createIndex({
+  "description": "text", 
+  "location.address": "text", 
+  "callerInfo.name": "text"
+})
+db.vehicles.createIndex({
+  "registration.plateNumber": "text", 
+  "registration.make": "text", 
+  "registration.model": "text"
+})
+db.crews.createIndex({
+  "personal.firstName": "text", 
+  "personal.lastName": "text", 
+  "personal.employeeId": "text"
+})
+
+User and Authentication Indexes:
+// For user management and authentication
+db.users.createIndex({"personal.email": 1}) // Login lookup
+db.users.createIndex({"auth.employeeId": 1}) // Staff ID lookup
+db.users.createIndex({"auth.role": 1, "settings.isActive": 1})
+
+Audit and Compliance Indexes:
+// For audit trail and compliance reporting
+db.auditLogs.createIndex({"activity.userId": 1, "context.timestamp": -1})
+db.auditLogs.createIndex({"activity.entityType": 1, "activity.action": 1})
+db.auditLogs.createIndex({"context.timestamp": -1}) // Time-based queries
 
 TTL Indexes for Data Retention:
-db.auditLogs.createIndex({"timestamp": 1}, {expireAfterSeconds: 31536000})  // 1 year
+// Automatic cleanup of old data
+db.auditLogs.createIndex(
+  {"retention.expiresAt": 1}, 
+  {expireAfterSeconds: 0}
+) // Expire based on expiresAt field
+db.communications.createIndex(
+  {"audit.createdAt": 1}, 
+  {expireAfterSeconds: 7776000}
+) // 90 days for communications
 
 4.5 Benefits of MongoDB Design
 
@@ -1044,47 +1778,46 @@ Operational Advantages:
 
 ===============================================================================
 
-5. Database Implementation with Constraints and Indexes
+5. Database Implementation with Constraints and Indexes (Current MongoDB Implementation)
 
-5.1 MongoDB Connection and Configuration
+5.1 MongoDB Connection and Configuration (Production Ready)
 
-// MongoDB Connection Configuration
+// MongoDB Connection Configuration - Current Implementation
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/emergency_dispatch', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
+      maxPoolSize: 10, // Connection pool size
+      serverSelectionTimeoutMS: 5000, // Keep trying for 5 seconds
+      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+      bufferMaxEntries: 0, // Disable mongoose buffering
     });
     
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    
+    // Set up event listeners
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB disconnected');
+    });
+    
   } catch (error) {
     console.error('Database connection error:', error);
     process.exit(1);
   }
 };
 
-5.2 Mongoose Schema Definitions with Validation
+5.2 Current Mongoose Schema Implementation (Based on Existing Models)
 
-User Schema with Constraints:
+User Schema with Validation (Matches User.js):
 const userSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
-  },
-  passwordHash: {
-    type: String,
-    required: [true, 'Password hash is required'],
-    minlength: 60
-  },
-  profile: {
+  personal: {
     firstName: {
       type: String,
       required: [true, 'First name is required'],
@@ -1097,142 +1830,368 @@ const userSchema = new mongoose.Schema({
       trim: true,
       maxlength: [100, 'Last name cannot exceed 100 characters']
     },
+    email: {
+      type: String,
+      required: [true, 'Email is required'],
+      unique: true,
+      lowercase: true,
+      match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    },
     phone: {
       type: String,
-      match: [/^\+94[0-9]{9}$/, 'Please enter a valid Sri Lankan phone number']
+      match: [/^\+94[0-9]{9}$/, 'Please enter a valid Sri Lankan phone number (+94xxxxxxxxx)']
+    }
+  },
+  auth: {
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
+      minlength: [8, 'Password must be at least 8 characters'],
+      select: false
     },
     role: {
       type: String,
       required: [true, 'Role is required'],
-      enum: {
-        values: ['Call Taker', 'Dispatcher', 'Field Crew', 'Supervisor', 'Admin', 'Analyst'],
-        message: 'Invalid role specified'
-      }
+      enum: ['Call Taker', 'Dispatcher', 'Field Crew', 'Supervisor', 'Admin', 'Citizen']
+    },
+    employeeId: {
+      type: String,
+      sparse: true,
+      unique: true,
+      match: [/^EMP[0-9]{6}$/, 'Employee ID must be in format EMP123456']
     }
   },
   settings: {
     isActive: { type: Boolean, default: true },
     lastLogin: Date,
+    loginAttempts: { type: Number, default: 0 },
+    lockUntil: Date,
+    emailVerified: { type: Boolean, default: false },
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
+    passwordHistory: [{
+      hash: String,
+      createdAt: { type: Date, default: Date.now }
+    }],
     preferences: {
       mapZoom: { type: Number, min: 8, max: 18, default: 12 },
-      notificationSound: { type: Boolean, default: true }
+      notificationSound: { type: Boolean, default: true },
+      theme: { type: String, enum: ['light', 'dark', 'system'], default: 'system' }
     }
+  },
+  audit: {
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+    lastPasswordChange: { type: Date, default: Date.now }
   }
 }, {
   timestamps: true,
   collection: 'users'
 });
 
-Incident Schema with Geospatial Support:
+// User schema indexes
+userSchema.index({ "personal.email": 1 });
+userSchema.index({ "auth.employeeId": 1 });
+userSchema.index({ "auth.role": 1 });
+userSchema.index({ "settings.isActive": 1 });
+
+Incident Schema with Comprehensive Validation (Matches Incident.js):
 const incidentSchema = new mongoose.Schema({
-  incidentNumber: {
+  incidentId: {
     type: String,
     required: true,
     unique: true,
-    match: [/^INC-\d{4}-\d{6}$/, 'Invalid incident number format']
+    default: function() {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const random = Math.random().toString(36).substr(2, 5).toUpperCase();
+      return `INC-${year}${month}${day}-${random}`;
+    }
   },
-  caller: {
+  callerInfo: {
     name: {
       type: String,
-      required: [true, 'Caller name is required'],
+      required: true,
       trim: true,
-      maxlength: 255
+      minlength: [2, 'Caller name must be at least 2 characters'],
+      maxlength: [100, 'Caller name cannot exceed 100 characters']
     },
-    phone: {
+    contactNumber: {
       type: String,
-      required: [true, 'Caller phone is required'],
-      match: [/^\+94[0-9]{9}$/, 'Invalid phone number']
+      required: true,
+      validate: {
+        validator: function(v) {
+          return /^(\+94|0)?[1-9]\d{8}$/.test(v);
+        },
+        message: 'Please provide a valid Sri Lankan phone number'
+      }
     },
-    alternateContact: String
+    alternateContact: {
+      type: String,
+      validate: {
+        validator: function(v) {
+          return !v || /^(\+94|0)?[1-9]\d{8}$/.test(v);
+        },
+        message: 'Please provide a valid alternate contact number'
+      }
+    },
+    reportingMethod: {
+      type: String,
+      enum: ['phone_call', 'mobile_app', 'sms', 'walk_in', 'third_party'],
+      default: 'phone_call'
+    }
   },
-  incident: {
-    type: {
-      type: String,
-      required: [true, 'Incident type is required'],
-      enum: ['Medical', 'Fire', 'Rescue']
-    },
-    severity: {
-      type: String,
-      required: [true, 'Severity is required'],
-      enum: ['High', 'Medium', 'Low']
-    },
-    description: {
-      type: String,
-      required: [true, 'Description is required'],
-      maxlength: [2000, 'Description cannot exceed 2000 characters']
-    },
-    keywords: [String]
+  incidentType: {
+    type: String,
+    enum: ['medical', 'fire', 'rescue', 'hazmat', 'traffic', 'other'],
+    required: true
+  },
+  incidentCategory: {
+    type: String,
+    required: true,
+    validate: {
+      validator: function() {
+        const validCategories = {
+          medical: ['cardiac_arrest', 'respiratory_emergency', 'trauma', 'unconscious', 'allergic_reaction', 'other_medical'],
+          fire: ['structure_fire', 'vehicle_fire', 'wildfire', 'explosion', 'smoke_investigation', 'other_fire'],
+          rescue: ['vehicle_accident', 'water_rescue', 'confined_space', 'height_rescue', 'animal_rescue', 'other_rescue'],
+          hazmat: ['chemical_spill', 'gas_leak', 'toxic_exposure', 'environmental', 'other_hazmat'],
+          traffic: ['collision', 'road_obstruction', 'traffic_control', 'other_traffic'],
+          other: ['public_service', 'assist_police', 'false_alarm', 'other']
+        };
+        return validCategories[this.incidentType]?.includes(this.incidentCategory);
+      },
+      message: 'Incident category must match the selected incident type'
+    }
+  },
+  severity: {
+    type: String,
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'medium',
+    required: true
+  },
+  description: {
+    type: String,
+    required: true,
+    minlength: [10, 'Description must be at least 10 characters'],
+    maxlength: [1000, 'Description cannot exceed 1000 characters'],
+    trim: true
   },
   location: {
     address: {
       type: String,
-      required: [true, 'Address is required']
+      required: true,
+      trim: true,
+      maxlength: [200, 'Address cannot exceed 200 characters']
+    },
+    city: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: [50, 'City cannot exceed 50 characters']
+    },
+    province: {
+      type: String,
+      required: true,
+      enum: ['Western', 'Central', 'Southern', 'Northern', 'Eastern', 'North Western', 'North Central', 'Uva', 'Sabaragamuwa']
     },
     coordinates: {
       type: {
         type: String,
         enum: ['Point'],
-        required: true
+        default: 'Point'
       },
       coordinates: {
         type: [Number],
-        required: true,
         validate: {
-          validator: function(coordinates) {
-            return coordinates.length === 2 &&
-                   coordinates[0] >= -180 && coordinates[0] <= 180 &&
-                   coordinates[1] >= -90 && coordinates[1] <= 90;
+          validator: function(coords) {
+            const [lng, lat] = coords;
+            return lng >= 79.5 && lng <= 81.9 && lat >= 5.9 && lat <= 9.9;
           },
-          message: 'Invalid coordinates'
+          message: 'Coordinates must be within Sri Lankan boundaries'
         }
       }
     },
-    verified: { type: Boolean, default: false },
-    verificationMethod: {
+    locationAccuracy: {
       type: String,
-      enum: ['GPS', 'Address', 'Manual', 'SMS']
+      enum: ['exact', 'approximate', 'general_area'],
+      default: 'approximate'
+    },
+    landmarks: {
+      type: String,
+      maxlength: [200, 'Landmarks description cannot exceed 200 characters']
     }
   },
   status: {
-    current: {
-      type: String,
-      enum: ['Reported', 'Assigned', 'En Route', 'On Scene', 'Cleared', 'Closed'],
-      default: 'Reported'
-    },
-    history: [{
-      status: String,
-      timestamp: { type: Date, default: Date.now },
-      updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-    }]
+    type: String,
+    enum: ['pending', 'assigned', 'en_route', 'on_scene', 'resolved', 'cancelled'],
+    default: 'pending'
   },
-  assignment: {
-    vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle' },
-    crewId: { type: mongoose.Schema.Types.ObjectId, ref: 'Crew' },
-    assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    assignedAt: Date,
-    acceptedAt: Date,
-    estimatedArrival: Date,
-    actualArrival: Date
-  },
-  timeline: {
-    reportedAt: { type: Date, default: Date.now },
-    assignedAt: Date,
-    enRouteAt: Date,
-    arrivedAt: Date,
-    clearedAt: Date,
-    closedAt: Date
-  },
-  createdBy: {
+  loggedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  assignedDispatcher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  assignedResources: [{
+    resourceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vehicle'
+    },
+    assignedAt: {
+      type: Date,
+      default: Date.now
+    },
+    status: {
+      type: String,
+      enum: ['assigned', 'en_route', 'on_scene', 'completed'],
+      default: 'assigned'
+    }
+  }],
+  possibleDuplicates: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Incident'
+  }],
+  mergedWith: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Incident'
+  },
+  notes: [{
+    note: {
+      type: String,
+      required: true,
+      maxlength: [500, 'Note cannot exceed 500 characters']
+    },
+    addedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  },
+  resolvedAt: {
+    type: Date
+  },
+  estimatedResponseTime: {
+    type: Number,
+    min: [1, 'Response time must be at least 1 minute'],
+    max: [120, 'Response time cannot exceed 120 minutes']
+  },
+  actualResponseTime: {
+    type: Number
+  }
+}, {
+  timestamps: true,
+  versionKey: false
+});
+    province: {
+      type: String,
+      enum: ['Western', 'Central', 'Southern', 'Northern', 'Eastern', 
+             'North Western', 'North Central', 'Uva', 'Sabaragamuwa']
+    }
+  },
+  duplicateChecks: [{
+    potentialDuplicateId: { type: mongoose.Schema.Types.ObjectId, ref: 'Incident' },
+    similarityScore: { type: Number, min: 0, max: 1 },
+    checkResult: { type: String, enum: ['Duplicate', 'Similar', 'Unique'] },
+    checkedAt: { type: Date, default: Date.now }
+  }],
+  statusHistory: [{
+    previousStatus: String,
+    newStatus: String,
+    changedAt: { type: Date, default: Date.now },
+    changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    reason: String
+  }],
+  loggedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Logged by user is required']
   }
 }, {
   timestamps: true,
   collection: 'incidents'
 });
 
-// Geospatial index for location-based queries
+// Incident schema indexes (matching current implementation)
+incidentSchema.index({ "location.coordinates": "2dsphere" }); // Geospatial index
+incidentSchema.index({ "status": 1, "createdAt": -1 }); // Status-based queries
+incidentSchema.index({ "incidentId": 1 }, { unique: true }); // Unique incident ID
+incidentSchema.index({ "loggedBy": 1, "createdAt": -1 }); // User activity tracking
+incidentSchema.index({ 
+  "description": "text", 
+  "location.address": "text", 
+  "callerInfo.name": "text" 
+}); // Text search
+
+5.3 Validation Rules and Business Logic
+
+Sri Lankan Localization Validations:
+// Phone number validation for Sri Lankan format
+const phoneValidator = {
+  validator: function(v) {
+    // Supports +94XXXXXXXXX and 0XXXXXXXXX formats
+    return /^(\+94|0)?[1-9]\d{8}$/.test(v);
+  },
+  message: 'Please provide a valid Sri Lankan phone number'
+};
+
+// Province validation for Sri Lankan provinces
+const provinceValidator = {
+  type: String,
+  enum: {
+    values: ['Western', 'Central', 'Southern', 'Northern', 'Eastern', 
+             'North Western', 'North Central', 'Uva', 'Sabaragamuwa'],
+    message: 'Invalid province specified'
+  }
+};
+
+// Coordinate validation for Sri Lankan boundaries
+const coordinateValidator = {
+  validator: function(coords) {
+    // Sri Lankan boundaries: 5.9°N to 9.9°N, 79.6°E to 81.9°E
+    const [lng, lat] = coords;
+    return lat >= 5.9 && lat <= 9.9 && lng >= 79.6 && lng <= 81.9;
+  },
+  message: 'Coordinates must be within Sri Lankan boundaries'
+};
+
+Business Rule Implementations:
+// Incident priority calculation based on type and severity
+const calculatePriority = (incidentType, severity) => {
+  const priorityMatrix = {
+    'medical': { 'critical': 1, 'high': 2, 'medium': 3, 'low': 4 },
+    'fire': { 'critical': 1, 'high': 2, 'medium': 3, 'low': 4 },
+    'rescue': { 'critical': 1, 'high': 2, 'medium': 3, 'low': 5 },
+    'natural_disaster': { 'critical': 1, 'high': 1, 'medium': 2, 'low': 3 },
+    'other': { 'critical': 2, 'high': 3, 'medium': 4, 'low': 5 }
+  };
+  return priorityMatrix[incidentType]?.[severity] || 5;
+};
+
+// Automatic duplicate detection rules
+const duplicateDetectionRules = {
+  locationRadius: 100, // meters
+  timeWindow: 30, // minutes
+  descriptionSimilarity: 0.8 // 80% similarity threshold
+};
 incidentSchema.index({ "location.coordinates": "2dsphere" });
 incidentSchema.index({ "status.current": 1, "createdAt": -1 });
 incidentSchema.index({ "assignment.vehicleId": 1 });
@@ -1449,30 +2408,44 @@ const getResponseTimeMetrics = async (startDate, endDate) => {
 
 ===============================================================================
 
-6. Justification of Design Decisions
+6. Justification of Design Decisions (Updated for Current Implementation)
 
-6.1 Academic vs Practical Approach Justification
+6.1 Academic vs Practical Implementation Justification
 
-Normalization Benefits Demonstrated:
+Academic Requirements Achievement:
 ✅ Eliminated data redundancy through systematic decomposition
 ✅ Achieved 3NF to ensure data integrity and consistency
-✅ Demonstrated understanding of dependency analysis
-✅ Provided clear normalization steps with explanations
+✅ Demonstrated understanding of dependency analysis and normalization process
+✅ Provided clear normalization steps with detailed explanations
+✅ Created comprehensive ER diagrams covering all functional requirements
 
-MongoDB Implementation Benefits:
-✅ Optimized for real-time emergency response requirements
-✅ Leveraged document embedding for performance-critical queries
-✅ Supported geospatial operations for location-based services
-✅ Enabled horizontal scaling for high-volume operations
+Current MongoDB Implementation Benefits:
+✅ Aligned with De Silva's incident intake management implementation
+✅ Optimized for real-time emergency response with embedded documents
+✅ Leveraged document embedding for performance-critical queries (caller info, status history)
+✅ Implemented geospatial operations for location-based emergency services
+✅ Enabled horizontal scaling for high-volume emergency operations
+✅ Integrated role-based authentication with nested document optimization
+✅ Supported Sri Lankan geographic boundaries and phone number validation
 
-6.2 Design Decision Matrix
+Implementation-Specific Justifications:
+✅ Incident.js model: Comprehensive schema matches real emergency dispatch requirements
+✅ User.js model: Nested structure (personal/auth/settings) optimizes authentication flows
+✅ Geospatial indexing: Essential for duplicate detection and resource location tracking
+✅ Status history embedding: Reduces query complexity for incident timeline views
+✅ Caller information embedding: Single-document retrieval for emergency operators
 
-| Aspect | Normalized Approach | MongoDB Approach | Chosen for Implementation |
-|--------|-------------------|------------------|-------------------------|
-| Data Integrity | High (FK constraints) | Medium (application-level) | MongoDB (with validation) |
-| Query Performance | Medium (joins required) | High (embedded data) | MongoDB |
-| Real-time Updates | Medium (multiple tables) | High (single document) | MongoDB |
-| Scalability | Vertical scaling | Horizontal scaling | MongoDB |
+6.2 Design Decision Matrix (Current vs Academic Approaches)
+
+| Aspect | Normalized Relational | MongoDB Implementation | Current Choice | Justification |
+|--------|---------------------|------------------------|----------------|---------------|
+| Data Integrity | High (FK constraints) | Medium (application-level validation) | MongoDB | Mongoose validation + faster emergency response |
+| Query Performance | Medium (joins required) | High (embedded data access) | MongoDB | Critical for sub-second emergency response |
+| Real-time Updates | Medium (multiple table updates) | High (single document updates) | MongoDB | Status changes need immediate reflection |
+| Scalability | Vertical scaling | Horizontal scaling | MongoDB | Emergency systems need geographic distribution |
+| Development Speed | Slower (complex joins) | Faster (natural JSON/JavaScript) | MongoDB | MERN stack integration advantage |
+| Geographic Queries | Complex (spatial extensions) | Native (2dsphere indexes) | MongoDB | Essential for Sri Lankan emergency coverage |
+| Team Integration | Medium | High | MongoDB | Matches De Silva's incident intake work |
 | Development Speed | Slower (complex joins) | Faster (natural JSON) | MongoDB |
 | Geographic Queries | Complex (spatial extensions) | Native (2dsphere) | MongoDB |
 
@@ -1516,11 +2489,19 @@ The Emergency Dispatch System database design successfully balances academic rig
 
 Key achievements:
 ✅ Comprehensive ER diagram covering all functional requirements
-✅ Systematic normalization to 3NF with clear documentation
-✅ MongoDB schema optimized for performance and scalability
-✅ Proper constraints, validation, and indexing strategies
-✅ Justified design decisions based on system requirements
+✅ Systematic normalization to 3NF with clear documentation  
+✅ MongoDB schema aligned with current implementation (Incident.js and User.js models)
+✅ Integration with De Silva's incident intake management functionality
+✅ Proper constraints, validation, and indexing strategies based on actual usage patterns
+✅ Geospatial support for Sri Lankan emergency response operations
+✅ Role-based authentication system with nested document optimization
 
-This two-phase approach ensures both academic compliance and practical effectiveness for the Emergency Dispatch System implementation.
+Implementation Status:
+✅ Core Incident model: Fully implemented with comprehensive schema
+✅ User authentication model: Complete with role-based access control
+✅ Incident intake workflow: Integrated from De Silva's development work
+✅ Database design documentation: Updated to reflect current codebase
+
+This two-phase approach ensures both academic compliance and practical effectiveness for the Emergency Dispatch System implementation. The design document now accurately reflects the working system and is ready to guide the completion of remaining database components.
 
 ===============================================================================
