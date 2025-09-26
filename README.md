@@ -40,10 +40,23 @@ emergency-dispatch-system/
 
 ## Quick Start
 
+### **One Command Setup (Recommended)**
+
+```bash
+git clone <repository-url>
+cd emergency-dispatch-system
+npm install  # Installs all dependencies for root + all apps automatically
+npm run seed  # Populate database with test data
+npm run dev  # Start both backend and frontend
+```
+
+### **Manual Setup (Alternative)**
+
 1. Follow the [Development Setup Guide](./docs/development-setup-guide.md)
 2. Install required software
 3. Clone repository and create your feature branch
-4. Set up development environment
+4. Run `npm run install-all` to install all app dependencies
+5. Set up development environment
 
 ## Features by Team Member
 
