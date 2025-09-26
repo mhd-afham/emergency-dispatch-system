@@ -138,7 +138,8 @@ config.resolver.nodeModulesPath = [
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"", // Run web + backend
     "mobile": "cd apps/mobile && npm start", // Run mobile app
-    "install-all": "npm install && cd apps/backend && npm install && cd ../web && npm install"
+    "install-all": "npm install && cd apps/backend && npm install && cd ../web && npm install && cd ../mobile && npm install",
+    "postinstall": "cd apps/backend && npm install && cd ../web && npm install && cd ../mobile && npm install"
   },
   "devDependencies": {
     "concurrently": "^8.2.0" // Tool to run multiple dev servers
@@ -490,11 +491,17 @@ export default function DashboardScreen({ user, onLogout }) {
 
 ```bash
 # Single command installs everything!
-npm install  # Installs all workspace packages and dependencies
+npm install  # Installs root dependencies + automatically installs all app dependencies
 
-# That's it! All 6 packages (backend, web, mobile, shared, api-client, ui-components)
-# are installed and configured automatically with proper workspace resolution.
+# The postinstall script automatically runs after npm install and installs:
+# - apps/backend dependencies
+# - apps/web dependencies
+# - apps/mobile dependencies
 
+# Alternative explicit command:
+npm run install-all  # Same result, but explicit
+
+# That's it! All 3 apps (backend, web, mobile) are installed and ready to go.
 # No more manual individual package installations needed!
 ```
 
