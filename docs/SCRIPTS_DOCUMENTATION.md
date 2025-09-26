@@ -84,6 +84,10 @@ backend/scripts/
 ## 🚀 NPM Scripts Reference
 
 ```bash
+# Installation & Setup
+npm install          # Install all dependencies for root + all apps (uses postinstall)
+npm run install-all  # Explicit command to install all dependencies
+
 # Development
 npm run dev          # Start server with nodemon
 npm run start        # Start production server
@@ -103,11 +107,19 @@ npm run test-auth    # Test authentication endpoints
 
 ## 🔄 Typical Development Workflow
 
-### **For New Team Members:**
+### **For New Team Members (One Command Setup):**
 
-1. `npm run team-setup` - Verify everything works
-2. `npm run seed` - Add test data
-3. `npm run dev` - Start development
+1. `npm install` - Install all dependencies (root + all apps automatically)
+2. `npm run team-setup` - Verify everything works
+3. `npm run seed` - Add test data
+4. `npm run dev` - Start development
+
+### **Alternative Setup (Manual):**
+
+1. `npm run install-all` - Explicit install for all apps
+2. `npm run team-setup` - Verify everything works
+3. `npm run seed` - Add test data
+4. `npm run dev` - Start development
 
 ### **For Testing:**
 
