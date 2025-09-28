@@ -3,7 +3,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import AdminDashboard from "../../pages/AdminDashboard";
 import CallTakerDashboard from "../../pages/CallTakerDashboard";
 import DispatcherDashboard from "../../pages/DispatcherDashboard";
-import SupervisorDashboard from "../../pages/SupervisorDashboard";
+import ModularSupervisorDashboard from "../../pages/ModularSupervisorDashboard";
 
 const RoleBasedDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -28,7 +28,7 @@ const RoleBasedDashboard: React.FC = () => {
     case "Dispatcher":
       return <DispatcherDashboard />;
     case "Supervisor":
-      return <SupervisorDashboard />;
+      return <ModularSupervisorDashboard />;
     case "Field Crew":
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">

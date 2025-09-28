@@ -13,6 +13,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import CallTakerDashboard from "./pages/CallTakerDashboard";
 import DispatcherDashboard from "./pages/DispatcherDashboard";
 import SupervisorDashboard from "./pages/SupervisorDashboard";
+import ModularSupervisorDashboard from "./pages/ModularSupervisorDashboard";
 import LoginForm from "./components/auth/LoginForm";
 import ForgotPasswordForm from "./components/auth/ForgotPasswordForm";
 import ResetPasswordForm from "./components/auth/ResetPasswordForm";
@@ -126,6 +127,14 @@ function App() {
             />
             <Route
               path="/dashboard/supervisor"
+              element={
+                <ProtectedRoute requiredRoles={["Supervisor"]}>
+                  <ModularSupervisorDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/supervisor-legacy"
               element={
                 <ProtectedRoute requiredRoles={["Supervisor"]}>
                   <SupervisorDashboard />
