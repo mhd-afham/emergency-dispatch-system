@@ -1,0 +1,2206 @@
+1. Comprehensive ER Diagram Design
+
+1.1 Entity Identification and Analysis
+
+Based on the functional requirements and user stories from Activities 2 and 3, the following 12 entities have been identified and implemented in the Emergency Dispatch System:
+
+Primary Entities (Current Backend Implementation):
+- User: System users with role-based access (Call Takers, Dispatchers, Field Crews, etc.)
+- Incident: Emergency incidents logged through various channels (embeds location data)
+- Vehicle: Emergency vehicles (ambulances, fire engines) available for dispatch
+- Station: Emergency service stations and facilities
+- Crew: Field personnel assigned to vehicles and shifts
+- Shift: Work shifts with staffing requirements and schedules
+- EquipmentChecklistTemplate: Standardized checklists for vehicle types
+- EquipmentCheck: Individual equipment inspection records
+- Assignment: Resource assignments to incidents
+- Communication: SMS/push notification history and delivery tracking
+- Report: Post-incident reports and analytics
+- AuditLog: System audit trail for compliance
+
+Design Decision: Location data is embedded within Incident, Vehicle, Station, and Crew entities for optimal performance in emergency scenarios. Equipment data is managed through EquipmentCheck and EquipmentChecklistTemplate models with embedded equipment arrays.
+
+1.2 Entity Attributes (Current Implementation Aligned)
+
+User Entity (Matches User.js):
+- user_id (Primary Key - ObjectId)
+- personal.firstName (required, max 100 characters)
+- personal.lastName (required, max 100 characters)
+- personal.email (unique, required, validated format)
+- personal.phone (Sri Lankan format: +94XXXXXXXXX)
+- auth.password (hashed, min 8 characters, select: false)
+- auth.role (Call Taker, Dispatcher, Field Crew, Supervisor, Admin, Citizen)
+- auth.employeeId (sparse unique, format: EMP123456)
+- settings.isActive (default: true)
+- settings.lastLogin
+- settings.loginAttempts (default: 0)
+- settings.lockUntil
+- settings.emailVerified (default: false)
+- settings.resetPasswordToken
+- settings.resetPasswordExpire
+- settings.passwordHistory[] (array with hash and createdAt)
+- settings.preferences.mapZoom (8-18, default: 12)
+- settings.preferences.notificationSound (default: true)
+- settings.preferences.theme (light, dark, system, default: system)
+- audit.createdBy (ObjectId reference to User)
+- audit.createdAt, audit.updatedAt, audit.lastPasswordChange
+- createdAt, updatedAt (timestamps)
+
+Incident Entity (Matches Incident.js):
+- incident_id (Primary Key - ObjectId)
+- incidentId (Auto-generated string: INC-YYYYMMDD-XXXXX)
+- callerInfo.name (required, 2-100 characters)
+- callerInfo.contactNumber (required, Sri Lankan format validation)
+- callerInfo.alternateContact (optional, Sri Lankan format)
+- callerInfo.reportingMethod (phone_call, mobile_app, sms, walk_in, third_party)
+- incidentType (medical, fire, rescue, hazmat, traffic, other)
+- incidentCategory (validated against incidentType mapping)
+- severity (low, medium, high, critical, default: medium)
+- description (required, 10-1000 characters)
+- location.address (required, max 200 characters)
+- location.city (required, max 50 characters)
+- location.province (Western, Central, Southern, Northern, Eastern, North Western, North Central, Uva, Sabaragamuwa)
+- location.coordinates (GeoJSON Point, Sri Lankan boundaries validated)
+- location.locationAccuracy (exact, approximate, general_area)
+- location.landmarks (max 200 characters)
+- status (pending, assigned, en_route, on_scene, resolved, cancelled, default: pending)
+- loggedBy (required ObjectId reference to User)
+- assignedDispatcher (ObjectId reference to User)
+- assignedResources[] (array with resourceId, assignedAt, status)
+- possibleDuplicates[] (array of ObjectId references)
+- mergedWith (ObjectId reference)
+- notes[] (array with note, addedBy, timestamp)
+- createdAt, updatedAt (timestamps)
+- resolvedAt
+- estimatedResponseTime (1-120 minutes)
+- actualResponseTime
+
+Vehicle Entity (Matches Vehicle.js):
+- vehicle_id (Primary Key - ObjectId)
+- registration.plateNumber (unique, Sri Lankan format)
+- registration.vehicleType (Ambulance, Fire Engine, Rescue Vehicle, Support Vehicle)
+- registration.make (required, max 50 characters)
+- registration.model (required, max 50 characters)
+- registration.year (1990 to current year + 1)
+- registration.registrationDate (default: Date.now)
+- registration.approvedBy (ObjectId reference to User)
+- status.operational (active, maintenance, out_of_service, default: active)
+- status.currentStatus (available, assigned, en_route, on_scene, returning, default: available)
+- status.currentLocation (GeoJSON Point for GPS tracking)
+- status.lastLocationUpdate (default: Date.now)
+- assignment.currentIncidentId (ObjectId reference to Incident)
+- assignment.assignedAt
+- assignment.crew[] (array of ObjectId references to Crew)
+- equipment.checklistTemplateId (ObjectId reference to EquipmentChecklistTemplate)
+- equipment.lastCheckDate
+- equipment.nextMaintenanceDate
+- equipment.items[] (array with name, type, serialNumber, status, quantity, lastChecked)
+- station.homeStationId (ObjectId reference to Station)
+- station.currentStationId (ObjectId reference to Station)
+- isActive (default: true)
+- audit.createdBy (ObjectId reference to User)
+- audit.createdAt, audit.updatedAt
+- createdAt, updatedAt (timestamps)
+
+Crew Entity (Matches Crew.js):
+- crew_id (Primary Key - ObjectId)
+- personal.employeeId (unique, format: EMP123456)
+- personal.firstName (required, max 100 characters)
+- personal.lastName (required, max 100 characters)
+- personal.email (unique, required, validated format)
+- personal.phone (required, Sri Lankan format)
+- professional.role (EMT, Paramedic, Firefighter, Driver, Supervisor)
+- professional.certificationLevel (Basic, Intermediate, Advanced, Expert)
+- professional.certifications[] (array with type, number, issuedBy, issueDate, expiryDate, isActive)
+- professional.specializations[] (cardiac_care, trauma, pediatric, respiratory, hazmat, rescue_operations, fire_suppression, medical_transport, emergency_medicine, other)
+- professional.hireDate (required, cannot be future)
+- currentStatus.availability (available, on_duty, off_duty, on_leave, training, default: off_duty)
+- currentStatus.shiftId (ObjectId reference to Shift)
+- currentStatus.assignedVehicleId (ObjectId reference to Vehicle)
+- currentStatus.location (GeoJSON Point, Sri Lankan boundaries)
+- currentStatus.lastLocationUpdate
+- settings.isActive (default: true)
+- settings.emergencyContact.name (required)
+- settings.emergencyContact.relationship (Spouse, Parent, Child, Sibling, Friend, Other)
+- settings.emergencyContact.phone (required, Sri Lankan format)
+- audit.createdBy (ObjectId reference to User)
+- audit.createdAt, audit.updatedAt
+- createdAt, updatedAt (timestamps)
+
+Station Entity (Matches Station.js):
+- station_id (Primary Key - ObjectId)
+- stationName (required, max 100 characters)
+- address (required, max 200 characters)
+- coordinates (GeoJSON Point, Sri Lankan boundaries validated)
+- province (Western, Central, Southern, Northern, Eastern, North Western, North Central, Uva, Sabaragamuwa)
+- contactPhone (required, Sri Lankan format)
+- contactEmail (validated format)
+- stationType (Fire Station, Ambulance Station, Rescue Station, Multi-Purpose)
+- capacity.vehicleCapacity (min 1)
+- capacity.crewCapacity (min 1)
+- operatingHours.is24Hours (default: true)
+- operatingHours.openTime (HH:MM format, default: 00:00)
+- operatingHours.closeTime (HH:MM format, default: 23:59)
+- coverageArea.radius (1-100 km)
+- coverageArea.districts[] (array of strings)
+- coverageArea.cities[] (array of strings)
+- stationCommander (ObjectId reference to User)
+- currentResources.vehicles[] (array with vehicleId, status)
+- currentResources.crew[] (array with crewId, status)
+- isActive (default: true)
+- audit.createdBy (ObjectId reference to User)
+- audit.createdAt, audit.updatedAt
+- createdAt, updatedAt (timestamps)
+
+Shift Entity (Matches Shift.js):
+- shift_id (Primary Key - ObjectId)
+- shift.name (required, max 100 characters)
+- shift.type (regular, overtime, emergency)
+- schedule.startTime (HH:MM format)
+- schedule.endTime (HH:MM format)
+- schedule.date (required)
+- schedule.duration (1-24 hours)
+- schedule.recurrence (none, daily, weekly, custom, default: none)
+- staffing.requiredCrewCount (min 1)
+- staffing.requiredRoles[] (EMT, Paramedic, Firefighter, Driver, Supervisor)
+- staffing.minimumCertificationLevel (Basic, Intermediate, Advanced, Expert, default: Basic)
+- staffing.assignedCrew[] (array with crewId, role, assignedAt, status, assignedBy)
+- staffing.vehicleAssignments[] (array with vehicleId, primaryCrewId, additionalCrew, assignedAt, status)
+- supervision.supervisorId (ObjectId reference to User)
+- supervision.supervisorNotes (max 500 characters)
+- supervision.backupSupervisorId (ObjectId reference to User)
+- status.current (planned, active, completed, cancelled, default: planned)
+- status.actualStartTime
+- status.actualEndTime
+- status.cancelledReason (max 200 characters)
+- stationId (ObjectId reference to Station)
+- metrics.incidentsHandled (default: 0)
+- metrics.averageResponseTime (minutes, default: 0)
+- metrics.crewAttendanceRate (percentage, default: 100)
+- audit.createdBy (ObjectId reference to User)
+- audit.createdAt, audit.updatedAt
+- createdAt, updatedAt (timestamps)
+
+EquipmentChecklistTemplate Entity (Matches EquipmentChecklistTemplate.js):
+- template_id (Primary Key - ObjectId)
+- vehicleType (ambulance, fire_engine, rescue_vehicle, support_vehicle)
+- template.name (required, max 100 characters)
+- template.description (required, max 500 characters)
+- template.version (required, format: X.Y)
+- checklist.categories[] (array with name, description, items[])
+- checklist.categories[].items[] (array with name, type, description, required, critical, checkType, expectedValue, tolerance, unit)
+- checklist.totalItems (auto-calculated)
+- checklist.criticalItems (auto-calculated)
+- checklist.estimatedDuration (minutes)
+- checklist.instructions (max 1000 characters)
+- settings.isActive (default: true)
+- settings.isDefault (default: false)
+- audit.createdBy (ObjectId reference to User)
+- audit.createdAt, audit.updatedAt
+- createdAt, updatedAt (timestamps)
+
+EquipmentCheck Entity (Matches EquipmentCheck.js):
+- check_id (Primary Key - ObjectId)
+- vehicleId (ObjectId reference to Vehicle)
+- crewId (ObjectId reference to Crew)
+- templateId (ObjectId reference to EquipmentChecklistTemplate)
+- inspection.checkResults[] (array with categoryName, itemName, status, actualValue, notes, photos)
+- inspection.overallStatus (pass, fail, conditional_pass, incomplete)
+- inspection.passCount, inspection.failCount, inspection.warningCount
+- inspection.criticalIssues[] (array of critical failures)
+- inspection.recommendedActions[] (array of recommended actions)
+- location.coordinates (GeoJSON Point)
+- location.stationId (ObjectId reference to Station)
+- location.address
+- timing.startedAt
+- timing.completedAt
+- timing.duration (minutes)
+- signatures.crewMember
+- signatures.supervisor
+- audit.createdBy (ObjectId reference to User)
+- audit.createdAt
+- createdAt (timestamp)
+
+Assignment Entity (Matches Assignment.js):
+- assignment_id (Primary Key - ObjectId)
+- incident.incidentId (ObjectId reference to Incident)
+- resource.vehicleId (ObjectId reference to Vehicle)
+- resource.primaryCrewId (ObjectId reference to Crew)
+- resource.additionalCrew[] (array of ObjectId references to Crew)
+- dispatch.assignedBy (ObjectId reference to User)
+- dispatch.assignedAt (default: Date.now)
+- dispatch.priority (routine, urgent, emergency, critical, default: routine)
+- dispatch.estimatedArrivalTime
+- dispatch.dispatchNotes (max 500 characters)
+- response.status (assigned, accepted, declined, en_route, on_scene, completed, cancelled, default: assigned)
+- response.acceptedAt, response.acceptedBy
+- response.declinedAt, response.declineReason
+- response.enRouteAt, response.onSceneAt, response.completedAt
+- response.cancelledAt, response.cancellationReason
+- performance.responseTime (seconds)
+- performance.arrivalTime (seconds)
+- performance.onSceneTime (seconds)
+- performance.totalDuration (seconds)
+- performance.distanceTraveled (kilometers)
+- location.dispatchLocation (GeoJSON Point)
+- location.arrivalLocation (GeoJSON Point)
+- communication.notifications[] (array of notification records)
+- communication.updates[] (array of status updates)
+- audit.createdAt, audit.updatedAt
+- createdAt, updatedAt (timestamps)
+
+Communication Entity (Matches Communication.js):
+- communication_id (Primary Key - ObjectId)
+- target.type (incident, crew, citizen, supervisor)
+- target.incidentId (ObjectId reference to Incident)
+- target.recipientId (ObjectId reference to User/Crew)
+- target.recipientPhone, target.recipientEmail
+- message.type (sms, push_notification, email, system_alert)
+- message.template (incident_assigned, status_update, arrival_eta, etc.)
+- message.content
+- message.priority (low, normal, high, critical)
+- delivery.status (pending, sent, delivered, failed, read)
+- delivery.sentAt, delivery.deliveredAt, delivery.readAt
+- delivery.failureReason
+- delivery.retryCount (default: 0)
+- metadata.sender (ObjectId reference to User)
+- metadata.source (system, manual, automated)
+- metadata.contextData
+- metadata.correlationId
+- audit.createdAt
+- createdAt (timestamp)
+
+Report Entity (Matches Report.js):
+- report_id (Primary Key - ObjectId)
+- incident.incidentId (ObjectId reference to Incident)
+- report.type (incident_summary, performance_analysis, equipment_check, shift_report)
+- report.title
+- report.summary
+- report.content (structured data)
+- report.findings
+- report.recommendations
+- attachments.files[] (array with filename, type, size, url)
+- attachments.photos[] (array of image metadata)
+- attachments.documents[] (array of document references)
+- workflow.createdBy (ObjectId reference to User)
+- workflow.reviewedBy (ObjectId reference to User)
+- workflow.approvedBy (ObjectId reference to User)
+- workflow.status (draft, submitted, under_review, approved, published)
+- timing.createdAt, timing.reviewedAt, timing.approvedAt, timing.publishedAt
+- access.visibility (private, team, department, public)
+- access.permissions[] (view, edit, approve)
+- audit.version
+- audit.revisionHistory[]
+- createdAt, updatedAt (timestamps)
+
+AuditLog Entity (Matches AuditLog.js):
+- audit_id (Primary Key - ObjectId)
+- activity.userId (ObjectId reference to User)
+- activity.action (create, read, update, delete, login, logout, assign, approve)
+- activity.entityType (incident, vehicle, crew, assignment, user)
+- activity.entityId
+- activity.description
+- changes.beforeState (JSON)
+- changes.afterState (JSON)
+- changes.modifiedFields[] (array)
+- context.sessionId
+- context.ipAddress
+- context.userAgent
+- context.geolocation (GeoJSON Point)
+- context.timestamp
+- security.riskLevel (low, medium, high)
+- security.flags[] (unauthorized_access, privilege_escalation, etc.)
+- metadata.source (web, mobile, api)
+- metadata.correlationId
+- retention.expiresAt (for data retention policies)
+- createdAt (timestamp)
+
+1.3 Relationship Analysis (Current MongoDB Implementation)
+
+Document Embedding Relationships (One-to-Many embedded in parent):
+- Incident → callerInfo (embedded caller details)
+- Incident → location (embedded GeoJSON coordinates and address)
+- Incident → assignedResources[] (embedded array of resource assignments)
+- Incident → possibleDuplicates[] (embedded array of duplicate detection results)
+- Incident → notes[] (embedded array of status changes and notes)
+- User → personal (embedded personal information)
+- User → auth (embedded authentication details)  
+- User → settings (embedded user preferences and audit fields)
+- Vehicle → registration (embedded vehicle registration details)
+- Vehicle → status (embedded current operational status)
+- Vehicle → assignment (embedded current incident assignment)
+- Vehicle → equipment (embedded equipment inventory)
+- Vehicle → station (embedded station assignment)
+- Crew → personal (embedded personal details)
+- Crew → professional (embedded role and certifications)
+- Crew → currentStatus (embedded availability and location)
+- Crew → settings (embedded emergency contact and preferences)
+- Station → capacity (embedded capacity limits)
+- Station → operatingHours (embedded schedule information)
+- Station → coverageArea (embedded geographic coverage)
+- Station → currentResources (embedded vehicle and crew assignments)
+- Shift → shift (embedded basic shift information)
+- Shift → schedule (embedded timing and recurrence)
+- Shift → staffing (embedded crew and vehicle assignments)
+- Shift → supervision (embedded supervisor information)
+- Shift → status (embedded current status and metrics)
+- Assignment → incident, resource, dispatch, response, performance, location (embedded assignment details)
+- EquipmentCheck → inspection (embedded check results and findings)
+- EquipmentCheck → location, timing, signatures (embedded operational data)
+- Communication → target, message, delivery, metadata (embedded communication details)
+- Report → incident, report, attachments, workflow, timing, access (embedded report structure)
+- AuditLog → activity, changes, context, security, metadata (embedded audit details)
+
+Reference Relationships (Foreign Key ObjectId references):
+- Incident.loggedBy → User._id (who logged the incident)
+- Incident.assignedDispatcher → User._id (assigned dispatcher)
+- Vehicle.registration.approvedBy → User._id (approving supervisor)
+- Vehicle.assignment.currentIncidentId → Incident._id (current assignment)
+- Vehicle.station.homeStationId → Station._id (home station)
+- Vehicle.station.currentStationId → Station._id (current location)
+- Station.stationCommander → User._id (station commander)
+- Station.currentResources.vehicles[].vehicleId → Vehicle._id (stationed vehicles)
+- Station.currentResources.crew[].crewId → Crew._id (stationed crew)
+- Crew.currentStatus.shiftId → Shift._id (current shift assignment)
+- Crew.currentStatus.assignedVehicleId → Vehicle._id (assigned vehicle)
+- Crew.audit.createdBy → User._id (who created the record)
+- Shift.supervision.supervisorId → User._id (shift supervisor)
+- Shift.supervision.backupSupervisorId → User._id (backup supervisor)
+- Shift.stationId → Station._id (assigned station)
+- Shift.staffing.assignedCrew[].crewId → Crew._id (assigned crew members)
+- Shift.staffing.vehicleAssignments[].vehicleId → Vehicle._id (assigned vehicles)
+- Assignment.incident.incidentId → Incident._id (assigned incident)
+- Assignment.resource.vehicleId → Vehicle._id (assigned vehicle)
+- Assignment.resource.primaryCrewId → Crew._id (primary crew member)
+- Assignment.dispatch.assignedBy → User._id (assigning dispatcher)
+- EquipmentCheck.vehicleId → Vehicle._id (vehicle being inspected)
+- EquipmentCheck.crewId → Crew._id (crew performing inspection)
+- EquipmentCheck.templateId → EquipmentChecklistTemplate._id (checklist template)
+- Communication.target.incidentId → Incident._id (related incident)
+- Communication.target.recipientId → User._id (message recipient)
+- Communication.metadata.sender → User._id (message sender)
+- Report.incident.incidentId → Incident._id (related incident)
+- Report.workflow.createdBy → User._id (report author)
+- Report.workflow.reviewedBy → User._id (reviewer)
+- Report.workflow.approvedBy → User._id (approver)
+- AuditLog.activity.userId → User._id (user who performed action)
+
+Array References (Multiple ObjectId references in arrays):
+- Incident.possibleDuplicates[] → Incident._id (potential duplicate incidents)
+- Vehicle.assignment.crew[] → Crew._id (assigned crew members)
+- Assignment.resource.additionalCrew[] → Crew._id (additional crew members)
+- Shift.staffing.vehicleAssignments[].additionalCrew[] → Crew._id (additional crew per vehicle)
+
+MongoDB Implementation Benefits:
+- Embedded relationships eliminate joins for frequently accessed data
+- Reference relationships maintain data consistency for normalized entities
+- Array references support many-to-many relationships efficiently
+- Mixed approach optimizes for both performance and data integrity
+- Geographic data (coordinates) embedded for fast location-based queries
+- Status and timeline data embedded for atomic updates during emergencies
+
+===============================================================================
+
+2. Database Normalization Process (0NF → 1NF → 2NF → 3NF)
+
+2.1 Initial State Analysis (0NF - Unnormalized Form)
+
+The current MongoDB implementation uses document embedding and arrays, which needs to be analyzed for relational database normalization. Converting from the current nested document structure to flat relational tables:
+
+Initial Unnormalized Tables (0NF) - Derived from Section 1 Entities:
+
+User_0NF:
+user_id | personal_firstName | personal_lastName | personal_email | personal_phone | 
+auth_password | auth_role | auth_employeeId | settings_isActive | settings_lastLogin | 
+settings_loginAttempts | settings_lockUntil | settings_emailVerified | 
+settings_resetPasswordToken | settings_resetPasswordExpire | settings_passwordHistory | 
+settings_preferences_mapZoom | settings_preferences_notificationSound | 
+settings_preferences_theme | audit_createdBy | audit_createdAt | audit_updatedAt | 
+audit_lastPasswordChange | createdAt | updatedAt
+
+Incident_0NF:
+incident_id | incidentId | callerInfo_name | callerInfo_contactNumber | 
+callerInfo_alternateContact | callerInfo_reportingMethod | incidentType | 
+incidentCategory | severity | description | location_address | location_city | 
+location_province | location_coordinates | location_locationAccuracy | 
+location_landmarks | status | loggedBy | assignedDispatcher | assignedResources | 
+possibleDuplicates | mergedWith | notes | createdAt | updatedAt | resolvedAt | 
+estimatedResponseTime | actualResponseTime
+
+Vehicle_0NF:
+vehicle_id | registration_plateNumber | registration_vehicleType | registration_make | 
+registration_model | registration_year | registration_registrationDate | 
+registration_approvedBy | status_operational | status_currentStatus | 
+status_currentLocation | status_lastLocationUpdate | assignment_currentIncidentId | 
+assignment_assignedAt | assignment_crew | equipment_checklistTemplateId | 
+equipment_lastCheckDate | equipment_nextMaintenanceDate | equipment_items | 
+station_homeStationId | station_currentStationId | isActive | audit_createdBy | 
+audit_createdAt | audit_updatedAt | createdAt | updatedAt
+
+Station_0NF:
+station_id | stationName | address | coordinates | province | contactPhone | 
+contactEmail | stationType | capacity_vehicleCapacity | capacity_crewCapacity | 
+operatingHours_is24Hours | operatingHours_openTime | operatingHours_closeTime | 
+coverageArea_radius | coverageArea_districts | coverageArea_cities | 
+stationCommander | currentResources_vehicles | currentResources_crew | 
+isActive | audit_createdBy | audit_createdAt | audit_updatedAt | createdAt | updatedAt
+
+Crew_0NF:
+crew_id | personal_employeeId | personal_firstName | personal_lastName | 
+personal_email | personal_phone | professional_role | professional_certificationLevel | 
+professional_certifications | professional_specializations | professional_hireDate | 
+currentStatus_availability | currentStatus_shiftId | currentStatus_assignedVehicleId | 
+currentStatus_location | currentStatus_lastLocationUpdate | settings_isActive | 
+settings_emergencyContact_name | settings_emergencyContact_relationship | 
+settings_emergencyContact_phone | audit_createdBy | audit_createdAt | 
+audit_updatedAt | createdAt | updatedAt
+
+Shift_0NF:
+shift_id | shift_name | shift_type | schedule_startTime | schedule_endTime | 
+schedule_date | schedule_duration | schedule_recurrence | staffing_requiredCrewCount | 
+staffing_requiredRoles | staffing_minimumCertificationLevel | staffing_assignedCrew | 
+staffing_vehicleAssignments | supervision_supervisorId | supervision_supervisorNotes | 
+supervision_backupSupervisorId | status_current | status_actualStartTime | 
+status_actualEndTime | status_cancelledReason | stationId | metrics_incidentsHandled | 
+metrics_averageResponseTime | metrics_crewAttendanceRate | audit_createdBy | 
+audit_createdAt | audit_updatedAt | createdAt | updatedAt
+
+EquipmentChecklistTemplate_0NF:
+template_id | vehicleType | template_name | template_description | template_version | 
+checklist_categories | checklist_totalItems | checklist_criticalItems | 
+checklist_estimatedDuration | checklist_instructions | settings_isActive | 
+settings_isDefault | audit_createdBy | audit_createdAt | audit_updatedAt | 
+createdAt | updatedAt
+
+EquipmentCheck_0NF:
+check_id | vehicleId | crewId | templateId | inspection_checkResults | 
+inspection_overallStatus | inspection_passCount | inspection_failCount | 
+inspection_warningCount | inspection_criticalIssues | inspection_recommendedActions | 
+location_coordinates | location_stationId | location_address | timing_startedAt | 
+timing_completedAt | timing_duration | signatures_crewMember | signatures_supervisor | 
+audit_createdBy | audit_createdAt | createdAt
+
+Assignment_0NF:
+assignment_id | incident_incidentId | resource_vehicleId | resource_primaryCrewId | 
+resource_additionalCrew | dispatch_assignedBy | dispatch_assignedAt | 
+dispatch_priority | dispatch_estimatedArrivalTime | dispatch_dispatchNotes | 
+response_status | response_acceptedAt | response_acceptedBy | response_declinedAt | 
+response_declineReason | response_enRouteAt | response_onSceneAt | 
+response_completedAt | response_cancelledAt | response_cancellationReason | 
+performance_responseTime | performance_arrivalTime | performance_onSceneTime | 
+performance_totalDuration | performance_distanceTraveled | location_dispatchLocation | 
+location_arrivalLocation | communication_notifications | communication_updates | 
+audit_createdAt | audit_updatedAt | createdAt | updatedAt
+
+Communication_0NF:
+communication_id | target_type | target_incidentId | target_recipientId | 
+target_recipientPhone | target_recipientEmail | message_type | message_template | 
+message_content | message_priority | delivery_status | delivery_sentAt | 
+delivery_deliveredAt | delivery_readAt | delivery_failureReason | 
+delivery_retryCount | metadata_sender | metadata_source | metadata_contextData | 
+metadata_correlationId | audit_createdAt | createdAt
+
+Report_0NF:
+report_id | incident_incidentId | report_type | report_title | report_summary | 
+report_content | report_findings | report_recommendations | attachments_files | 
+attachments_photos | attachments_documents | workflow_createdBy | 
+workflow_reviewedBy | workflow_approvedBy | workflow_status | timing_createdAt | 
+timing_reviewedAt | timing_approvedAt | timing_publishedAt | access_visibility | 
+access_permissions | audit_version | audit_revisionHistory | createdAt | updatedAt
+
+AuditLog_0NF:
+audit_id | activity_userId | activity_action | activity_entityType | activity_entityId | 
+activity_description | changes_beforeState | changes_afterState | changes_modifiedFields | 
+context_sessionId | context_ipAddress | context_userAgent | context_geolocation | 
+context_timestamp | security_riskLevel | security_flags | metadata_source | 
+metadata_correlationId | retention_expiresAt | createdAt 
+metadata_correlationId | audit_createdAt | createdAt
+
+Report_0NF:
+report_id | incident_incidentId | report_type | report_title | report_summary | 
+report_content | report_findings | report_recommendations | attachments_files | 
+attachments_photos | attachments_documents | workflow_createdBy | 
+workflow_reviewedBy | workflow_approvedBy | workflow_status | timing_createdAt | 
+timing_reviewedAt | timing_approvedAt | timing_publishedAt | access_visibility | 
+access_permissions | audit_version | audit_revisionHistory | createdAt | updatedAt
+
+AuditLog_0NF:
+audit_id | activity_userId | activity_action | activity_entityType | activity_entityId | 
+activity_description | changes_beforeState | changes_afterState | changes_modifiedFields | 
+context_sessionId | context_ipAddress | context_userAgent | context_geolocation | 
+context_timestamp | security_riskLevel | security_flags | metadata_source | 
+metadata_correlationId | retention_expiresAt | createdAt
+
+Problems in 0NF:
+✗ Repeating groups (arrays stored as delimited strings)
+✗ Multi-valued attributes (embedded objects as concatenated values)
+✗ No atomic values (nested structures flattened incorrectly)
+
+2.2 First Normal Form (1NF) - Achieving Atomicity
+
+Objective: Eliminate repeating groups and ensure all attributes contain atomic values.
+
+Rules Applied:
+1. Each table cell contains only one value
+2. No repeating groups of columns
+3. Arrays converted to separate rows or tables
+4. Embedded objects properly separated
+
+Transformation Process:
+
+1. Extract repeating groups into separate entities
+2. Flatten embedded objects while maintaining relationships
+3. Ensure each column contains atomic values
+4. Create junction tables for many-to-many relationships
+
+Tables in 1NF:
+
+User_1NF:
+user_id (PK) | first_name | last_name | email | phone | password_hash | role | 
+employee_id | is_active | last_login | login_attempts | lock_until | email_verified | 
+reset_password_token | reset_password_expire | map_zoom | notification_sound | 
+theme | created_by (FK) | created_at | updated_at | last_password_change
+
+UserPasswordHistory_1NF:
+password_id (PK) | user_id (FK) | password_hash | created_at
+
+Incident_1NF:
+incident_id (PK) | incident_string_id | caller_name | caller_phone | caller_alternate | 
+caller_method | incident_type | incident_category | severity | description | 
+location_address | location_city | location_province | location_lat | location_lng | 
+location_accuracy | location_landmarks | status | logged_by_user_id (FK) | 
+assigned_dispatcher_id (FK) | merged_with_id (FK) | created_at | updated_at | 
+resolved_at | estimated_response_time | actual_response_time
+
+IncidentNotes_1NF:
+note_id (PK) | incident_id (FK) | note_content | added_by_user_id (FK) | added_at
+
+IncidentDuplicates_1NF:
+duplicate_id (PK) | incident_id (FK) | possible_duplicate_id (FK) | detected_at
+
+IncidentAssignedResources_1NF:
+resource_id (PK) | incident_id (FK) | resource_type | resource_id_ref | assigned_at | status
+
+Vehicle_1NF:
+vehicle_id (PK) | plate_number | vehicle_type | make | model | year | 
+registration_date | approved_by (FK) | operational_status | current_status | 
+current_location_lat | current_location_lng | last_location_update | 
+current_incident_id (FK) | assigned_at | checklist_template_id (FK) | 
+last_check_date | next_maintenance_date | home_station_id (FK) | 
+current_station_id (FK) | is_active | created_by (FK) | created_at | updated_at
+
+VehicleEquipment_1NF:
+equipment_id (PK) | vehicle_id (FK) | equipment_name | equipment_type | 
+serial_number | status | quantity | last_checked
+
+VehicleCrew_1NF:
+assignment_id (PK) | vehicle_id (FK) | crew_id (FK) | assigned_at | status
+
+Station_1NF:
+station_id (PK) | station_name | address | coordinates_lat | coordinates_lng | 
+province | contact_phone | contact_email | station_type | vehicle_capacity | 
+crew_capacity | is_24_hours | open_time | close_time | coverage_radius | 
+station_commander_id (FK) | is_active | created_by (FK) | created_at | updated_at
+
+StationDistricts_1NF:
+district_id (PK) | station_id (FK) | district_name
+
+StationCities_1NF:
+city_id (PK) | station_id (FK) | city_name
+
+StationVehicles_1NF:
+assignment_id (PK) | station_id (FK) | vehicle_id (FK) | status
+
+StationCrew_1NF:
+assignment_id (PK) | station_id (FK) | crew_id (FK) | status
+
+Crew_1NF:
+crew_id (PK) | employee_id | first_name | last_name | email | phone | role | 
+certification_level | hire_date | availability_status | current_shift_id (FK) | 
+assigned_vehicle_id (FK) | current_location_lat | current_location_lng | 
+last_location_update | is_active | emergency_contact_name | 
+emergency_contact_relationship | emergency_contact_phone | created_by (FK) | 
+created_at | updated_at
+
+CrewCertifications_1NF:
+certification_id (PK) | crew_id (FK) | certification_type | certification_number | 
+issued_by | issue_date | expiry_date | is_active
+
+CrewSpecializations_1NF:
+specialization_id (PK) | crew_id (FK) | specialization_type
+
+Shift_1NF:
+shift_id (PK) | shift_name | shift_type | start_time | end_time | shift_date | 
+duration | recurrence | required_crew_count | minimum_certification_level | 
+supervisor_id (FK) | supervisor_notes | backup_supervisor_id (FK) | 
+current_status | actual_start_time | actual_end_time | cancelled_reason | 
+station_id (FK) | incidents_handled | average_response_time | 
+crew_attendance_rate | created_by (FK) | created_at | updated_at
+
+ShiftRequiredRoles_1NF:
+role_requirement_id (PK) | shift_id (FK) | required_role
+
+ShiftCrewAssignments_1NF:
+assignment_id (PK) | shift_id (FK) | crew_id (FK) | assigned_role | assigned_at | 
+assignment_status | assigned_by (FK)
+
+ShiftVehicleAssignments_1NF:
+assignment_id (PK) | shift_id (FK) | vehicle_id (FK) | primary_crew_id (FK) | 
+assigned_at | status
+
+ShiftVehicleAdditionalCrew_1NF:
+crew_assignment_id (PK) | shift_vehicle_assignment_id (FK) | crew_id (FK)
+
+EquipmentChecklistTemplate_1NF:
+template_id (PK) | vehicle_type | template_name | template_description | 
+template_version | total_items | critical_items | estimated_duration | 
+instructions | is_active | is_default | created_by (FK) | created_at | updated_at
+
+ChecklistCategories_1NF:
+category_id (PK) | template_id (FK) | category_name | category_description
+
+ChecklistCategoryItems_1NF:
+item_id (PK) | category_id (FK) | item_name | item_type | item_description | 
+is_required | is_critical | check_type | expected_value | tolerance | unit
+
+EquipmentCheck_1NF:
+check_id (PK) | vehicle_id (FK) | crew_id (FK) | template_id (FK) | 
+overall_status | pass_count | fail_count | warning_count | location_lat | 
+location_lng | station_id (FK) | location_address | started_at | completed_at | 
+duration | crew_member_signature | supervisor_signature | created_by (FK) | created_at
+
+EquipmentCheckResults_1NF:
+result_id (PK) | check_id (FK) | category_name | item_name | check_status | 
+actual_value | notes | photo_urls
+
+EquipmentCheckCriticalIssues_1NF:
+issue_id (PK) | check_id (FK) | issue_description | severity
+
+EquipmentCheckRecommendedActions_1NF:
+action_id (PK) | check_id (FK) | recommended_action | priority
+
+Assignment_1NF:
+assignment_id (PK) | incident_id (FK) | vehicle_id (FK) | primary_crew_id (FK) | 
+assigned_by (FK) | assigned_at | priority | estimated_arrival_time | 
+dispatch_notes | response_status | accepted_at | accepted_by (FK) | declined_at | 
+decline_reason | en_route_at | on_scene_at | completed_at | cancelled_at | 
+cancellation_reason | response_time | arrival_time | on_scene_time | 
+total_duration | distance_traveled | dispatch_location_lat | dispatch_location_lng | 
+arrival_location_lat | arrival_location_lng | created_at | updated_at
+
+AssignmentAdditionalCrew_1NF:
+crew_assignment_id (PK) | assignment_id (FK) | crew_id (FK)
+
+AssignmentNotifications_1NF:
+notification_id (PK) | assignment_id (FK) | notification_type | recipient_id (FK) | 
+sent_at | delivery_status
+
+AssignmentUpdates_1NF:
+update_id (PK) | assignment_id (FK) | update_type | update_content | 
+updated_by (FK) | updated_at
+
+Communication_1NF:
+communication_id (PK) | target_type | incident_id (FK) | recipient_id (FK) | 
+recipient_phone | recipient_email | message_type | message_template | 
+message_content | message_priority | delivery_status | sent_at | delivered_at | 
+read_at | failure_reason | retry_count | sender_id (FK) | source | 
+context_data | correlation_id | created_at
+
+Report_1NF:
+report_id (PK) | incident_id (FK) | report_type | report_title | report_summary | 
+report_content | report_findings | report_recommendations | created_by (FK) | 
+reviewed_by (FK) | approved_by (FK) | report_status | visibility | version | 
+created_at | reviewed_at | approved_at | published_at | updated_at
+
+ReportFiles_1NF:
+file_id (PK) | report_id (FK) | filename | file_type | file_size | file_url
+
+ReportPhotos_1NF:
+photo_id (PK) | report_id (FK) | photo_filename | photo_metadata
+
+ReportDocuments_1NF:
+document_id (PK) | report_id (FK) | document_reference | document_type
+
+ReportPermissions_1NF:
+permission_id (PK) | report_id (FK) | permission_type
+
+ReportRevisionHistory_1NF:
+revision_id (PK) | report_id (FK) | revision_number | revised_by (FK) | 
+revised_at | revision_notes
+
+AuditLog_1NF:
+audit_id (PK) | user_id (FK) | action | entity_type | entity_id | description | 
+before_state | after_state | session_id | ip_address | user_agent | 
+geolocation_lat | geolocation_lng | timestamp | risk_level | source | 
+correlation_id | expires_at | created_at
+
+AuditLogModifiedFields_1NF:
+field_id (PK) | audit_id (FK) | field_name | old_value | new_value
+
+AuditLogFlags_1NF:
+flag_id (PK) | audit_id (FK) | security_flag
+
+Achievements for 1NF:
+✅ All repeating groups eliminated
+✅ Multi-valued attributes separated into individual tables
+✅ Each column contains atomic values only
+✅ Primary keys established for all entities
+✅ Foreign key relationships properly defined
+
+2.3 Second Normal Form (2NF) - Eliminating Partial Dependencies
+
+Objective: Eliminate partial dependencies where non-key attributes depend on only part of a composite primary key.
+
+Rules Applied:
+1. Must be in 1NF
+2. All non-key attributes must be fully functionally dependent on the primary key
+3. If composite primary key exists, non-key attributes cannot depend on only part of it
+4. Separate tables created for partially dependent attributes
+
+Analysis of Composite Keys in 1NF:
+
+Tables with Composite Primary Keys Requiring Analysis:
+- VehicleCrew_1NF (vehicle_id, crew_id) - assignment metadata partially dependent
+- StationVehicles_1NF (station_id, vehicle_id) - status depends on assignment, not station
+- StationCrew_1NF (station_id, crew_id) - status depends on assignment, not station  
+- ShiftCrewAssignments_1NF - role and status partially dependent on crew_id only
+- AssignmentAdditionalCrew_1NF - pure junction table, no partial dependencies
+
+Most 1NF tables already have single-attribute primary keys, so they automatically satisfy 2NF.
+
+Transformation to 2NF:
+
+VehicleCrew_2NF:
+vehicle_crew_id (PK) | vehicle_id (FK) | crew_id (FK) | assigned_at | status
+
+StationVehicles_2NF:
+station_vehicle_id (PK) | station_id (FK) | vehicle_id (FK) | assigned_at | status
+
+StationCrew_2NF:
+station_crew_id (PK) | station_id (FK) | crew_id (FK) | assigned_at | status
+
+ShiftCrewAssignments_2NF:
+assignment_id (PK) | shift_id (FK) | crew_id (FK) | assigned_role | assigned_at | 
+assignment_status | assigned_by (FK)
+
+All Other Tables in 2NF:
+[All other tables from 1NF remain unchanged as they already satisfy 2NF requirements with single-attribute primary keys]
+
+User_2NF:
+user_id (PK) | first_name | last_name | email | phone | password_hash | role | 
+employee_id | is_active | last_login | login_attempts | lock_until | email_verified | 
+reset_password_token | reset_password_expire | map_zoom | notification_sound | 
+theme | created_by (FK) | created_at | updated_at | last_password_change
+
+Incident_2NF:
+incident_id (PK) | incident_string_id | caller_name | caller_phone | caller_alternate | 
+caller_method | incident_type | incident_category | severity | description | 
+location_address | location_city | location_province | location_lat | location_lng | 
+location_accuracy | location_landmarks | status | logged_by_user_id (FK) | 
+assigned_dispatcher_id (FK) | created_at | updated_at | resolved_at | 
+estimated_response_time | actual_response_time
+
+Vehicle_2NF:
+vehicle_id (PK) | plate_number | vehicle_type | make | model | year | 
+registration_date | approved_by (FK) | operational_status | current_status | 
+current_location_lat | current_location_lng | last_location_update | 
+current_incident_id (FK) | assigned_at | checklist_template_id (FK) | 
+last_check_date | next_maintenance_date | home_station_id (FK) | 
+current_station_id (FK) | is_active | created_by (FK) | created_at | updated_at
+
+Station_2NF:
+station_id (PK) | station_name | address | coordinates_lat | coordinates_lng | 
+province | contact_phone | contact_email | station_type | vehicle_capacity | 
+crew_capacity | is_24_hours | open_time | close_time | coverage_radius | 
+station_commander_id (FK) | is_active | created_by (FK) | created_at | updated_at
+
+Crew_2NF:
+crew_id (PK) | employee_id | first_name | last_name | email | phone | role | 
+certification_level | hire_date | availability_status | shift_id (FK) | 
+assigned_vehicle_id (FK) | current_location_lat | current_location_lng | 
+last_location_update | is_active | emergency_contact_name | 
+emergency_contact_relationship | emergency_contact_phone | created_by (FK) | 
+created_at | updated_at
+
+Shift_2NF:
+shift_id (PK) | shift_name | shift_type | start_time | end_time | shift_date | 
+duration | recurrence | required_crew_count | minimum_certification_level | 
+supervisor_id (FK) | supervisor_notes | backup_supervisor_id (FK) | 
+current_status | actual_start_time | actual_end_time | cancelled_reason | 
+station_id (FK) | incidents_handled | average_response_time | 
+crew_attendance_rate | created_by (FK) | created_at | updated_at
+
+EquipmentChecklistTemplate_2NF:
+template_id (PK) | vehicle_type | template_name | template_description | 
+template_version | total_items | critical_items | estimated_duration | 
+instructions | is_active | is_default | created_by (FK) | created_at | updated_at
+
+EquipmentCheck_2NF:
+check_id (PK) | vehicle_id (FK) | crew_id (FK) | template_id (FK) | 
+overall_status | pass_count | fail_count | warning_count | location_lat | 
+location_lng | station_id (FK) | location_address | started_at | completed_at | 
+duration | crew_member_signature | supervisor_signature | created_by (FK) | created_at
+
+Assignment_2NF:
+assignment_id (PK) | incident_id (FK) | vehicle_id (FK) | primary_crew_id (FK) | 
+assigned_by (FK) | assigned_at | priority | estimated_arrival_time | 
+dispatch_notes | response_status | accepted_at | accepted_by (FK) | declined_at | 
+decline_reason | en_route_at | on_scene_at | completed_at | cancelled_at | 
+cancellation_reason | response_time | arrival_time | on_scene_time | 
+total_duration | distance_traveled | dispatch_location_lat | dispatch_location_lng | 
+arrival_location_lat | arrival_location_lng | created_at | updated_at
+
+Communication_2NF:
+communication_id (PK) | target_type | incident_id (FK) | recipient_id (FK) | 
+recipient_phone | recipient_email | message_type | message_template | 
+message_content | message_priority | delivery_status | sent_at | delivered_at | 
+read_at | failure_reason | retry_count | sender_id (FK) | source | context_data | 
+correlation_id | created_at
+
+Report_2NF:
+report_id (PK) | incident_id (FK) | report_type | report_title | report_summary | 
+report_content | report_findings | report_recommendations | created_by (FK) | 
+reviewed_by (FK) | approved_by (FK) | report_status | visibility | version | 
+created_at | reviewed_at | approved_at | published_at | updated_at
+
+AuditLog_2NF:
+audit_id (PK) | user_id (FK) | action | entity_type | entity_id | description | 
+before_state | after_state | session_id | ip_address | user_agent | 
+geolocation_lat | geolocation_lng | timestamp | risk_level | source | 
+correlation_id | expires_at | created_at
+
+Relationship Tables (2NF):
+VehicleCrew_2NF:
+vehicle_crew_id (PK) | vehicle_id (FK) | crew_id (FK) | assigned_at
+
+ShiftCrewAssignments_2NF:
+assignment_id (PK) | shift_id (FK) | crew_id (FK) | role | assigned_at | 
+status | assigned_by (FK)
+
+AssignmentAdditionalCrew_2NF:
+assignment_id (PK, FK) | crew_id (PK, FK)
+
+IncidentDuplicates_2NF:
+duplicate_id (PK) | incident_id (FK) | possible_duplicate_id (FK) | detected_at
+
+IncidentNotes_2NF:
+note_id (PK) | incident_id (FK) | note_content | added_by (FK) | timestamp
+
+CrewCertifications_2NF:
+certification_id (PK) | crew_id (FK) | certification_type | certification_number | 
+issued_by | issue_date | expiry_date | is_active
+
+Achievements for 2NF:
+✅ Eliminated partial dependencies across all entities
+✅ All non-key attributes fully dependent on primary keys
+✅ Proper foreign key relationships established
+✅ Many-to-many relationships resolved through junction tables
+✅ Data integrity maintained through referential constraints
+
+2.4 Third Normal Form (3NF) - Eliminating Transitive Dependencies
+
+Objective: Eliminate transitive dependencies where non-key attributes depend on other non-key attributes.
+
+Rules Applied:
+1. Must be in 2NF
+2. No transitive dependencies (A → B → C where A is key, B and C are non-key)
+3. All non-key attributes directly dependent on primary key only
+
+Analysis of TRUE Transitive Dependencies in 2NF Tables:
+
+Examining each entity for actual A→B→C patterns where B has dependent attributes:
+
+User_2NF Analysis:
+- user_id → role → permissions/access_rights ✅ TRUE transitive dependency
+- user_id → theme → css_properties/display_settings ❌ Simple categorical (no dependent attributes)
+- user_id → login_status → expiration_rules ❌ Simple status (no dependent attributes)
+
+Incident_2NF Analysis:
+- incident_id → location_province → regional_coordinator ✅ TRUE transitive dependency
+- incident_id → severity → response_protocols ❌ Simple categorical (no dependent protocols table)
+- incident_id → status → workflow_rules ❌ Simple categorical (no dependent workflow data)
+- incident_id → incident_type → standard_procedures ❌ Simple categorical (no procedure dependency)
+
+Vehicle_2NF Analysis:
+- vehicle_id → vehicle_type → equipment_requirements ✅ TRUE transitive dependency
+- vehicle_id → operational_status → maintenance_schedule ❌ Simple status (no dependent schedule)
+- vehicle_id → current_status → dispatch_eligibility ❌ Simple status (no dependent rules)
+
+Station_2NF Analysis:
+- station_id → province → regional_coordinator ✅ TRUE transitive dependency (shared with Incident)
+- station_id → station_type → capacity_standards ✅ TRUE transitive dependency
+- station_id → is_24_hours → operating_procedures ❌ Simple boolean (no dependent procedures)
+
+Crew_2NF Analysis:
+- crew_id → role → certification_requirements ✅ TRUE transitive dependency
+- crew_id → certification_level → training_hours ❌ Simple categorical (no dependent training data)
+- crew_id → availability_status → assignment_eligibility ❌ Simple status (no dependent rules)
+
+All Other Entities Analysis:
+- Shift, EquipmentCheck, Assignment, Communication, Report, AuditLog contain only simple categorical attributes or direct dependencies
+- No additional true transitive dependencies found in these entities
+
+CORRECTLY IDENTIFIED - No Transitive Dependencies:
+- Simple categorical ENUMs: severity, status, priority, theme, availability, operational_status
+- Direct functional dependencies: timestamps, measurements, descriptions, contact information
+- Pure junction/relationship tables: no transitive dependencies by design
+
+3NF Transformation - Extract ONLY True Transitive Dependencies:
+
+UserRole_3NF (TRUE dependency: role → permissions):
+role_id (PK) | role_name ENUM('Call Taker', 'Dispatcher', 'Field Crew', 'Supervisor', 'Admin', 'Citizen') | 
+description | permissions_json | can_manage_users | can_create_incidents | can_assign_vehicles | 
+can_manage_stations | can_view_reports | can_generate_reports | is_active | created_at
+
+Province_3NF (TRUE dependency: province → regional_coordinator):
+province_id (PK) | province_name ENUM('Western', 'Central', 'Southern', 'Northern', 'Eastern', 'North Western', 'North Central', 'Uva', 'Sabaragamuwa') | 
+province_code | regional_coordinator_id (FK) | administrative_capital | 
+emergency_contact_number | area_km2 | population | is_active | created_at
+
+VehicleType_3NF (TRUE dependency: vehicle_type → equipment_requirements):
+vehicle_type_id (PK) | type_name ENUM('Ambulance', 'Fire Engine', 'Rescue Vehicle', 'Support Vehicle') | 
+description | equipment_requirements_json | minimum_crew_size | maximum_crew_size | 
+required_certifications_json | maintenance_interval_days | fuel_capacity | is_active | created_at
+
+StationType_3NF (TRUE dependency: station_type → capacity_standards):
+station_type_id (PK) | type_name ENUM('Fire Station', 'Ambulance Station', 'Rescue Station', 'Multi-Purpose') | 
+description | minimum_capacity_standards_json | minimum_vehicle_count | minimum_crew_count | 
+required_equipment_json | coverage_area_km2 | is_active | created_at
+
+CrewRole_3NF (TRUE dependency: role → certification_requirements):
+crew_role_id (PK) | role_name ENUM('EMT', 'Paramedic', 'Firefighter', 'Driver', 'Supervisor') | 
+description | certification_requirements_json | minimum_experience_months | 
+requires_medical_training | requires_driving_license | license_class | is_active | created_at
+
+Final 3NF Tables (Main Entities with Foreign Keys ONLY for True Dependencies):
+
+User_3NF:
+user_id (PK) | first_name | last_name | email | phone | password_hash | 
+role_id (FK) | employee_id | is_active | last_login | login_attempts | lock_until | 
+email_verified | reset_password_token | reset_password_expire | map_zoom | 
+notification_sound | theme ENUM('light', 'dark', 'system') | created_by (FK) | 
+created_at | updated_at | last_password_change
+
+Incident_3NF:
+incident_id (PK) | incident_string_id | caller_name | caller_phone | caller_alternate | 
+caller_method ENUM('phone_call', 'mobile_app', 'sms', 'walk_in', 'third_party') | 
+incident_type ENUM('medical', 'fire', 'rescue', 'hazmat', 'traffic', 'other') | 
+incident_category | severity ENUM('low', 'medium', 'high', 'critical') | description | 
+location_address | location_city | location_province_id (FK) | location_lat | 
+location_lng | location_accuracy ENUM('exact', 'approximate', 'general_area') | 
+location_landmarks | status ENUM('pending', 'assigned', 'en_route', 'on_scene', 'resolved', 'cancelled') | 
+logged_by_user_id (FK) | assigned_dispatcher_id (FK) | created_at | updated_at | 
+resolved_at | estimated_response_time | actual_response_time
+
+Vehicle_3NF:
+vehicle_id (PK) | plate_number | vehicle_type_id (FK) | make | model | year | 
+registration_date | approved_by (FK) | 
+operational_status ENUM('active', 'maintenance', 'out_of_service') | 
+current_status ENUM('available', 'assigned', 'en_route', 'on_scene', 'returning') | 
+current_location_lat | current_location_lng | last_location_update | 
+current_incident_id (FK) | assigned_at | checklist_template_id (FK) | 
+last_check_date | next_maintenance_date | home_station_id (FK) | 
+current_station_id (FK) | is_active | created_by (FK) | created_at | updated_at
+
+Station_3NF:
+station_id (PK) | station_name | address | coordinates_lat | coordinates_lng | 
+province_id (FK) | contact_phone | contact_email | station_type_id (FK) | 
+vehicle_capacity | crew_capacity | is_24_hours | open_time | close_time | 
+coverage_radius | station_commander_id (FK) | is_active | created_by (FK) | 
+created_at | updated_at
+
+Crew_3NF:
+crew_id (PK) | employee_id | first_name | last_name | email | phone | 
+crew_role_id (FK) | certification_level ENUM('Basic', 'Intermediate', 'Advanced', 'Expert') | 
+hire_date | availability_status ENUM('available', 'on_duty', 'off_duty', 'on_leave', 'training') | 
+shift_id (FK) | assigned_vehicle_id (FK) | current_location_lat | current_location_lng | 
+last_location_update | is_active | emergency_contact_name | 
+emergency_contact_relationship ENUM('Spouse', 'Parent', 'Child', 'Sibling', 'Friend', 'Other') | 
+emergency_contact_phone | created_by (FK) | created_at | updated_at
+
+Shift_3NF:
+shift_id (PK) | shift_name | shift_type ENUM('regular', 'overtime', 'emergency') | 
+start_time | end_time | shift_date | duration | 
+recurrence ENUM('none', 'daily', 'weekly', 'custom') | required_crew_count | 
+minimum_certification_level ENUM('Basic', 'Intermediate', 'Advanced', 'Expert') | 
+supervisor_id (FK) | supervisor_notes | backup_supervisor_id (FK) | 
+current_status ENUM('planned', 'active', 'completed', 'cancelled') | 
+actual_start_time | actual_end_time | cancelled_reason | station_id (FK) | 
+incidents_handled | average_response_time | crew_attendance_rate | 
+created_by (FK) | created_at | updated_at
+
+EquipmentChecklistTemplate_3NF:
+template_id (PK) | vehicle_type ENUM('ambulance', 'fire_engine', 'rescue_vehicle', 'support_vehicle') | 
+template_name | template_description | template_version | total_items | critical_items | 
+estimated_duration | instructions | is_active | is_default | created_by (FK) | 
+created_at | updated_at
+
+EquipmentCheck_3NF:
+check_id (PK) | vehicle_id (FK) | crew_id (FK) | template_id (FK) | 
+overall_status ENUM('pass', 'fail', 'conditional_pass', 'incomplete') | 
+pass_count | fail_count | warning_count | location_lat | location_lng | 
+station_id (FK) | location_address | started_at | completed_at | duration | 
+crew_member_signature | supervisor_signature | created_by (FK) | created_at
+
+Assignment_3NF:
+assignment_id (PK) | incident_id (FK) | vehicle_id (FK) | primary_crew_id (FK) | 
+assigned_by (FK) | assigned_at | 
+priority ENUM('routine', 'urgent', 'emergency', 'critical') | 
+estimated_arrival_time | dispatch_notes | 
+response_status ENUM('assigned', 'accepted', 'declined', 'en_route', 'on_scene', 'completed', 'cancelled') | 
+accepted_at | accepted_by (FK) | declined_at | decline_reason | 
+en_route_at | on_scene_at | completed_at | cancelled_at | cancellation_reason | 
+response_time | arrival_time | on_scene_time | total_duration | distance_traveled | 
+dispatch_location_lat | dispatch_location_lng | arrival_location_lat | 
+arrival_location_lng | created_at | updated_at
+
+Communication_3NF:
+communication_id (PK) | target_type ENUM('incident', 'crew', 'citizen', 'supervisor') | 
+incident_id (FK) | recipient_id (FK) | recipient_phone | recipient_email | 
+message_type ENUM('sms', 'push_notification', 'email', 'system_alert') | 
+message_template | message_content | 
+message_priority ENUM('low', 'normal', 'high', 'critical') | 
+delivery_status ENUM('pending', 'sent', 'delivered', 'failed', 'read') | 
+sent_at | delivered_at | read_at | failure_reason | retry_count | 
+sender_id (FK) | source ENUM('system', 'manual', 'automated') | 
+context_data | correlation_id | created_at
+
+Report_3NF:
+report_id (PK) | incident_id (FK) | 
+report_type ENUM('incident_summary', 'performance_analysis', 'equipment_check', 'shift_report') | 
+report_title | report_summary | report_content | report_findings | 
+report_recommendations | created_by (FK) | reviewed_by (FK) | approved_by (FK) | 
+report_status ENUM('draft', 'submitted', 'under_review', 'approved', 'published') | 
+visibility ENUM('private', 'team', 'department', 'public') | version | 
+created_at | reviewed_at | approved_at | published_at | updated_at
+
+AuditLog_3NF:
+audit_id (PK) | user_id (FK) | 
+action ENUM('CREATE', 'READ', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'EXPORT', 'IMPORT') | 
+entity_type ENUM('incident', 'vehicle', 'crew', 'assignment', 'user', 'station', 'shift', 'equipment_check', 'communication', 'report') | 
+entity_id | description | before_state | after_state | session_id | 
+ip_address | user_agent | geolocation_lat | geolocation_lng | timestamp | 
+risk_level ENUM('low', 'medium', 'high', 'critical') | 
+source ENUM('web', 'mobile', 'api') | correlation_id | expires_at | created_at
+
+Supporting Junction Tables (Many-to-Many Relationships):
+[All junction tables remain unchanged from 2NF as they contain no transitive dependencies]
+
+VehicleCrew_3NF:
+vehicle_crew_id (PK) | vehicle_id (FK) | crew_id (FK) | assigned_at
+
+ShiftCrewAssignments_3NF:
+assignment_id (PK) | shift_id (FK) | crew_id (FK) | role | assigned_at | 
+status | assigned_by (FK)
+
+AssignmentAdditionalCrew_3NF:
+assignment_id (PK, FK) | crew_id (PK, FK)
+
+IncidentNotes_3NF:
+note_id (PK) | incident_id (FK) | note_content | added_by (FK) | timestamp
+
+CrewCertifications_3NF:
+certification_id (PK) | crew_id (FK) | certification_type | certification_number | 
+issued_by | issue_date | expiry_date | is_active
+
+[Additional junction tables from 1NF/2NF continue as needed...]
+
+Final 3NF Summary:
+
+Main Entities: 12 tables (User through AuditLog)
+Lookup Tables (True Dependencies Only): 5 tables
+- UserRole_3NF
+- Province_3NF  
+- VehicleType_3NF
+- StationType_3NF
+- CrewRole_3NF
+
+Junction Tables: ~8-10 tables for many-to-many relationships
+
+Total Database Objects: 25-27 tables (proper academic 3NF implementation)
+
+Achievements for CORRECTED 3NF:
+✅ Eliminated ONLY true transitive dependencies (5 lookup tables vs 35+ over-normalized)
+✅ Kept ENUM values for simple categorical data (no dependent attributes)  
+✅ Balanced academic rigor with practical implementation
+✅ All non-key attributes directly depend only on primary keys
+✅ Reduced unnecessary complexity while maintaining data integrity
+✅ Proper distinction between A→B→C dependencies and simple categorical values
+
+===============================================================================
+
+3. SQL Schema Implementation (3NF Normalized Design)
+
+3.1 Lookup Tables (Transitive Dependencies)
+
+-- User Role Lookup Table
+CREATE TABLE UserRole_3NF (
+    role_id INT AUTO_INCREMENT PRIMARY KEY,
+    role_name ENUM('Call Taker', 'Dispatcher', 'Field Crew', 'Supervisor', 'Admin', 'Citizen') NOT NULL UNIQUE,
+    permissions JSON,
+    department VARCHAR(100),
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_role_name (role_name)
+);
+
+-- Province Lookup Table
+CREATE TABLE Province_3NF (
+    province_id INT AUTO_INCREMENT PRIMARY KEY,
+    province_name ENUM('Western', 'Central', 'Southern', 'Northern', 'Eastern', 
+                      'North Western', 'North Central', 'Uva', 'Sabaragamuwa') NOT NULL UNIQUE,
+    regional_coordinator_id INT,
+    region_code VARCHAR(10),
+    population INT,
+    area_km2 DECIMAL(10, 2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_province_name (province_name)
+);
+
+-- Vehicle Type Lookup Table
+CREATE TABLE VehicleType_3NF (
+    vehicle_type_id INT AUTO_INCREMENT PRIMARY KEY,
+    type_name ENUM('Ambulance', 'Fire Engine', 'Rescue Vehicle', 'Support Vehicle') NOT NULL UNIQUE,
+    default_equipment_template_id INT,
+    typical_crew_size INT,
+    maintenance_interval_days INT DEFAULT 30,
+    fuel_capacity_liters DECIMAL(8, 2),
+    max_speed_kmh INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_type_name (type_name)
+);
+
+-- Station Type Lookup Table
+CREATE TABLE StationType_3NF (
+    station_type_id INT AUTO_INCREMENT PRIMARY KEY,
+    type_name ENUM('Fire Station', 'Ambulance Station', 'Rescue Station', 'Multi-Purpose') NOT NULL UNIQUE,
+    default_capacity_vehicles INT,
+    default_capacity_crew INT,
+    required_certifications JSON,
+    operating_standards TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_type_name (type_name)
+);
+
+-- Crew Role Lookup Table
+CREATE TABLE CrewRole_3NF (
+    crew_role_id INT AUTO_INCREMENT PRIMARY KEY,
+    role_name ENUM('EMT', 'Paramedic', 'Firefighter', 'Driver', 'Supervisor') NOT NULL UNIQUE,
+    certification_requirements JSON,
+    typical_responsibilities TEXT,
+    minimum_experience_months INT,
+    salary_grade VARCHAR(10),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_role_name (role_name)
+);
+
+3.2 Main Entity Tables (3NF)
+
+-- User Table
+CREATE TABLE User_3NF (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    phone VARCHAR(20) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    employee_id VARCHAR(20) UNIQUE,
+    role_id INT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login TIMESTAMP NULL,
+    login_attempts INT DEFAULT 0,
+    lock_until TIMESTAMP NULL,
+    email_verified BOOLEAN DEFAULT FALSE,
+    reset_token VARCHAR(255),
+    reset_expire TIMESTAMP NULL,
+    map_zoom INT DEFAULT 12 CHECK (map_zoom BETWEEN 8 AND 18),
+    notification_sound BOOLEAN DEFAULT TRUE,
+    theme ENUM('light', 'dark', 'system') DEFAULT 'system',
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_password_change TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (role_id) REFERENCES UserRole_3NF(role_id),
+    FOREIGN KEY (created_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_email (email),
+    INDEX idx_employee_id (employee_id),
+    INDEX idx_role_id (role_id),
+    INDEX idx_active (is_active)
+);
+
+-- Incident Table
+CREATE TABLE Incident_3NF (
+    incident_id INT AUTO_INCREMENT PRIMARY KEY,
+    incident_string_id VARCHAR(20) NOT NULL UNIQUE,
+    caller_name VARCHAR(100) NOT NULL,
+    caller_phone VARCHAR(20) NOT NULL,
+    caller_alternate VARCHAR(20),
+    caller_method ENUM('phone_call', 'mobile_app', 'sms', 'walk_in', 'third_party') NOT NULL,
+    incident_type ENUM('medical', 'fire', 'rescue', 'hazmat', 'traffic', 'other') NOT NULL,
+    incident_category VARCHAR(100),
+    severity ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+    description TEXT NOT NULL,
+    location_address VARCHAR(200) NOT NULL,
+    location_city VARCHAR(50) NOT NULL,
+    province_id INT NOT NULL,
+    location_lat DECIMAL(10, 8),
+    location_lng DECIMAL(11, 8),
+    location_accuracy ENUM('exact', 'approximate', 'general_area') DEFAULT 'approximate',
+    location_landmarks VARCHAR(200),
+    status ENUM('pending', 'assigned', 'en_route', 'on_scene', 'resolved', 'cancelled') DEFAULT 'pending',
+    logged_by_user_id INT NOT NULL,
+    assigned_dispatcher_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP NULL,
+    estimated_response_time INT,
+    actual_response_time INT,
+    
+    FOREIGN KEY (province_id) REFERENCES Province_3NF(province_id),
+    FOREIGN KEY (logged_by_user_id) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (assigned_dispatcher_id) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_incident_string_id (incident_string_id),
+    INDEX idx_status (status),
+    INDEX idx_incident_type (incident_type),
+    INDEX idx_severity (severity),
+    INDEX idx_created_at (created_at),
+    INDEX idx_location (location_lat, location_lng),
+    INDEX idx_province_id (province_id)
+);
+
+-- Vehicle Table
+CREATE TABLE Vehicle_3NF (
+    vehicle_id INT AUTO_INCREMENT PRIMARY KEY,
+    plate_number VARCHAR(20) NOT NULL UNIQUE,
+    vehicle_type_id INT NOT NULL,
+    make VARCHAR(50) NOT NULL,
+    model VARCHAR(50) NOT NULL,
+    year INT NOT NULL CHECK (year >= 1990 AND year <= YEAR(CURDATE()) + 1),
+    registration_date DATE DEFAULT (CURDATE()),
+    approved_by INT,
+    operational_status ENUM('active', 'maintenance', 'out_of_service') DEFAULT 'active',
+    current_status ENUM('available', 'assigned', 'en_route', 'on_scene', 'returning') DEFAULT 'available',
+    current_location_lat DECIMAL(10, 8),
+    current_location_lng DECIMAL(11, 8),
+    last_location_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    current_incident_id INT,
+    assigned_at TIMESTAMP NULL,
+    checklist_template_id INT,
+    last_check_date DATE,
+    next_maintenance_date DATE,
+    home_station_id INT,
+    current_station_id INT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (vehicle_type_id) REFERENCES VehicleType_3NF(vehicle_type_id),
+    FOREIGN KEY (approved_by) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (current_incident_id) REFERENCES Incident_3NF(incident_id),
+    FOREIGN KEY (home_station_id) REFERENCES Station_3NF(station_id),
+    FOREIGN KEY (current_station_id) REFERENCES Station_3NF(station_id),
+    FOREIGN KEY (created_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_plate_number (plate_number),
+    INDEX idx_vehicle_type_id (vehicle_type_id),
+    INDEX idx_operational_status (operational_status),
+    INDEX idx_current_status (current_status),
+    INDEX idx_location (current_location_lat, current_location_lng)
+);
+
+-- Station Table
+CREATE TABLE Station_3NF (
+    station_id INT AUTO_INCREMENT PRIMARY KEY,
+    station_name VARCHAR(100) NOT NULL,
+    address VARCHAR(200) NOT NULL,
+    coordinates_lat DECIMAL(10, 8) NOT NULL,
+    coordinates_lng DECIMAL(11, 8) NOT NULL,
+    province_id INT NOT NULL,
+    contact_phone VARCHAR(20) NOT NULL,
+    contact_email VARCHAR(255),
+    station_type_id INT NOT NULL,
+    vehicle_capacity INT NOT NULL CHECK (vehicle_capacity >= 1),
+    crew_capacity INT NOT NULL CHECK (crew_capacity >= 1),
+    is_24_hours BOOLEAN DEFAULT TRUE,
+    open_time TIME DEFAULT '00:00:00',
+    close_time TIME DEFAULT '23:59:59',
+    coverage_radius INT CHECK (coverage_radius BETWEEN 1 AND 100),
+    station_commander_id INT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (province_id) REFERENCES Province_3NF(province_id),
+    FOREIGN KEY (station_type_id) REFERENCES StationType_3NF(station_type_id),
+    FOREIGN KEY (station_commander_id) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (created_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_station_name (station_name),
+    INDEX idx_province_id (province_id),
+    INDEX idx_station_type_id (station_type_id),
+    INDEX idx_coordinates (coordinates_lat, coordinates_lng),
+    INDEX idx_active (is_active)
+);
+
+-- Crew Table
+CREATE TABLE Crew_3NF (
+    crew_id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_id VARCHAR(20) NOT NULL UNIQUE,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    phone VARCHAR(20) NOT NULL,
+    crew_role_id INT NOT NULL,
+    certification_level ENUM('Basic', 'Intermediate', 'Advanced', 'Expert') DEFAULT 'Basic',
+    hire_date DATE NOT NULL,
+    availability_status ENUM('available', 'on_duty', 'off_duty', 'on_leave', 'training') DEFAULT 'off_duty',
+    shift_id INT,
+    assigned_vehicle_id INT,
+    current_location_lat DECIMAL(10, 8),
+    current_location_lng DECIMAL(11, 8),
+    last_location_update TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    emergency_contact_name VARCHAR(100) NOT NULL,
+    emergency_contact_relationship ENUM('Spouse', 'Parent', 'Child', 'Sibling', 'Friend', 'Other'),
+    emergency_contact_phone VARCHAR(20) NOT NULL,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (crew_role_id) REFERENCES CrewRole_3NF(crew_role_id),
+    FOREIGN KEY (shift_id) REFERENCES Shift_3NF(shift_id),
+    FOREIGN KEY (assigned_vehicle_id) REFERENCES Vehicle_3NF(vehicle_id),
+    FOREIGN KEY (created_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_employee_id (employee_id),
+    INDEX idx_email (email),
+    INDEX idx_crew_role_id (crew_role_id),
+    INDEX idx_availability_status (availability_status),
+    INDEX idx_location (current_location_lat, current_location_lng)
+);
+
+-- Shift Table
+CREATE TABLE Shift_3NF (
+    shift_id INT AUTO_INCREMENT PRIMARY KEY,
+    shift_name VARCHAR(100) NOT NULL,
+    shift_type ENUM('regular', 'overtime', 'emergency') DEFAULT 'regular',
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    shift_date DATE NOT NULL,
+    duration INT CHECK (duration BETWEEN 1 AND 24),
+    recurrence ENUM('none', 'daily', 'weekly', 'custom') DEFAULT 'none',
+    required_crew_count INT NOT NULL CHECK (required_crew_count >= 1),
+    minimum_certification_level ENUM('Basic', 'Intermediate', 'Advanced', 'Expert') DEFAULT 'Basic',
+    supervisor_id INT,
+    supervisor_notes VARCHAR(500),
+    backup_supervisor_id INT,
+    current_status ENUM('planned', 'active', 'completed', 'cancelled') DEFAULT 'planned',
+    actual_start_time TIMESTAMP NULL,
+    actual_end_time TIMESTAMP NULL,
+    cancelled_reason VARCHAR(200),
+    station_id INT NOT NULL,
+    incidents_handled INT DEFAULT 0,
+    average_response_time DECIMAL(5, 2) DEFAULT 0,
+    crew_attendance_rate DECIMAL(5, 2) DEFAULT 100,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (supervisor_id) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (backup_supervisor_id) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (station_id) REFERENCES Station_3NF(station_id),
+    FOREIGN KEY (created_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_shift_date (shift_date),
+    INDEX idx_current_status (current_status),
+    INDEX idx_station_id (station_id),
+    INDEX idx_supervisor_id (supervisor_id)
+);
+
+-- Equipment Checklist Template Table
+CREATE TABLE EquipmentChecklistTemplate_3NF (
+    template_id INT AUTO_INCREMENT PRIMARY KEY,
+    vehicle_type_id INT NOT NULL,
+    template_name VARCHAR(100) NOT NULL,
+    template_description VARCHAR(500) NOT NULL,
+    template_version VARCHAR(10) NOT NULL,
+    total_items INT DEFAULT 0,
+    critical_items INT DEFAULT 0,
+    estimated_duration INT,
+    instructions VARCHAR(1000),
+    is_active BOOLEAN DEFAULT TRUE,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (vehicle_type_id) REFERENCES VehicleType_3NF(vehicle_type_id),
+    FOREIGN KEY (created_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_vehicle_type_id (vehicle_type_id),
+    INDEX idx_active (is_active),
+    INDEX idx_default (is_default)
+);
+
+-- Equipment Check Table
+CREATE TABLE EquipmentCheck_3NF (
+    check_id INT AUTO_INCREMENT PRIMARY KEY,
+    vehicle_id INT NOT NULL,
+    crew_id INT NOT NULL,
+    template_id INT NOT NULL,
+    overall_status ENUM('pass', 'fail', 'conditional_pass', 'incomplete') DEFAULT 'incomplete',
+    pass_count INT DEFAULT 0,
+    fail_count INT DEFAULT 0,
+    warning_count INT DEFAULT 0,
+    location_lat DECIMAL(10, 8),
+    location_lng DECIMAL(11, 8),
+    station_id INT,
+    location_address VARCHAR(200),
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    duration INT,
+    crew_member_signature VARCHAR(255),
+    supervisor_signature VARCHAR(255),
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (vehicle_id) REFERENCES Vehicle_3NF(vehicle_id),
+    FOREIGN KEY (crew_id) REFERENCES Crew_3NF(crew_id),
+    FOREIGN KEY (template_id) REFERENCES EquipmentChecklistTemplate_3NF(template_id),
+    FOREIGN KEY (station_id) REFERENCES Station_3NF(station_id),
+    FOREIGN KEY (created_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_vehicle_id (vehicle_id),
+    INDEX idx_crew_id (crew_id),
+    INDEX idx_overall_status (overall_status),
+    INDEX idx_started_at (started_at)
+);
+
+-- Assignment Table
+CREATE TABLE Assignment_3NF (
+    assignment_id INT AUTO_INCREMENT PRIMARY KEY,
+    incident_id INT NOT NULL,
+    vehicle_id INT NOT NULL,
+    primary_crew_id INT NOT NULL,
+    assigned_by INT NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    priority ENUM('routine', 'urgent', 'emergency', 'critical') DEFAULT 'routine',
+    estimated_arrival_time TIMESTAMP,
+    dispatch_notes VARCHAR(500),
+    response_status ENUM('assigned', 'accepted', 'declined', 'en_route', 'on_scene', 'completed', 'cancelled') DEFAULT 'assigned',
+    accepted_at TIMESTAMP NULL,
+    accepted_by INT,
+    declined_at TIMESTAMP NULL,
+    decline_reason VARCHAR(200),
+    en_route_at TIMESTAMP NULL,
+    on_scene_at TIMESTAMP NULL,
+    completed_at TIMESTAMP NULL,
+    cancelled_at TIMESTAMP NULL,
+    cancellation_reason VARCHAR(200),
+    response_time INT,
+    arrival_time INT,
+    on_scene_time INT,
+    total_duration INT,
+    distance_traveled DECIMAL(8, 2),
+    dispatch_location_lat DECIMAL(10, 8),
+    dispatch_location_lng DECIMAL(11, 8),
+    arrival_location_lat DECIMAL(10, 8),
+    arrival_location_lng DECIMAL(11, 8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (incident_id) REFERENCES Incident_3NF(incident_id),
+    FOREIGN KEY (vehicle_id) REFERENCES Vehicle_3NF(vehicle_id),
+    FOREIGN KEY (primary_crew_id) REFERENCES Crew_3NF(crew_id),
+    FOREIGN KEY (assigned_by) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (accepted_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_incident_id (incident_id),
+    INDEX idx_vehicle_id (vehicle_id),
+    INDEX idx_response_status (response_status),
+    INDEX idx_priority (priority),
+    INDEX idx_assigned_at (assigned_at)
+);
+
+-- Communication Table
+CREATE TABLE Communication_3NF (
+    communication_id INT AUTO_INCREMENT PRIMARY KEY,
+    target_type ENUM('incident', 'crew', 'citizen', 'supervisor') NOT NULL,
+    incident_id INT,
+    recipient_id INT,
+    recipient_phone VARCHAR(20),
+    recipient_email VARCHAR(255),
+    message_type ENUM('sms', 'push_notification', 'email', 'system_alert') NOT NULL,
+    message_template VARCHAR(100),
+    message_content TEXT,
+    message_priority ENUM('low', 'normal', 'high', 'critical') DEFAULT 'normal',
+    delivery_status ENUM('pending', 'sent', 'delivered', 'failed', 'read') DEFAULT 'pending',
+    sent_at TIMESTAMP NULL,
+    delivered_at TIMESTAMP NULL,
+    read_at TIMESTAMP NULL,
+    failure_reason VARCHAR(200),
+    retry_count INT DEFAULT 0,
+    sender_id INT,
+    source ENUM('system', 'manual', 'automated') DEFAULT 'system',
+    context_data JSON,
+    correlation_id VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (incident_id) REFERENCES Incident_3NF(incident_id),
+    FOREIGN KEY (recipient_id) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (sender_id) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_target_type (target_type),
+    INDEX idx_message_type (message_type),
+    INDEX idx_delivery_status (delivery_status),
+    INDEX idx_created_at (created_at),
+    INDEX idx_correlation_id (correlation_id)
+);
+
+-- Report Table
+CREATE TABLE Report_3NF (
+    report_id INT AUTO_INCREMENT PRIMARY KEY,
+    incident_id INT,
+    report_type ENUM('incident_summary', 'performance_analysis', 'equipment_check', 'shift_report') NOT NULL,
+    report_title VARCHAR(200),
+    report_summary TEXT,
+    report_content JSON,
+    report_findings TEXT,
+    report_recommendations TEXT,
+    created_by INT NOT NULL,
+    reviewed_by INT,
+    approved_by INT,
+    report_status ENUM('draft', 'submitted', 'under_review', 'approved', 'published') DEFAULT 'draft',
+    visibility ENUM('private', 'team', 'department', 'public') DEFAULT 'private',
+    version INT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP NULL,
+    approved_at TIMESTAMP NULL,
+    published_at TIMESTAMP NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (incident_id) REFERENCES Incident_3NF(incident_id),
+    FOREIGN KEY (created_by) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (reviewed_by) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (approved_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_report_type (report_type),
+    INDEX idx_report_status (report_status),
+    INDEX idx_visibility (visibility),
+    INDEX idx_created_at (created_at)
+);
+
+-- Audit Log Table
+CREATE TABLE AuditLog_3NF (
+    audit_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    action ENUM('create', 'read', 'update', 'delete', 'login', 'logout', 'assign', 'approve') NOT NULL,
+    entity_type ENUM('incident', 'vehicle', 'crew', 'assignment', 'user', 'station', 'shift', 'equipment_check', 'communication', 'report') NOT NULL,
+    entity_id INT,
+    description TEXT,
+    before_state JSON,
+    after_state JSON,
+    session_id VARCHAR(100),
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    geolocation_lat DECIMAL(10, 8),
+    geolocation_lng DECIMAL(11, 8),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    risk_level ENUM('low', 'medium', 'high', 'critical') DEFAULT 'low',
+    source ENUM('web', 'mobile', 'api') DEFAULT 'web',
+    correlation_id VARCHAR(100),
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_user_id (user_id),
+    INDEX idx_action (action),
+    INDEX idx_entity_type (entity_type),
+    INDEX idx_timestamp (timestamp),
+    INDEX idx_session_id (session_id)
+);
+
+3.3 Junction Tables (Many-to-Many Relationships)
+
+-- Vehicle Crew Assignment
+CREATE TABLE VehicleCrew_3NF (
+    vehicle_crew_id INT AUTO_INCREMENT PRIMARY KEY,
+    vehicle_id INT NOT NULL,
+    crew_id INT NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('active', 'inactive', 'temporary') DEFAULT 'active',
+    
+    FOREIGN KEY (vehicle_id) REFERENCES Vehicle_3NF(vehicle_id) ON DELETE CASCADE,
+    FOREIGN KEY (crew_id) REFERENCES Crew_3NF(crew_id) ON DELETE CASCADE,
+    
+    UNIQUE KEY unique_vehicle_crew (vehicle_id, crew_id),
+    INDEX idx_vehicle_id (vehicle_id),
+    INDEX idx_crew_id (crew_id)
+);
+
+-- Shift Crew Assignments
+CREATE TABLE ShiftCrewAssignments_3NF (
+    assignment_id INT AUTO_INCREMENT PRIMARY KEY,
+    shift_id INT NOT NULL,
+    crew_id INT NOT NULL,
+    role VARCHAR(50),
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('assigned', 'confirmed', 'cancelled', 'completed') DEFAULT 'assigned',
+    assigned_by INT,
+    
+    FOREIGN KEY (shift_id) REFERENCES Shift_3NF(shift_id) ON DELETE CASCADE,
+    FOREIGN KEY (crew_id) REFERENCES Crew_3NF(crew_id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_by) REFERENCES User_3NF(user_id),
+    
+    UNIQUE KEY unique_shift_crew (shift_id, crew_id),
+    INDEX idx_shift_id (shift_id),
+    INDEX idx_crew_id (crew_id)
+);
+
+-- Assignment Additional Crew
+CREATE TABLE AssignmentAdditionalCrew_3NF (
+    assignment_id INT NOT NULL,
+    crew_id INT NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (assignment_id, crew_id),
+    FOREIGN KEY (assignment_id) REFERENCES Assignment_3NF(assignment_id) ON DELETE CASCADE,
+    FOREIGN KEY (crew_id) REFERENCES Crew_3NF(crew_id) ON DELETE CASCADE,
+    
+    INDEX idx_assignment_id (assignment_id),
+    INDEX idx_crew_id (crew_id)
+);
+
+-- Incident Notes
+CREATE TABLE IncidentNotes_3NF (
+    note_id INT AUTO_INCREMENT PRIMARY KEY,
+    incident_id INT NOT NULL,
+    note_content TEXT NOT NULL,
+    added_by INT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    note_type ENUM('status_update', 'general', 'medical', 'operational') DEFAULT 'general',
+    
+    FOREIGN KEY (incident_id) REFERENCES Incident_3NF(incident_id) ON DELETE CASCADE,
+    FOREIGN KEY (added_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_incident_id (incident_id),
+    INDEX idx_timestamp (timestamp)
+);
+
+-- Incident Duplicates
+CREATE TABLE IncidentDuplicates_3NF (
+    duplicate_id INT AUTO_INCREMENT PRIMARY KEY,
+    incident_id INT NOT NULL,
+    possible_duplicate_id INT NOT NULL,
+    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    confidence_score DECIMAL(3, 2),
+    verified BOOLEAN DEFAULT FALSE,
+    
+    FOREIGN KEY (incident_id) REFERENCES Incident_3NF(incident_id) ON DELETE CASCADE,
+    FOREIGN KEY (possible_duplicate_id) REFERENCES Incident_3NF(incident_id) ON DELETE CASCADE,
+    
+    INDEX idx_incident_id (incident_id),
+    INDEX idx_duplicate_id (possible_duplicate_id)
+);
+
+-- Crew Certifications
+CREATE TABLE CrewCertifications_3NF (
+    certification_id INT AUTO_INCREMENT PRIMARY KEY,
+    crew_id INT NOT NULL,
+    certification_type VARCHAR(100) NOT NULL,
+    certification_number VARCHAR(50),
+    issued_by VARCHAR(100),
+    issue_date DATE,
+    expiry_date DATE,
+    is_active BOOLEAN DEFAULT TRUE,
+    
+    FOREIGN KEY (crew_id) REFERENCES Crew_3NF(crew_id) ON DELETE CASCADE,
+    
+    INDEX idx_crew_id (crew_id),
+    INDEX idx_expiry_date (expiry_date),
+    INDEX idx_active (is_active)
+);
+
+-- Crew Specializations
+CREATE TABLE CrewSpecializations_3NF (
+    specialization_id INT AUTO_INCREMENT PRIMARY KEY,
+    crew_id INT NOT NULL,
+    specialization_type ENUM('cardiac_care', 'trauma', 'pediatric', 'respiratory', 'hazmat', 
+                            'rescue_operations', 'fire_suppression', 'medical_transport', 
+                            'emergency_medicine', 'other') NOT NULL,
+    proficiency_level ENUM('Basic', 'Intermediate', 'Advanced', 'Expert') DEFAULT 'Basic',
+    certified_date DATE,
+    
+    FOREIGN KEY (crew_id) REFERENCES Crew_3NF(crew_id) ON DELETE CASCADE,
+    
+    UNIQUE KEY unique_crew_specialization (crew_id, specialization_type),
+    INDEX idx_crew_id (crew_id)
+);
+
+-- Station Districts Coverage
+CREATE TABLE StationDistricts_3NF (
+    coverage_id INT AUTO_INCREMENT PRIMARY KEY,
+    station_id INT NOT NULL,
+    district_name VARCHAR(100) NOT NULL,
+    priority_level ENUM('primary', 'secondary', 'backup') DEFAULT 'primary',
+    
+    FOREIGN KEY (station_id) REFERENCES Station_3NF(station_id) ON DELETE CASCADE,
+    
+    INDEX idx_station_id (station_id),
+    INDEX idx_district_name (district_name)
+);
+
+-- Station Cities Coverage
+CREATE TABLE StationCities_3NF (
+    coverage_id INT AUTO_INCREMENT PRIMARY KEY,
+    station_id INT NOT NULL,
+    city_name VARCHAR(100) NOT NULL,
+    priority_level ENUM('primary', 'secondary', 'backup') DEFAULT 'primary',
+    
+    FOREIGN KEY (station_id) REFERENCES Station_3NF(station_id) ON DELETE CASCADE,
+    
+    INDEX idx_station_id (station_id),
+    INDEX idx_city_name (city_name)
+);
+
+-- Station Vehicle Assignments
+CREATE TABLE StationVehicles_3NF (
+    assignment_id INT AUTO_INCREMENT PRIMARY KEY,
+    station_id INT NOT NULL,
+    vehicle_id INT NOT NULL,
+    status ENUM('stationed', 'deployed', 'maintenance', 'temporary') DEFAULT 'stationed',
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (station_id) REFERENCES Station_3NF(station_id) ON DELETE CASCADE,
+    FOREIGN KEY (vehicle_id) REFERENCES Vehicle_3NF(vehicle_id) ON DELETE CASCADE,
+    
+    INDEX idx_station_id (station_id),
+    INDEX idx_vehicle_id (vehicle_id)
+);
+
+-- Station Crew Assignments
+CREATE TABLE StationCrew_3NF (
+    assignment_id INT AUTO_INCREMENT PRIMARY KEY,
+    station_id INT NOT NULL,
+    crew_id INT NOT NULL,
+    status ENUM('stationed', 'deployed', 'on_leave', 'training') DEFAULT 'stationed',
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (station_id) REFERENCES Station_3NF(station_id) ON DELETE CASCADE,
+    FOREIGN KEY (crew_id) REFERENCES Crew_3NF(crew_id) ON DELETE CASCADE,
+    
+    INDEX idx_station_id (station_id),
+    INDEX idx_crew_id (crew_id)
+);
+
+-- Shift Required Roles
+CREATE TABLE ShiftRequiredRoles_3NF (
+    requirement_id INT AUTO_INCREMENT PRIMARY KEY,
+    shift_id INT NOT NULL,
+    required_role VARCHAR(50) NOT NULL,
+    minimum_count INT DEFAULT 1,
+    maximum_count INT,
+    
+    FOREIGN KEY (shift_id) REFERENCES Shift_3NF(shift_id) ON DELETE CASCADE,
+    
+    INDEX idx_shift_id (shift_id)
+);
+
+-- Shift Vehicle Assignments
+CREATE TABLE ShiftVehicleAssignments_3NF (
+    assignment_id INT AUTO_INCREMENT PRIMARY KEY,
+    shift_id INT NOT NULL,
+    vehicle_id INT NOT NULL,
+    primary_crew_id INT,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('assigned', 'active', 'completed', 'cancelled') DEFAULT 'assigned',
+    
+    FOREIGN KEY (shift_id) REFERENCES Shift_3NF(shift_id) ON DELETE CASCADE,
+    FOREIGN KEY (vehicle_id) REFERENCES Vehicle_3NF(vehicle_id) ON DELETE CASCADE,
+    FOREIGN KEY (primary_crew_id) REFERENCES Crew_3NF(crew_id),
+    
+    INDEX idx_shift_id (shift_id),
+    INDEX idx_vehicle_id (vehicle_id)
+);
+
+-- Equipment Checklist Categories
+CREATE TABLE EquipmentChecklistCategories_3NF (
+    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    template_id INT NOT NULL,
+    category_name VARCHAR(100) NOT NULL,
+    category_description TEXT,
+    display_order INT DEFAULT 0,
+    
+    FOREIGN KEY (template_id) REFERENCES EquipmentChecklistTemplate_3NF(template_id) ON DELETE CASCADE,
+    
+    INDEX idx_template_id (template_id),
+    INDEX idx_display_order (display_order)
+);
+
+-- Equipment Checklist Items
+CREATE TABLE EquipmentChecklistItems_3NF (
+    item_id INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT NOT NULL,
+    item_name VARCHAR(200) NOT NULL,
+    item_type VARCHAR(50),
+    description TEXT,
+    is_required BOOLEAN DEFAULT TRUE,
+    is_critical BOOLEAN DEFAULT FALSE,
+    check_type ENUM('visual', 'functional', 'measurement', 'documentation') DEFAULT 'visual',
+    expected_value VARCHAR(100),
+    tolerance VARCHAR(50),
+    unit VARCHAR(20),
+    display_order INT DEFAULT 0,
+    
+    FOREIGN KEY (category_id) REFERENCES EquipmentChecklistCategories_3NF(category_id) ON DELETE CASCADE,
+    
+    INDEX idx_category_id (category_id),
+    INDEX idx_critical (is_critical)
+);
+
+-- Vehicle Equipment Items
+CREATE TABLE VehicleEquipmentItems_3NF (
+    equipment_id INT AUTO_INCREMENT PRIMARY KEY,
+    vehicle_id INT NOT NULL,
+    equipment_name VARCHAR(200) NOT NULL,
+    equipment_type VARCHAR(50),
+    serial_number VARCHAR(100),
+    status ENUM('operational', 'maintenance', 'damaged', 'missing') DEFAULT 'operational',
+    quantity INT DEFAULT 1,
+    last_checked DATE,
+    notes TEXT,
+    
+    FOREIGN KEY (vehicle_id) REFERENCES Vehicle_3NF(vehicle_id) ON DELETE CASCADE,
+    
+    INDEX idx_vehicle_id (vehicle_id),
+    INDEX idx_status (status)
+);
+
+-- Equipment Check Results
+CREATE TABLE EquipmentCheckResults_3NF (
+    result_id INT AUTO_INCREMENT PRIMARY KEY,
+    check_id INT NOT NULL,
+    category_name VARCHAR(100),
+    item_name VARCHAR(200),
+    status ENUM('pass', 'fail', 'warning', 'not_checked') DEFAULT 'not_checked',
+    actual_value VARCHAR(100),
+    notes TEXT,
+    photo_url VARCHAR(500),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (check_id) REFERENCES EquipmentCheck_3NF(check_id) ON DELETE CASCADE,
+    
+    INDEX idx_check_id (check_id),
+    INDEX idx_status (status)
+);
+
+-- Equipment Critical Issues
+CREATE TABLE EquipmentCriticalIssues_3NF (
+    issue_id INT AUTO_INCREMENT PRIMARY KEY,
+    check_id INT NOT NULL,
+    issue_description TEXT NOT NULL,
+    severity ENUM('high', 'critical') DEFAULT 'high',
+    requires_immediate_action BOOLEAN DEFAULT TRUE,
+    reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (check_id) REFERENCES EquipmentCheck_3NF(check_id) ON DELETE CASCADE,
+    
+    INDEX idx_check_id (check_id),
+    INDEX idx_severity (severity)
+);
+
+-- Equipment Recommended Actions
+CREATE TABLE EquipmentRecommendedActions_3NF (
+    action_id INT AUTO_INCREMENT PRIMARY KEY,
+    check_id INT NOT NULL,
+    recommended_action TEXT NOT NULL,
+    priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
+    estimated_time_hours DECIMAL(4, 2),
+    cost_estimate DECIMAL(10, 2),
+    
+    FOREIGN KEY (check_id) REFERENCES EquipmentCheck_3NF(check_id) ON DELETE CASCADE,
+    
+    INDEX idx_check_id (check_id),
+    INDEX idx_priority (priority)
+);
+
+-- User Password History
+CREATE TABLE UserPasswordHistory_3NF (
+    history_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES User_3NF(user_id) ON DELETE CASCADE,
+    
+    INDEX idx_user_id (user_id),
+    INDEX idx_created_at (created_at)
+);
+
+-- Communication Notifications
+CREATE TABLE CommunicationNotifications_3NF (
+    notification_id INT AUTO_INCREMENT PRIMARY KEY,
+    communication_id INT NOT NULL,
+    notification_type VARCHAR(50),
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('pending', 'sent', 'failed') DEFAULT 'pending',
+    
+    FOREIGN KEY (communication_id) REFERENCES Communication_3NF(communication_id) ON DELETE CASCADE,
+    
+    INDEX idx_communication_id (communication_id)
+);
+
+-- Communication Updates
+CREATE TABLE CommunicationUpdates_3NF (
+    update_id INT AUTO_INCREMENT PRIMARY KEY,
+    communication_id INT NOT NULL,
+    update_content TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_type VARCHAR(50),
+    
+    FOREIGN KEY (communication_id) REFERENCES Communication_3NF(communication_id) ON DELETE CASCADE,
+    
+    INDEX idx_communication_id (communication_id)
+);
+
+-- Report Attachment Files
+CREATE TABLE ReportAttachmentFiles_3NF (
+    file_id INT AUTO_INCREMENT PRIMARY KEY,
+    report_id INT NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    file_type VARCHAR(50),
+    file_size BIGINT,
+    file_url VARCHAR(500),
+    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (report_id) REFERENCES Report_3NF(report_id) ON DELETE CASCADE,
+    
+    INDEX idx_report_id (report_id)
+);
+
+-- Report Permissions
+CREATE TABLE ReportPermissions_3NF (
+    permission_id INT AUTO_INCREMENT PRIMARY KEY,
+    report_id INT NOT NULL,
+    user_id INT,
+    role_id INT,
+    permission_type ENUM('view', 'edit', 'approve', 'publish') NOT NULL,
+    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    granted_by INT,
+    
+    FOREIGN KEY (report_id) REFERENCES Report_3NF(report_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES User_3NF(user_id),
+    FOREIGN KEY (role_id) REFERENCES UserRole_3NF(role_id),
+    FOREIGN KEY (granted_by) REFERENCES User_3NF(user_id),
+    
+    INDEX idx_report_id (report_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_role_id (role_id)
+);
+
+-- Audit Modified Fields
+CREATE TABLE AuditModifiedFields_3NF (
+    field_id INT AUTO_INCREMENT PRIMARY KEY,
+    audit_id INT NOT NULL,
+    field_name VARCHAR(100) NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    
+    FOREIGN KEY (audit_id) REFERENCES AuditLog_3NF(audit_id) ON DELETE CASCADE,
+    
+    INDEX idx_audit_id (audit_id)
+);
+
+-- Audit Security Flags
+CREATE TABLE AuditSecurityFlags_3NF (
+    flag_id INT AUTO_INCREMENT PRIMARY KEY,
+    audit_id INT NOT NULL,
+    security_flag VARCHAR(100) NOT NULL,
+    flag_description TEXT,
+    severity ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+    
+    FOREIGN KEY (audit_id) REFERENCES AuditLog_3NF(audit_id) ON DELETE CASCADE,
+    
+    INDEX idx_audit_id (audit_id),
+    INDEX idx_severity (severity)
+);
+
+3.4 Initial Data Population
+
+-- Populate UserRole lookup table
+INSERT INTO UserRole_3NF (role_name, permissions, department, description) VALUES
+('Call Taker', '["incident_create", "incident_read", "communication_create"]', 'Operations', 'Receives and logs emergency calls'),
+('Dispatcher', '["incident_read", "incident_update", "assignment_create", "vehicle_read", "crew_read"]', 'Operations', 'Assigns resources to incidents'),
+('Field Crew', '["assignment_read", "assignment_update", "equipment_check", "communication_read"]', 'Field Operations', 'Responds to emergency incidents'),
+('Supervisor', '["all_read", "report_create", "shift_manage", "crew_manage"]', 'Management', 'Supervises operations and crew'),
+('Admin', '["full_access"]', 'Administration', 'System administrator with full access'),
+('Citizen', '["incident_create", "incident_read_own"]', 'Public', 'Citizens reporting emergencies');
+
+-- Populate Province lookup table
+INSERT INTO Province_3NF (province_name, region_code, population, area_km2) VALUES
+('Western', 'WP', 5800000, 3684),
+('Central', 'CP', 2600000, 5674),
+('Southern', 'SP', 2500000, 5383),
+('Northern', 'NP', 1100000, 8884),
+('Eastern', 'EP', 1600000, 9996),
+('North Western', 'NWP', 2400000, 7888),
+('North Central', 'NCP', 1300000, 10714),
+('Uva', 'UP', 1300000, 8500),
+('Sabaragamuwa', 'SGP', 1900000, 4968);
+
+-- Populate VehicleType lookup table
+INSERT INTO VehicleType_3NF (type_name, typical_crew_size, maintenance_interval_days, fuel_capacity_liters, max_speed_kmh) VALUES
+('Ambulance', 3, 30, 80, 120),
+('Fire Engine', 6, 15, 500, 100),
+('Rescue Vehicle', 4, 20, 120, 110),
+('Support Vehicle', 2, 45, 60, 130);
+
+-- Populate StationType lookup table
+INSERT INTO StationType_3NF (type_name, default_capacity_vehicles, default_capacity_crew, required_certifications, operating_standards) VALUES
+('Fire Station', 4, 20, '["firefighter", "emt_basic"]', 'NFPA 1710 compliance required'),
+('Ambulance Station', 3, 12, '["emt_basic", "paramedic"]', 'Medical response protocols'),
+('Rescue Station', 2, 8, '["rescue_technician", "emt_basic"]', 'Technical rescue capabilities'),
+('Multi-Purpose', 6, 30, '["firefighter", "emt_basic", "rescue_technician"]', 'Combined service capabilities');
+
+-- Populate CrewRole lookup table
+INSERT INTO CrewRole_3NF (role_name, certification_requirements, typical_responsibilities, minimum_experience_months, salary_grade) VALUES
+('EMT', '["emt_basic_certification"]', 'Basic life support and patient care', 0, 'Grade_1'),
+('Paramedic', '["paramedic_certification", "advanced_life_support"]', 'Advanced life support and medication administration', 24, 'Grade_3'),
+('Firefighter', '["firefighter_certification", "hazmat_awareness"]', 'Fire suppression and rescue operations', 6, 'Grade_2'),
+('Driver', '["commercial_drivers_license", "emergency_vehicle_operator"]', 'Emergency vehicle operation', 12, 'Grade_2'),
+('Supervisor', '["leadership_certification", "incident_command"]', 'Field supervision and incident command', 60, 'Grade_4');
+
+3.5 Views for Common Queries
+
+-- Active Incidents View
+CREATE VIEW ActiveIncidents AS
+SELECT 
+    i.incident_id,
+    i.incident_string_id,
+    i.incident_type,
+    i.severity,
+    i.status,
+    i.location_address,
+    i.location_city,
+    p.province_name,
+    u.first_name AS logged_by_name,
+    d.first_name AS dispatcher_name,
+    i.created_at
+FROM Incident_3NF i
+JOIN Province_3NF p ON i.province_id = p.province_id
+JOIN User_3NF u ON i.logged_by_user_id = u.user_id
+LEFT JOIN User_3NF d ON i.assigned_dispatcher_id = d.user_id
+WHERE i.status IN ('pending', 'assigned', 'en_route', 'on_scene');
+
+-- Available Resources View
+CREATE VIEW AvailableResources AS
+SELECT 
+    v.vehicle_id,
+    v.plate_number,
+    vt.type_name AS vehicle_type,
+    v.current_status,
+    s.station_name,
+    COUNT(vc.crew_id) AS crew_count
+FROM Vehicle_3NF v
+JOIN VehicleType_3NF vt ON v.vehicle_type_id = vt.vehicle_type_id
+LEFT JOIN Station_3NF s ON v.current_station_id = s.station_id
+LEFT JOIN VehicleCrew_3NF vc ON v.vehicle_id = vc.vehicle_id
+WHERE v.operational_status = 'active' 
+AND v.current_status = 'available'
+GROUP BY v.vehicle_id, v.plate_number, vt.type_name, v.current_status, s.station_name;
+
+-- Current Assignments View
+CREATE VIEW CurrentAssignments AS
+SELECT 
+    a.assignment_id,
+    i.incident_string_id,
+    i.incident_type,
+    i.severity,
+    v.plate_number,
+    vt.type_name AS vehicle_type,
+    CONCAT(c.first_name, ' ', c.last_name) AS primary_crew,
+    a.response_status,
+    a.priority,
+    a.assigned_at
+FROM Assignment_3NF a
+JOIN Incident_3NF i ON a.incident_id = i.incident_id
+JOIN Vehicle_3NF v ON a.vehicle_id = v.vehicle_id
+JOIN VehicleType_3NF vt ON v.vehicle_type_id = vt.vehicle_type_id
+JOIN Crew_3NF c ON a.primary_crew_id = c.crew_id
+WHERE a.response_status IN ('assigned', 'accepted', 'en_route', 'on_scene');
+
+-- Crew Availability View
+CREATE VIEW CrewAvailability AS
+SELECT 
+    c.crew_id,
+    c.employee_id,
+    CONCAT(c.first_name, ' ', c.last_name) AS crew_name,
+    cr.role_name,
+    c.certification_level,
+    c.availability_status,
+    s.shift_name,
+    v.plate_number AS assigned_vehicle
+FROM Crew_3NF c
+JOIN CrewRole_3NF cr ON c.crew_role_id = cr.crew_role_id
+LEFT JOIN Shift_3NF s ON c.shift_id = s.shift_id
+LEFT JOIN Vehicle_3NF v ON c.assigned_vehicle_id = v.vehicle_id
+WHERE c.is_active = TRUE;
+
+3.6 Indexes and Constraints Summary
+
+-- Performance Indexes
+CREATE INDEX idx_incident_location ON Incident_3NF(location_lat, location_lng);
+CREATE INDEX idx_incident_created_status ON Incident_3NF(created_at, status);
+CREATE INDEX idx_vehicle_location ON Vehicle_3NF(current_location_lat, current_location_lng);
+CREATE INDEX idx_assignment_times ON Assignment_3NF(assigned_at, response_status);
+CREATE INDEX idx_communication_delivery ON Communication_3NF(delivery_status, sent_at);
+CREATE INDEX idx_audit_user_action ON AuditLog_3NF(user_id, action, timestamp);
+
+-- Data Integrity Constraints
+ALTER TABLE User_3NF ADD CONSTRAINT chk_phone_format 
+CHECK (phone REGEXP '^\\+94[0-9]{9}$');
+
+ALTER TABLE Incident_3NF ADD CONSTRAINT chk_coordinates_sri_lanka
+CHECK (location_lat BETWEEN 5.9 AND 9.9 AND location_lng BETWEEN 79.6 AND 81.9);
+
+ALTER TABLE Vehicle_3NF ADD CONSTRAINT chk_plate_sri_lanka
+CHECK (plate_number REGEXP '^[A-Z]{2,3}-[0-9]{4}$|^[0-9]{2,3}-[0-9]{4}$');
+
+ALTER TABLE EquipmentCheck_3NF ADD CONSTRAINT chk_duration_positive
+CHECK (duration >= 0);
+
+ALTER TABLE Assignment_3NF ADD CONSTRAINT chk_times_logical
+CHECK (accepted_at >= assigned_at AND en_route_at >= accepted_at AND 
+       on_scene_at >= en_route_at AND completed_at >= on_scene_at);
+
+3.7 Database Summary
+
+Total Tables Created: 27 tables
+- Main Entity Tables: 12 (User through AuditLog)
+- Lookup Tables: 5 (UserRole, Province, VehicleType, StationType, CrewRole)
+- Junction/Support Tables: 10+ (VehicleCrew, ShiftCrewAssignments, etc.)
+
+Key Features:
+✅ Complete 3NF normalization with proper lookup tables for transitive dependencies
+✅ Comprehensive foreign key relationships maintaining referential integrity
+✅ Optimized indexes for emergency response queries (location-based, time-based)
+✅ Sri Lankan context validation (phone numbers, coordinates, license plates)
+✅ Audit trail capabilities with full change tracking
+✅ Emergency response workflow support (incident → assignment → resolution)
+✅ Equipment management and compliance tracking
+✅ Communication and notification system support
+✅ Reporting and analytics foundation
+✅ Role-based access control and security features
+
+===============================================================================
