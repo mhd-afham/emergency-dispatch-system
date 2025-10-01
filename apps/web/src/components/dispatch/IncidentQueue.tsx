@@ -134,7 +134,10 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
     const unsubscribeCreate = subscribe(
       "incident_created",
       (newIncident: Incident) => {
-        console.log("📱 [IncidentQueue] New incident created:", newIncident.incidentId);
+        console.log(
+          "📱 [IncidentQueue] New incident created:",
+          newIncident.incidentId
+        );
         setIncidents((prev) => [newIncident, ...prev]);
       }
     );
@@ -142,7 +145,10 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
     const unsubscribeUpdate = subscribe(
       "incident_update",
       (updatedIncident: Incident) => {
-        console.log("📱 [IncidentQueue] Incident updated:", updatedIncident.incidentId);
+        console.log(
+          "📱 [IncidentQueue] Incident updated:",
+          updatedIncident.incidentId
+        );
         setIncidents((prev) =>
           prev.map((incident) =>
             incident._id === updatedIncident._id ? updatedIncident : incident
