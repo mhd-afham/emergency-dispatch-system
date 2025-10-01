@@ -51,8 +51,8 @@ app.get("/", (req, res) => {
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/incidents", require("./routes/incidents"));
 app.use("/api/equipment", require("./routes/equipment"));
+app.use("/api/vehicles", require("./routes/vehicles"));
 // app.use('/api/shifts', require('./routes/shifts'));
-// app.use('/api/vehicles', require('./routes/vehicles'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -72,6 +72,7 @@ const PORT = process.env.PORT || 5000;
 
 // Make io available globally for use in controllers
 global.io = io;
+app.set("io", io);
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Emergency Dispatch Server running on port ${PORT}`);

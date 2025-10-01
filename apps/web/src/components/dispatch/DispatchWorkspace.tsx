@@ -14,7 +14,6 @@ import {
 } from "../../utils/resourceMatrix";
 import {
   Vehicle,
-  mockVehicles,
   generateVehicleMarkerSVG,
   generateIncidentMarkerSVG,
   getVehicleStatusColors,
@@ -100,9 +99,41 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
   const [newNote, setNewNote] = useState("");
 
   // Phase 3: Vehicle tracking state
-  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [showAllIncidents, setShowAllIncidents] = useState(true);
+
+  // Fetch vehicles from backend
+  const fetchVehicles = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:5000/api/vehicles", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setVehicles(result.data);
+        console.log(`✅ Fetched ${result.data.length} vehicles successfully`);
+      } else {
+        console.error("API returned unsuccessful response:", result);
+        setVehicles([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch vehicles:", error);
+      // For now, use empty array - will be replaced with backend integration
+      setVehicles([]);
+    }
+  };
 
   // Subscribe to real-time incident updates for this specific incident
   useEffect(() => {
@@ -135,6 +166,11 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
     };
   }, [subscribe, incident._id, onBackToQueue]);
 
+  // Fetch vehicles on component mount
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
   // Phase 3: Subscribe to vehicle location updates
   useEffect(() => {
     const unsubscribeVehicleUpdate = subscribe(
@@ -144,7 +180,14 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
         setVehicles((prev) =>
           prev.map((vehicle) =>
             vehicle._id === data.vehicleId
-              ? { ...vehicle, location: data.location, status: data.status }
+              ? {
+                  ...vehicle,
+                  status: {
+                    ...vehicle.status,
+                    currentLocation: data.location,
+                    lastLocationUpdate: new Date().toISOString(),
+                  },
+                }
               : vehicle
           )
         );
@@ -160,8 +203,16 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
             vehicle._id === data.vehicleId
               ? {
                   ...vehicle,
-                  status: data.status,
-                  assignedIncidentId: data.assignedIncidentId,
+                  status: {
+                    ...vehicle.status,
+                    currentStatus: data.status,
+                  },
+                  assignment: data.assignedIncidentId
+                    ? {
+                        ...vehicle.assignment,
+                        assignedIncidentId: data.assignedIncidentId,
+                      }
+                    : vehicle.assignment,
                 }
               : vehicle
           )
@@ -634,26 +685,30 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                   {
                     status: "available",
                     label: "Available",
-                    count: vehicles.filter((v) => v.status === "available")
-                      .length,
+                    count: vehicles.filter(
+                      (v) => v.status.currentStatus === "available"
+                    ).length,
                   },
                   {
                     status: "assigned",
                     label: "Assigned",
-                    count: vehicles.filter((v) => v.status === "assigned")
-                      .length,
+                    count: vehicles.filter(
+                      (v) => v.status.currentStatus === "assigned"
+                    ).length,
                   },
                   {
                     status: "en_route",
                     label: "En Route",
-                    count: vehicles.filter((v) => v.status === "en_route")
-                      .length,
+                    count: vehicles.filter(
+                      (v) => v.status.currentStatus === "en_route"
+                    ).length,
                   },
                   {
                     status: "on_scene",
                     label: "On Scene",
-                    count: vehicles.filter((v) => v.status === "on_scene")
-                      .length,
+                    count: vehicles.filter(
+                      (v) => v.status.currentStatus === "on_scene"
+                    ).length,
                   },
                 ].map(({ status, label, count }) => (
                   <div key={status} className="flex items-center space-x-2">
@@ -661,10 +716,22 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                       className="w-3 h-3 rounded-full border"
                       style={{
                         backgroundColor: getVehicleStatusColors(
-                          status as Vehicle["status"]
+                          status as
+                            | "available"
+                            | "assigned"
+                            | "en_route"
+                            | "on_scene"
+                            | "returning",
+                          "active"
                         ).backgroundColor,
                         borderColor: getVehicleStatusColors(
-                          status as Vehicle["status"]
+                          status as
+                            | "available"
+                            | "assigned"
+                            | "en_route"
+                            | "on_scene"
+                            | "returning",
+                          "active"
                         ).borderColor,
                       }}
                     />
@@ -724,13 +791,13 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
             {/* Phase 3: All Vehicles on Map */}
             {vehicles.map((vehicle) => {
               const vehiclePosition = {
-                lat: vehicle.location.coordinates.coordinates[1],
-                lng: vehicle.location.coordinates.coordinates[0],
+                lat: vehicle.status.currentLocation.coordinates[1],
+                lng: vehicle.status.currentLocation.coordinates[0],
               };
 
               const isSelectedVehicle = selectedVehicle?._id === vehicle._id;
               const isAssignedToCurrentIncident =
-                vehicle.assignedIncidentId === incident._id;
+                vehicle.assignment?.currentIncidentId === incident._id;
 
               return (
                 <Marker
@@ -738,8 +805,9 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                   position={vehiclePosition}
                   icon={{
                     url: generateVehicleMarkerSVG(
-                      vehicle.type,
-                      vehicle.status,
+                      vehicle.registration.vehicleType,
+                      vehicle.status.currentStatus,
+                      vehicle.status.operational,
                       isSelectedVehicle || isAssignedToCurrentIncident
                     ),
                     scaledSize: new google.maps.Size(
@@ -762,16 +830,20 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
             {incident.location.coordinates &&
               vehicles
                 .filter(
-                  (vehicle) => vehicle.assignedIncidentId === incident._id
+                  (vehicle) =>
+                    vehicle.assignment?.currentIncidentId === incident._id
                 )
                 .map((vehicle) => {
                   const vehiclePosition = {
-                    lat: vehicle.location.coordinates.coordinates[1],
-                    lng: vehicle.location.coordinates.coordinates[0],
+                    lat: vehicle.status.currentLocation.coordinates[1],
+                    lng: vehicle.status.currentLocation.coordinates[0],
                   };
 
                   const routePath = [vehiclePosition, incidentLocation];
-                  const statusColors = getVehicleStatusColors(vehicle.status);
+                  const statusColors = getVehicleStatusColors(
+                    vehicle.status.currentStatus,
+                    vehicle.status.operational
+                  );
 
                   return (
                     <Polyline
@@ -794,19 +866,19 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
               vehicles
                 .filter(
                   (v) =>
-                    v.status === "available" &&
+                    v.status.currentStatus === "available" &&
                     resourceSuggestions.some((rs) => {
                       const suggestionType = rs.vehicleType.toLowerCase();
-                      const vehicleType = v.type
+                      const vehicleType = v.registration.vehicleType
                         .replace("_", " ")
                         .toLowerCase();
                       return (
                         (suggestionType.includes("ambulance") &&
                           vehicleType === "ambulance") ||
                         (suggestionType.includes("fire") &&
-                          vehicleType === "fire truck") ||
+                          vehicleType.includes("fire")) ||
                         (suggestionType.includes("rescue") &&
-                          vehicleType === "rescue unit") ||
+                          vehicleType.includes("rescue")) ||
                         (suggestionType.includes("police") &&
                           vehicleType === "police car") ||
                         (suggestionType.includes("hazmat") &&
@@ -816,8 +888,8 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                 )
                 .map((vehicle) => {
                   const vehiclePosition = {
-                    lat: vehicle.location.coordinates.coordinates[1],
-                    lng: vehicle.location.coordinates.coordinates[0],
+                    lat: vehicle.status.currentLocation.coordinates[1],
+                    lng: vehicle.status.currentLocation.coordinates[0],
                   };
 
                   const routePath = [vehiclePosition, incidentLocation];
@@ -841,8 +913,8 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
               selectedInfoWindow === `vehicle-${selectedVehicle._id}` && (
                 <InfoWindow
                   position={{
-                    lat: selectedVehicle.location.coordinates.coordinates[1],
-                    lng: selectedVehicle.location.coordinates.coordinates[0],
+                    lat: selectedVehicle.status.currentLocation.coordinates[1],
+                    lng: selectedVehicle.status.currentLocation.coordinates[0],
                   }}
                   onCloseClick={() => {
                     setSelectedInfoWindow(null);
@@ -852,10 +924,12 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                   <div className="p-3 max-w-sm">
                     <div className="flex items-center space-x-2 mb-2">
                       <span className="text-lg">
-                        {getVehicleTypeIcon(selectedVehicle.type)}
+                        {getVehicleTypeIcon(
+                          selectedVehicle.registration.vehicleType
+                        )}
                       </span>
                       <h4 className="font-semibold text-gray-900">
-                        Vehicle #{selectedVehicle.vehicleId}
+                        Vehicle #{selectedVehicle.registration.plateNumber}
                       </h4>
                     </div>
 
@@ -863,7 +937,10 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                       <div className="flex justify-between">
                         <span className="text-gray-600">Type:</span>
                         <span className="font-medium capitalize">
-                          {selectedVehicle.type.replace("_", " ")}
+                          {selectedVehicle.registration.vehicleType.replace(
+                            "_",
+                            " "
+                          )}
                         </span>
                       </div>
 
@@ -871,46 +948,45 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                         <span className="text-gray-600">Status:</span>
                         <span
                           className={`px-2 py-1 rounded text-xs font-medium ${
-                            getVehicleStatusColors(selectedVehicle.status)
-                              .badgeColor
+                            getVehicleStatusColors(
+                              selectedVehicle.status.currentStatus,
+                              selectedVehicle.status.operational
+                            ).badgeColor
                           }`}
                         >
-                          {selectedVehicle.status
+                          {selectedVehicle.status.currentStatus
                             .replace("_", " ")
                             .toUpperCase()}
                         </span>
                       </div>
 
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Driver:</span>
+                        <span className="text-gray-600">Crew:</span>
                         <span className="font-medium">
-                          {selectedVehicle.crew.driverName}
+                          {selectedVehicle.assignment?.crew?.length || 0}{" "}
+                          members
                         </span>
                       </div>
 
-                      {selectedVehicle.assignedIncidentId && (
+                      {selectedVehicle.assignment?.currentIncidentId && (
                         <div className="flex justify-between">
                           <span className="text-gray-600">Assigned to:</span>
                           <span className="font-medium text-blue-600">
-                            {selectedVehicle.assignedIncidentId === incident._id
+                            {selectedVehicle.assignment.currentIncidentId ===
+                            incident._id
                               ? "This Incident"
-                              : selectedVehicle.assignedIncidentId}
+                              : selectedVehicle.assignment.currentIncidentId}
                           </span>
                         </div>
                       )}
 
-                      {selectedVehicle.estimatedArrival && (
+                      {selectedVehicle.assignment?.assignedAt && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">ETA:</span>
+                          <span className="text-gray-600">Assigned:</span>
                           <span className="font-medium text-green-600">
-                            {Math.ceil(
-                              (new Date(
-                                selectedVehicle.estimatedArrival
-                              ).getTime() -
-                                Date.now()) /
-                                60000
-                            )}{" "}
-                            min
+                            {new Date(
+                              selectedVehicle.assignment.assignedAt
+                            ).toLocaleTimeString()}
                           </span>
                         </div>
                       )}
@@ -919,7 +995,7 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                         <span className="text-gray-600 text-xs">
                           Last updated:{" "}
                           {new Date(
-                            selectedVehicle.location.lastUpdated
+                            selectedVehicle.status.lastLocationUpdate
                           ).toLocaleTimeString()}
                         </span>
                       </div>
@@ -981,7 +1057,7 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
 
                       {/* Show assigned resources for this incident */}
                       {vehicles.filter(
-                        (v) => v.assignedIncidentId === incident._id
+                        (v) => v.assignment?.currentIncidentId === incident._id
                       ).length > 0 && (
                         <div className="pt-2 border-t border-gray-200">
                           <span className="text-gray-600 text-xs font-medium">
@@ -990,7 +1066,9 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                           <div className="mt-1 space-y-1">
                             {vehicles
                               .filter(
-                                (v) => v.assignedIncidentId === incident._id
+                                (v) =>
+                                  v.assignment?.currentIncidentId ===
+                                  incident._id
                               )
                               .map((vehicle) => (
                                 <div
@@ -998,11 +1076,16 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                                   className="flex items-center space-x-2"
                                 >
                                   <span>
-                                    {getVehicleTypeIcon(vehicle.type)}
+                                    {getVehicleTypeIcon(
+                                      vehicle.registration.vehicleType
+                                    )}
                                   </span>
                                   <span className="text-xs">
-                                    {vehicle.vehicleId} -{" "}
-                                    {vehicle.status.replace("_", " ")}
+                                    {vehicle.registration.plateNumber} -{" "}
+                                    {vehicle.status.currentStatus.replace(
+                                      "_",
+                                      " "
+                                    )}
                                   </span>
                                 </div>
                               ))}
