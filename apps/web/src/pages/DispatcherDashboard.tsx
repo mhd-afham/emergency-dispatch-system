@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import IncidentQueue from "../components/incident/IncidentQueue";
+import { GoogleMapsProvider } from "../contexts/GoogleMapsContext";
+import IncidentQueue from "../components/dispatch/IncidentQueue";
+import DispatchWorkspace from "../components/dispatch/DispatchWorkspace";
+import { ResourceSuggestion } from "../utils/resourceMatrix";
 
 interface Incident {
   _id: string;
@@ -63,6 +66,30 @@ const DispatcherDashboard: React.FC = () => {
     setSelectedIncident(incident);
   };
 
+  const handleBackToQueue = () => {
+    setSelectedIncident(null);
+  };
+
+  const handleAssignResources = (
+    incident: Incident,
+    suggestions: ResourceSuggestion[]
+  ) => {
+    // TODO: Implement resource assignment logic
+    console.log(
+      "Assigning resources to incident:",
+      incident.incidentId,
+      suggestions
+    );
+
+    // For now, just show the suggestions in console
+    console.table(suggestions);
+
+    // TODO: Navigate to resource assignment interface or show modal
+    alert(
+      `Resource assignment for ${incident.incidentId} - Check console for suggestions`
+    );
+  };
+
   return (
     <div className="h-screen bg-gray-100 flex flex-col">
       {/* Navigation Header */}
@@ -107,46 +134,13 @@ const DispatcherDashboard: React.FC = () => {
         {/* Right Panel - Incident Workspace */}
         <div className="flex-1 flex flex-col">
           {selectedIncident ? (
-            <div className="h-full">
-              {/* Incident Header */}
-              <div className="bg-white border-b p-4 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <h1 className="text-xl font-semibold text-gray-900">
-                      Incident #{selectedIncident.incidentId}
-                    </h1>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        {
-                          critical: "bg-red-100 text-red-800",
-                          high: "bg-orange-100 text-orange-800",
-                          medium: "bg-yellow-100 text-yellow-800",
-                          low: "bg-green-100 text-green-800",
-                        }[selectedIncident.severity]
-                      }`}
-                    >
-                      {selectedIncident.severity.toUpperCase()} PRIORITY
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Created:{" "}
-                    {new Date(selectedIncident.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-              {/* Incident Details Placeholder */}
-              <div className="flex-1 p-6 bg-gray-50">
-                <div className="text-center text-gray-500">
-                  <div className="text-2xl mb-2">🔧</div>
-                  <p className="text-sm">
-                    Incident workspace under construction
-                  </p>
-                  <p className="text-xs">
-                    Details, map, and communications coming soon
-                  </p>
-                </div>
-              </div>
-            </div>
+            <GoogleMapsProvider>
+              <DispatchWorkspace
+                incident={selectedIncident}
+                onBackToQueue={handleBackToQueue}
+                onAssignResources={handleAssignResources}
+              />
+            </GoogleMapsProvider>
           ) : (
             /* No Incident Selected State */
             <div className="flex-1 flex items-center justify-center bg-white">

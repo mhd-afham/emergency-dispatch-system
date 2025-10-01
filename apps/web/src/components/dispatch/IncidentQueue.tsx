@@ -61,7 +61,7 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
   onIncidentSelect,
   selectedIncidentId,
 }) => {
-  const { subscribe, isConnected } = useWebSocket();
+  const { subscribe, isConnected, isConnecting } = useWebSocket();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +134,7 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
     const unsubscribeCreate = subscribe(
       "incident_created",
       (newIncident: Incident) => {
-        console.log("New incident created:", newIncident);
+        console.log("📱 [IncidentQueue] New incident created:", newIncident.incidentId);
         setIncidents((prev) => [newIncident, ...prev]);
       }
     );
@@ -142,7 +142,7 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
     const unsubscribeUpdate = subscribe(
       "incident_update",
       (updatedIncident: Incident) => {
-        console.log("Incident updated:", updatedIncident);
+        console.log("📱 [IncidentQueue] Incident updated:", updatedIncident.incidentId);
         setIncidents((prev) =>
           prev.map((incident) =>
             incident._id === updatedIncident._id ? updatedIncident : incident
@@ -154,7 +154,7 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
     const unsubscribeDelete = subscribe(
       "incident_deleted",
       (incidentId: string) => {
-        console.log("Incident deleted:", incidentId);
+        console.log("📱 [IncidentQueue] Incident deleted:", incidentId);
         setIncidents((prev) =>
           prev.filter((incident) => incident._id !== incidentId)
         );
@@ -270,10 +270,18 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
             >
               <div
                 className={`w-2 h-2 rounded-full ${
-                  isConnected ? "bg-green-500 animate-pulse" : "bg-amber-500"
+                  isConnected
+                    ? "bg-green-500 animate-pulse"
+                    : isConnecting
+                    ? "bg-amber-500"
+                    : "bg-red-500"
                 }`}
               ></div>
-              {isConnected ? "Live Updates" : "Connecting..."}
+              {isConnected
+                ? "Live Updates"
+                : isConnecting
+                ? "Connecting..."
+                : "Disconnected"}
             </div>
           </div>
           <button
