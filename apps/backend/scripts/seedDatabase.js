@@ -541,6 +541,120 @@ class DatabaseSeeder {
     }
   }
 
+  async updateCircularDependencies(
+    createdStations,
+    createdVehicles,
+    createdCrew,
+    createdIncidents,
+    createdShifts
+  ) {
+    console.log(
+      "🔹 Phase 2: Updating circular dependencies following documented strategy..."
+    );
+
+    try {
+      // 1. Update Crew → Vehicle assignments (assign each crew leader to a vehicle)
+      console.log("   • Assigning crew leaders to vehicles...");
+      for (
+        let i = 0;
+        i < Math.min(createdCrew.length, createdVehicles.length);
+        i++
+      ) {
+        const crewMember = createdCrew[i];
+        const vehicle = createdVehicles[i];
+
+        // Update crew's assigned vehicle
+        await Crew.findByIdAndUpdate(crewMember._id, {
+          "currentStatus.assignedVehicleId": vehicle._id,
+          "currentStatus.availability": "on_duty",
+        });
+
+        // Update vehicle's crew assignment
+        await Vehicle.findByIdAndUpdate(vehicle._id, {
+          "assignment.crew": [crewMember._id],
+        });
+      }
+
+      // 2. Update Station → Vehicle/Crew references
+      console.log("   • Updating station resource tracking...");
+      for (const station of createdStations) {
+        // Find vehicles assigned to this station
+        const stationVehicles = createdVehicles.filter(
+          (v) => v.station.homeStationId.toString() === station._id.toString()
+        );
+
+        // Find crew assigned to vehicles at this station
+        const stationCrew = [];
+        for (const vehicle of stationVehicles) {
+          const vehicleCrew = createdCrew.filter(
+            (c) =>
+              c.currentStatus.assignedVehicleId &&
+              c.currentStatus.assignedVehicleId.toString() ===
+                vehicle._id.toString()
+          );
+          stationCrew.push(...vehicleCrew);
+        }
+
+        // Update station's current resources
+        await Station.findByIdAndUpdate(station._id, {
+          "currentResources.vehicles": stationVehicles.map((v) => ({
+            vehicleId: v._id,
+            status: "stationed",
+          })),
+          "currentResources.crew": stationCrew.map((c) => ({
+            crewId: c._id,
+            status: "on_duty",
+          })),
+        });
+      }
+
+      // 3. Update Crew → Shift assignments
+      console.log("   • Assigning crew to shifts...");
+      for (let i = 0; i < createdShifts.length && i < createdCrew.length; i++) {
+        const shift = createdShifts[i];
+        const assignedCrew = createdCrew.slice(i * 3, (i + 1) * 3); // 3 crew per shift
+
+        // Update shift with assigned crew
+        await Shift.findByIdAndUpdate(shift._id, {
+          "staffing.assignedCrew": assignedCrew.map((c) => ({
+            crewId: c._id,
+            role: c.professional.role,
+            assignedAt: new Date(),
+            status: "assigned",
+            assignedBy: createdStations[0].stationCommander,
+          })),
+        });
+
+        // Update crew with shift assignment
+        for (const crewMember of assignedCrew) {
+          await Crew.findByIdAndUpdate(crewMember._id, {
+            "currentStatus.shiftId": shift._id,
+          });
+        }
+      }
+
+      console.log("✅ Phase 2: Circular dependencies updated successfully");
+
+      // Log assignment summary
+      console.log("📋 Assignment Summary:");
+      console.log(
+        `   • ${Math.min(
+          createdCrew.length,
+          createdVehicles.length
+        )} crew leaders assigned to vehicles`
+      );
+      console.log(
+        `   • ${createdStations.length} stations updated with resource tracking`
+      );
+      console.log(
+        `   • ${createdShifts.length} shifts populated with crew assignments`
+      );
+    } catch (error) {
+      console.error("❌ Error updating circular dependencies:", error.message);
+      throw error;
+    }
+  }
+
   async seedAll() {
     console.log("🌱 Starting database seeding process...");
     console.log("=".repeat(50));
@@ -594,6 +708,16 @@ class DatabaseSeeder {
         createdCrew,
         createdVehicles,
         createdUsers
+      );
+
+      // PHASE 2: Handle Circular Dependencies
+      console.log("🔄 Phase 2: Updating circular dependencies...");
+      await this.updateCircularDependencies(
+        createdStations,
+        createdVehicles,
+        createdCrew,
+        createdIncidents,
+        createdShifts
       );
 
       console.log("");
