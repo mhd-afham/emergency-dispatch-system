@@ -2,9 +2,12 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
 require("dotenv").config();
 
 const app = express();
+const httpServer = createServer(app);
 
 // Middleware
 app.use(
@@ -22,6 +25,18 @@ app.use(cookieParser());
 // Database connection
 const { connectDB } = require("./config/database");
 connectDB();
+
+// Socket.io setup
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+// Socket.io configuration
+require("./config/websocket")(io);
 
 // Routes
 app.get("/", (req, res) => {
@@ -55,8 +70,12 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+// Make io available globally for use in controllers
+global.io = io;
+
+httpServer.listen(PORT, () => {
   console.log(`🚀 Emergency Dispatch Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`🔗 Server URL: http://localhost:${PORT}`);
+  console.log(`🔌 WebSocket Server: ws://localhost:${PORT}`);
 });
