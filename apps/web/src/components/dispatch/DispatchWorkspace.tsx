@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
+import {
+  GoogleMap,
+  Marker,
+  InfoWindow,
+  Polyline,
+} from "@react-google-maps/api";
 import { useGoogleMaps } from "../../contexts/GoogleMapsContext";
 import { useWebSocket } from "../../contexts/WebSocketContext";
 import {
@@ -7,6 +12,15 @@ import {
   getEstimatedResponseTime,
   ResourceSuggestion,
 } from "../../utils/resourceMatrix";
+import {
+  Vehicle,
+  mockVehicles,
+  generateVehicleMarkerSVG,
+  generateIncidentMarkerSVG,
+  getVehicleStatusColors,
+  getIncidentStatusColors,
+  getVehicleTypeIcon,
+} from "../../utils/vehicleUtils";
 
 interface Incident {
   _id: string;
@@ -85,6 +99,11 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
   );
   const [newNote, setNewNote] = useState("");
 
+  // Phase 3: Vehicle tracking state
+  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [showAllIncidents, setShowAllIncidents] = useState(true);
+
   // Subscribe to real-time incident updates for this specific incident
   useEffect(() => {
     const unsubscribeUpdate = subscribe("incident_update", (data) => {
@@ -115,6 +134,46 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
       unsubscribeDelete();
     };
   }, [subscribe, incident._id, onBackToQueue]);
+
+  // Phase 3: Subscribe to vehicle location updates
+  useEffect(() => {
+    const unsubscribeVehicleUpdate = subscribe(
+      "vehicle_location_update",
+      (data) => {
+        console.log("📍 [DispatchWorkspace] Vehicle location update:", data);
+        setVehicles((prev) =>
+          prev.map((vehicle) =>
+            vehicle._id === data.vehicleId
+              ? { ...vehicle, location: data.location, status: data.status }
+              : vehicle
+          )
+        );
+      }
+    );
+
+    const unsubscribeVehicleStatus = subscribe(
+      "vehicle_status_update",
+      (data) => {
+        console.log("🚗 [DispatchWorkspace] Vehicle status update:", data);
+        setVehicles((prev) =>
+          prev.map((vehicle) =>
+            vehicle._id === data.vehicleId
+              ? {
+                  ...vehicle,
+                  status: data.status,
+                  assignedIncidentId: data.assignedIncidentId,
+                }
+              : vehicle
+          )
+        );
+      }
+    );
+
+    return () => {
+      unsubscribeVehicleUpdate();
+      unsubscribeVehicleStatus();
+    };
+  }, [subscribe]);
 
   // Update local incident state when prop changes (initial load or navigation)
   useEffect(() => {
@@ -549,45 +608,408 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
 
         {/* Right Panel - Map */}
         <div className="flex-1 relative">
+          {/* Map Controls */}
+          <div className="absolute top-4 right-4 z-10 bg-white rounded-lg shadow-lg p-3 space-y-2">
+            <div className="text-sm font-medium text-gray-700 mb-2">
+              Map Controls
+            </div>
+
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showAllIncidents}
+                onChange={(e) => setShowAllIncidents(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Show All Incidents</span>
+            </label>
+
+            {/* Vehicle Status Legend */}
+            <div className="pt-2 border-t border-gray-200">
+              <div className="text-xs font-medium text-gray-700 mb-2">
+                Vehicle Status
+              </div>
+              <div className="space-y-1">
+                {[
+                  {
+                    status: "available",
+                    label: "Available",
+                    count: vehicles.filter((v) => v.status === "available")
+                      .length,
+                  },
+                  {
+                    status: "assigned",
+                    label: "Assigned",
+                    count: vehicles.filter((v) => v.status === "assigned")
+                      .length,
+                  },
+                  {
+                    status: "en_route",
+                    label: "En Route",
+                    count: vehicles.filter((v) => v.status === "en_route")
+                      .length,
+                  },
+                  {
+                    status: "on_scene",
+                    label: "On Scene",
+                    count: vehicles.filter((v) => v.status === "on_scene")
+                      .length,
+                  },
+                ].map(({ status, label, count }) => (
+                  <div key={status} className="flex items-center space-x-2">
+                    <div
+                      className="w-3 h-3 rounded-full border"
+                      style={{
+                        backgroundColor: getVehicleStatusColors(
+                          status as Vehicle["status"]
+                        ).backgroundColor,
+                        borderColor: getVehicleStatusColors(
+                          status as Vehicle["status"]
+                        ).borderColor,
+                      }}
+                    />
+                    <span className="text-xs text-gray-600">
+                      {label} ({count})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Incident Status Legend */}
+            <div className="pt-2 border-t border-gray-200">
+              <div className="text-xs font-medium text-gray-700 mb-2">
+                Current Incident
+              </div>
+              <div className="flex items-center space-x-2">
+                <div
+                  className="w-4 h-4 rounded-full border-2 border-white"
+                  style={{
+                    backgroundColor: getIncidentStatusColors(incident.status)
+                      .backgroundColor,
+                    borderColor: getIncidentStatusColors(incident.status)
+                      .borderColor,
+                  }}
+                />
+                <span className="text-xs text-gray-600 capitalize">
+                  {incident.status.replace("_", " ")} - {incident.severity}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <GoogleMap
             mapContainerStyle={{ width: "100%", height: "100%" }}
             center={incidentLocation}
             zoom={incident.location.coordinates ? 15 : 11}
             options={mapOptions}
           >
-            {/* Incident Location Marker */}
+            {/* Current Selected Incident Marker - Highlighted */}
             {incident.location.coordinates && (
               <Marker
                 position={incidentLocation}
                 icon={{
-                  url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiNEQzI2MjYiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAyMkMxMiAyMiAxOSA2IDE5IDZMMTkgNi4wMDAwMUMxOSAzLjc5MDg2IDE3LjIwOTEgMiAxNSAySDlDNi43OTA4NiAyIDUgMy43OTA4NiA1IDZMMTIgMjJaIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9IndoaXRlIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+Cjwvc3ZnPgo=",
-                  scaledSize: new google.maps.Size(32, 32),
+                  url: generateIncidentMarkerSVG(
+                    incident.status,
+                    incident.severity,
+                    true
+                  ),
+                  scaledSize: new google.maps.Size(40, 40),
                 }}
                 onClick={() => setSelectedInfoWindow("incident")}
+                zIndex={1000}
               />
             )}
 
-            {/* Info Window for Incident */}
+            {/* Phase 3: All Vehicles on Map */}
+            {vehicles.map((vehicle) => {
+              const vehiclePosition = {
+                lat: vehicle.location.coordinates.coordinates[1],
+                lng: vehicle.location.coordinates.coordinates[0],
+              };
+
+              const isSelectedVehicle = selectedVehicle?._id === vehicle._id;
+              const isAssignedToCurrentIncident =
+                vehicle.assignedIncidentId === incident._id;
+
+              return (
+                <Marker
+                  key={vehicle._id}
+                  position={vehiclePosition}
+                  icon={{
+                    url: generateVehicleMarkerSVG(
+                      vehicle.type,
+                      vehicle.status,
+                      isSelectedVehicle || isAssignedToCurrentIncident
+                    ),
+                    scaledSize: new google.maps.Size(
+                      isSelectedVehicle || isAssignedToCurrentIncident
+                        ? 36
+                        : 28,
+                      isSelectedVehicle || isAssignedToCurrentIncident ? 36 : 28
+                    ),
+                  }}
+                  onClick={() => {
+                    setSelectedVehicle(vehicle);
+                    setSelectedInfoWindow(`vehicle-${vehicle._id}`);
+                  }}
+                  zIndex={isAssignedToCurrentIncident ? 900 : 100}
+                />
+              );
+            })}
+
+            {/* Phase 3: Route Lines for Assigned Vehicles */}
+            {incident.location.coordinates &&
+              vehicles
+                .filter(
+                  (vehicle) => vehicle.assignedIncidentId === incident._id
+                )
+                .map((vehicle) => {
+                  const vehiclePosition = {
+                    lat: vehicle.location.coordinates.coordinates[1],
+                    lng: vehicle.location.coordinates.coordinates[0],
+                  };
+
+                  const routePath = [vehiclePosition, incidentLocation];
+                  const statusColors = getVehicleStatusColors(vehicle.status);
+
+                  return (
+                    <Polyline
+                      key={`route-${vehicle._id}`}
+                      path={routePath}
+                      options={{
+                        strokeColor: statusColors.backgroundColor,
+                        strokeOpacity: 0.8,
+                        strokeWeight: 3,
+                        geodesic: true,
+                      }}
+                    />
+                  );
+                })}
+
+            {/* Phase 3: Suggested Resources Visualization */}
+            {showResourceSuggestions &&
+              resourceSuggestions.length > 0 &&
+              incident.location.coordinates &&
+              vehicles
+                .filter(
+                  (v) =>
+                    v.status === "available" &&
+                    resourceSuggestions.some((rs) => {
+                      const suggestionType = rs.vehicleType.toLowerCase();
+                      const vehicleType = v.type
+                        .replace("_", " ")
+                        .toLowerCase();
+                      return (
+                        (suggestionType.includes("ambulance") &&
+                          vehicleType === "ambulance") ||
+                        (suggestionType.includes("fire") &&
+                          vehicleType === "fire truck") ||
+                        (suggestionType.includes("rescue") &&
+                          vehicleType === "rescue unit") ||
+                        (suggestionType.includes("police") &&
+                          vehicleType === "police car") ||
+                        (suggestionType.includes("hazmat") &&
+                          vehicleType === "hazmat unit")
+                      );
+                    })
+                )
+                .map((vehicle) => {
+                  const vehiclePosition = {
+                    lat: vehicle.location.coordinates.coordinates[1],
+                    lng: vehicle.location.coordinates.coordinates[0],
+                  };
+
+                  const routePath = [vehiclePosition, incidentLocation];
+
+                  return (
+                    <Polyline
+                      key={`suggestion-${vehicle._id}`}
+                      path={routePath}
+                      options={{
+                        strokeColor: "#10B981", // green for suggestions
+                        strokeOpacity: 0.4,
+                        strokeWeight: 2,
+                        geodesic: true,
+                      }}
+                    />
+                  );
+                })}
+
+            {/* Vehicle Info Windows */}
+            {selectedVehicle &&
+              selectedInfoWindow === `vehicle-${selectedVehicle._id}` && (
+                <InfoWindow
+                  position={{
+                    lat: selectedVehicle.location.coordinates.coordinates[1],
+                    lng: selectedVehicle.location.coordinates.coordinates[0],
+                  }}
+                  onCloseClick={() => {
+                    setSelectedInfoWindow(null);
+                    setSelectedVehicle(null);
+                  }}
+                >
+                  <div className="p-3 max-w-sm">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-lg">
+                        {getVehicleTypeIcon(selectedVehicle.type)}
+                      </span>
+                      <h4 className="font-semibold text-gray-900">
+                        Vehicle #{selectedVehicle.vehicleId}
+                      </h4>
+                    </div>
+
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Type:</span>
+                        <span className="font-medium capitalize">
+                          {selectedVehicle.type.replace("_", " ")}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Status:</span>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            getVehicleStatusColors(selectedVehicle.status)
+                              .badgeColor
+                          }`}
+                        >
+                          {selectedVehicle.status
+                            .replace("_", " ")
+                            .toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Driver:</span>
+                        <span className="font-medium">
+                          {selectedVehicle.crew.driverName}
+                        </span>
+                      </div>
+
+                      {selectedVehicle.assignedIncidentId && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Assigned to:</span>
+                          <span className="font-medium text-blue-600">
+                            {selectedVehicle.assignedIncidentId === incident._id
+                              ? "This Incident"
+                              : selectedVehicle.assignedIncidentId}
+                          </span>
+                        </div>
+                      )}
+
+                      {selectedVehicle.estimatedArrival && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">ETA:</span>
+                          <span className="font-medium text-green-600">
+                            {Math.ceil(
+                              (new Date(
+                                selectedVehicle.estimatedArrival
+                              ).getTime() -
+                                Date.now()) /
+                                60000
+                            )}{" "}
+                            min
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="pt-2 border-t border-gray-200">
+                        <span className="text-gray-600 text-xs">
+                          Last updated:{" "}
+                          {new Date(
+                            selectedVehicle.location.lastUpdated
+                          ).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </InfoWindow>
+              )}
+
+            {/* Current Incident Info Window */}
             {selectedInfoWindow === "incident" &&
               incident.location.coordinates && (
                 <InfoWindow
                   position={incidentLocation}
                   onCloseClick={() => setSelectedInfoWindow(null)}
                 >
-                  <div className="p-2 max-w-xs">
-                    <h4 className="font-semibold text-gray-900 mb-1">
+                  <div className="p-3 max-w-sm">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="flex items-center space-x-1">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${getSeverityColor(
+                            incident.severity
+                          )}`}
+                        >
+                          {incident.severity.toUpperCase()}
+                        </span>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(
+                            incident.status
+                          )}`}
+                        >
+                          {incident.status.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h4 className="font-semibold text-gray-900 mb-2">
                       Incident #{incident.incidentId}
                     </h4>
-                    <p className="text-sm text-gray-600 mb-1">
-                      <strong>Type:</strong> {incident.incidentType} →{" "}
-                      {incident.incidentCategory}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-1">
-                      <strong>Address:</strong> {incident.location.address}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Severity:</strong> {incident.severity}
-                    </p>
+
+                    <div className="space-y-1 text-sm">
+                      <div>
+                        <span className="text-gray-600">Type:</span>
+                        <span className="ml-1 font-medium">
+                          {incident.incidentType} → {incident.incidentCategory}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-gray-600">Address:</span>
+                        <span className="ml-1">
+                          {incident.location.address}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-gray-600">Caller:</span>
+                        <span className="ml-1">{incident.callerInfo.name}</span>
+                      </div>
+
+                      {/* Show assigned resources for this incident */}
+                      {vehicles.filter(
+                        (v) => v.assignedIncidentId === incident._id
+                      ).length > 0 && (
+                        <div className="pt-2 border-t border-gray-200">
+                          <span className="text-gray-600 text-xs font-medium">
+                            Assigned Resources:
+                          </span>
+                          <div className="mt-1 space-y-1">
+                            {vehicles
+                              .filter(
+                                (v) => v.assignedIncidentId === incident._id
+                              )
+                              .map((vehicle) => (
+                                <div
+                                  key={vehicle._id}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <span>
+                                    {getVehicleTypeIcon(vehicle.type)}
+                                  </span>
+                                  <span className="text-xs">
+                                    {vehicle.vehicleId} -{" "}
+                                    {vehicle.status.replace("_", " ")}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </InfoWindow>
               )}
