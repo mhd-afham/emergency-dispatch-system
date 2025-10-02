@@ -1,935 +1,222 @@
-# 🚨 Emergency Dispatch System - Complete Requirements & Progress
+# 🚨 Emergency Dispatch System - Requirements & Progress
 
-## 📊 **Current System Status (October 2025)**
+## 📊 **System Overview**
 
-- **Phase 1**: ✅ Complete - IncidentQueue with real-time updates
-- **Phase 2**: ✅ Complete - DispatchWorkspace with WebSocket integration  
-- **Phase 3**: ✅ Complete - Vehicle Tracking & Map Visualization
-- **Phase 4**: ✅ Complete - UI/UX Enhancements & Professional Design System
-- **Next**: Phase 5 - Advanced Communication System & Mobile Integration
+**Core Concept**: Incident-centric emergency dispatch system where all components revolve around individual incidents.
 
----
+**Architecture**: Full-screen workspace approach with real-time WebSocket updates via Socket.IO.
 
-## 🎯 **PHASE 1 COMPLETED** - Incident Queue with Real-Time Updates ✅
-
-### **📋 Phase 1 Features Implemented:**
-
-- **✅ Real-time Incident Display**: WebSocket integration for live incident updates
-- **✅ Priority-Based Sorting**: Critical → High → Medium → Low order maintained
-- **✅ Visual Priority Indicators**: Color-coded badges and borders for severity levels
-- **✅ Status Filtering**: Active, All, and specific status filters
-- **✅ Interactive Selection**: Click-to-select incident functionality
-- **✅ Live Connection Status**: "Live Updates" indicator with connection monitoring
-- **✅ Responsive Design**: Optimized for dispatch operations
-- **✅ Error Handling**: Loading states and error management
+**Current Status**: Phase 4 (Assignment Logic) in progress.
 
 ---
 
-## 🎯 **PHASE 2 COMPLETED** - DispatchWorkspace with Google Maps ✅
+## ✅ **COMPLETED PHASES**
 
-### **📍 Phase 2 Features Implemented:**
+### **Phase 1: Incident Queue** ✅
 
-- **✅ Full-Screen Workspace**: Complete incident detail view with embedded Google Maps
-- **✅ Incident Information Display**: Caller details, location, and incident specifics
-- **✅ Google Maps Integration**: Incident location markers and map visualization
-- **✅ Resource Assignment Panel**: "Assign Resources" button with intelligent suggestions
-- **✅ Real-Time Updates**: WebSocket integration for live incident status changes
-- **✅ Resource Suggestion Matrix**: 50+ emergency scenarios with intelligent matching
-- **✅ Notes Management**: Display and adding functionality for incident notes
-- **✅ Status-Conditional UI**: Context-aware interface based on incident status
+- Real-time incident display with WebSocket integration
+- Priority-based sorting (Critical → High → Medium → Low)
+- Visual priority indicators with color-coded badges
+- Status filtering and interactive incident selection
+- Live connection status monitoring
 
----
+**Files**: `IncidentQueue.tsx`, `WebSocketContext.tsx`, `DispatcherDashboard.tsx`
 
-## 🎯 **PHASE 3 COMPLETED** - Vehicle Tracking & Map Visualization ✅
+### **Phase 2: Incident Workspace** ✅
 
-### **🚗 Phase 3 Features Implemented:**
+- Full-screen incident detail view with Google Maps
+- Complete incident information display
+- "Assign Resources" button with suggestion panel
+- Real-time incident updates via WebSocket
+- Notes management functionality
 
-- **✅ Real-time Vehicle Tracking**: All vehicles displayed on map with live location updates
-- **✅ Status-based Vehicle Markers**: Color-coded markers for available, assigned, en_route, on_scene statuses
-- **✅ Vehicle Type Visualization**: Distinct icons for Ambulance, Fire Engine, Rescue Vehicle, Support Vehicle
-- **✅ Resource Assignment Visualization**: Polylines connecting assigned vehicles to incidents
-- **✅ Interactive Map Controls**: Toggle views, vehicle status legend, and incident indicators
-- **✅ Comprehensive Vehicle Info**: Detailed vehicle information with crew and equipment details
-- **✅ Suggested Resource Routes**: Visual representation of recommended vehicle assignments
+**Files**: `DispatchWorkspace.tsx`, integrated Google Maps API
 
----
+### **Phase 3: Vehicle Tracking & Visualization** ✅
 
-## 🎯 **PHASE 4 COMPLETED** - UI/UX Enhancements & Professional Design ✅
+- Real-time vehicle tracking on Google Maps
+- Professional marker system with Heroicons
+- Status-based vehicle indicators (available, assigned, en_route, on_scene)
+- Vehicle info windows with crew and equipment details
+- Streamlined map controls with essential information
 
-### **🎨 Phase 4 Features Implemented (October 2025):**
-
-- **✅ Professional Map Markers**: Replaced basic SVG with Heroicons-based professional icons
-- **✅ Consistent Vehicle Icons**: All vehicle types now use white stroke elements for visual consistency
-- **✅ Unified Incident Markers**: Same exclamation circle icon for all incidents, color-coded by severity
-- **✅ Severity-Based Color System**: Critical (red), High (orange), Medium (amber), Low (green)  
-- **✅ Streamlined Map Controls**: Simplified overlay showing only essential vehicle counts and status
-- **✅ Compact Component Design**: Reduced incident queue and details pane by 20-30% for better space utilization
-- **✅ Enhanced Refresh System**: Targeted loading feedback - only incident cards area shows refresh spinner
-- **✅ Smart Map Centering**: Automatically centers map on selected incidents only when markers are out of view
-- **✅ Improved Auto-scroll**: Queue automatically scrolls to selected incidents for better navigation
-- **✅ Fixed Dropdown UI**: Resolved arrow overlap issues in filter dropdowns
-
-### **🚗 Enhanced Vehicle & Incident Visualization:**
-
-**Professional Icon System** (`apps/web/src/utils/vehicleUtils.ts`):
-
-- **Ambulance**: Medical cross in circle with white stroke outline
-- **Fire Engine**: Flame icon with detailed path elements
-- **Rescue Vehicle**: Shield with checkmark for safety operations
-- **Support Vehicle**: Gear/settings icon for maintenance and logistics
-
-**Incident Markers** (`generateIncidentMarkerSVG`):
-
-- **Unified Design**: Single exclamation circle icon for all incident types
-- **Severity Colors**: Dynamic background colors based on incident severity
-- **Professional Appearance**: White icon elements on colored backgrounds
-
-**Map Control Improvements** (`components/dispatch/DispatchWorkspace.tsx`):
-
-- **Essential Information Only**: Total vehicle count, type breakdown, and status summary
-- **Compact Layout**: Reduced from 200px to 180px width
-- **Clean Design**: Removed redundant incident controls and severity legends
+**Files**: `vehicleUtils.ts`, enhanced `DispatchWorkspace.tsx`
 
 ---
 
-## 📋 **PHASE 5: PLANNED** - Advanced Communication System
+## � **CURRENT PHASE: Assignment Logic (Phase 4)**
 
-### **Required Features:**
+### **Implemented:**
 
-- [ ] Real-time chat interface with vehicle crews
-- [ ] Voice communication integration  
-- [ ] File sharing and photo attachments
-- [ ] Communication history and logs
-- [ ] Push notifications for critical updates
-- [ ] Mobile app integration for field personnel
-
----
-
-## 🛠️ **CRITICAL DEVELOPMENT INSTRUCTIONS**
-
-### **📜 MANDATORY IMPLEMENTATION RULES**
-
-**⚠️ EVERY DEVELOPER MUST FOLLOW THESE INSTRUCTIONS WHEN IMPLEMENTING ANY FEATURE:**
-
-#### **1. WebSocket Real-Time Integration (MANDATORY)**
-
-- **RULE**: ALL components that display incident data MUST use WebSocket real-time updates
-- **IMPLEMENTATION**:
-  ```typescript
-  import { useWebSocket } from "../../contexts/WebSocketContext";
-  const { subscribe, isConnected, isConnecting } = useWebSocket();
-  ```
-- **SUBSCRIPTION PATTERN**:
-  ```typescript
-  useEffect(() => {
-    const unsubscribe = subscribe("incident_update", (data) => {
-      // Handle real-time updates
-      setIncident(data.incident);
-      console.log("📱 Real-time update received:", data.incident.incidentId);
-    });
-    return unsubscribe;
-  }, [subscribe]);
-  ```
-- **CONNECTION STATUS**: MUST show consistent connection indicators across ALL components
-
-#### **2. Backend Schema Compliance (MANDATORY)**
-
-- **RULE**: ALWAYS match existing backend schemas in `apps/backend/models/`
-- **KEY SCHEMAS**: Incident.js, Vehicle.js, User.js, Assignment.js, Communication.js
-- **VALIDATION**: Use exact field names, data types, and enums as defined in backend
-- **NO CUSTOM FIELDS**: Do not create frontend-only fields without backend support
-
-#### **3. Consistent UI/UX Patterns (MANDATORY)**
-
-- **CONNECTION STATUS**:
-  ```typescript
-  // CORRECT Implementation (use in ALL components)
-  <div className="flex items-center space-x-2 text-sm">
-    <div
-      className={`w-2 h-2 rounded-full ${
-        isConnected
-          ? "bg-green-500 animate-pulse"
-          : isConnecting
-          ? "bg-amber-500"
-          : "bg-red-500"
-      }`}
-    />
-    <span>
-      {isConnected
-        ? "Live Updates"
-        : isConnecting
-        ? "Connecting..."
-        : "Disconnected"}
-    </span>
-  </div>
-  ```
-- **PRIORITY COLORS**: Critical(Red), High(Orange), Medium(Yellow), Low(Green)
-- **STATUS WORKFLOW**: pending → assigned → en_route → on_scene → resolved/cancelled
-
-#### **4. Real-Time Event Handling (MANDATORY)**
-
-- **SUBSCRIBE TO**: `incident_created`, `incident_update`, `incident_deleted`
-- **LOGGING FORMAT**: `console.log("📱 [ComponentName] Event:", data)`
-- **ERROR HANDLING**: Always include try-catch for WebSocket operations
-- **CLEANUP**: Always return unsubscribe function in useEffect
-
-#### **5. Google Maps Integration Standards (MANDATORY)**
-
-- **LIBRARY**: Use `@react-google-maps/api` (already configured)
-- **CONTEXT**: Wrap components with `<GoogleMapsProvider>`
-- **COORDINATES**: Backend uses GeoJSON format `[longitude, latitude]`
-- **CONVERSION**:
-  ```typescript
-  const mapCoords = {
-    lat: incident.location.coordinates.coordinates[1], // latitude
-    lng: incident.location.coordinates.coordinates[0], // longitude
-  };
-  ```
-
-#### **6. Development Verification Checklist**
-
-Before submitting ANY code, verify:
-
-- [ ] ✅ WebSocket integration implemented with proper subscriptions
-- [ ] ✅ Connection status indicator matches other components
-- [ ] ✅ Backend schema fields used exactly as defined
-- [ ] ✅ Real-time updates working (test with multiple browser windows)
-- [ ] ✅ Error handling and loading states implemented
-- [ ] ✅ Console logging follows format: `📱 [ComponentName] Event: data`
-- [ ] ✅ TypeScript compilation with no errors
-- [ ] ✅ Component responds to server start/stop (connection status changes)
-
----
-
-## 📋 **Project Overview**
-
-An incident-centric emergency dispatch system where all components revolve around individual incidents. Dispatchers can manage multiple incidents simultaneously with real-time updates through WebSocket connectivity.
-
----
-
-## 🔍 **DETAILED BACKEND SCHEMA ANALYSIS**
-
-### **📋 Available Models (apps/backend/models/):**
-
-- ✅ **Incident.js** - Complete incident management with geospatial support
-- ✅ **Vehicle.js** - Vehicle fleet management with GPS tracking
-- ✅ **User.js** - User authentication and role management
-- ✅ **Assignment.js** - Resource-to-incident assignments with timeline tracking
-- ✅ **Communication.js** - Message system with attachments and priority
-- ✅ **Crew.js** - Field crew management
-- ✅ **Station.js** - Emergency station locations
-- ✅ **Shift.js** - Personnel shift management
-- ✅ **Report.js** - Incident reporting system
-- ✅ **AuditLog.js** - System audit trail
-- ✅ **EquipmentCheck.js** - Equipment maintenance tracking
-- ✅ **EquipmentChecklistTemplate.js** - Maintenance templates
-
-### **🗄️ Core Schema Structure:**
-
-#### **Incident Schema Key Fields:**
-
-```typescript
-interface Incident {
-  incidentId: string; // Auto-generated format: INC-YYYYMMDD-XXXXX
-  callerInfo: {
-    name: string;
-    contactNumber: string; // Sri Lankan validation
-    alternateContact?: string;
-    reportingMethod:
-      | "phone_call"
-      | "mobile_app"
-      | "sms"
-      | "walk_in"
-      | "third_party";
-  };
-  incidentType: "medical" | "fire" | "rescue" | "hazmat" | "traffic" | "other";
-  incidentCategory: string; // Type-specific categories
-  severity: "low" | "medium" | "high" | "critical";
-  description: string;
-  location: {
-    address: string;
-    city: string;
-    province: string; // Sri Lankan provinces
-    coordinates?: { type: "Point"; coordinates: [lng, lat] }; // GeoJSON
-    locationAccuracy: "exact" | "approximate" | "general_area";
-    landmarks?: string;
-  };
-  status:
-    | "pending"
-    | "assigned"
-    | "en_route"
-    | "on_scene"
-    | "resolved"
-    | "cancelled";
-  assignedResources: Array<{
-    resourceId: ObjectId; // References Vehicle
-    assignedAt: Date;
-    status: "assigned" | "en_route" | "on_scene" | "completed";
-  }>;
-  notes: Array<{ note: string; addedBy: ObjectId; timestamp: Date }>;
-  // ... more fields
-}
-```
-
-#### **Vehicle Schema Key Fields:**
-
-```typescript
-interface Vehicle {
-  registration: {
-    plateNumber: string; // Sri Lankan format: CAB-1234
-    vehicleType:
-      | "Ambulance"
-      | "Fire Engine"
-      | "Rescue Vehicle"
-      | "Support Vehicle";
-    make: string;
-    model: string;
-    year: number;
-  };
-  status: {
-    operational: "active" | "maintenance" | "out_of_service";
-    currentStatus:
-      | "available"
-      | "assigned"
-      | "en_route"
-      | "on_scene"
-      | "returning";
-    currentLocation: { type: "Point"; coordinates: [lng, lat] };
-    lastLocationUpdate: Date;
-  };
-  // ... more fields
-}
-```
-
-#### **Assignment Schema Key Fields:**
-
-```typescript
-interface Assignment {
-  incident: { incidentId: ObjectId };
-  resource: {
-    vehicleId: ObjectId;
-    primaryCrewId: ObjectId;
-    additionalCrew: ObjectId[];
-  };
-  dispatch: {
-    assignedBy: ObjectId;
-    assignedAt: Date;
-    priority: "routine" | "urgent" | "emergency" | "critical";
-    estimatedArrivalTime?: Date;
-  };
-  response: {
-    status:
-      | "assigned"
-      | "accepted"
-      | "declined"
-      | "en_route"
-      | "on_scene"
-      | "completed"
-      | "cancelled";
-    acceptedAt?: Date;
-    // ... timeline tracking
-  };
-}
-```
-
-### **🔌 Available API Endpoints:**
-
-- ✅ `/api/auth/*` - Authentication (login, register, verify)
-- ✅ `/api/incidents/*` - Incident CRUD operations
-- ✅ `/api/equipment/*` - Equipment management
-- 🚧 Vehicle management endpoints - _Need to check if implemented_
-- 🚧 Assignment/dispatch endpoints - _Need to check if implemented_
-- 🚧 Communication endpoints - _Need to check if implemented_
-
----
-
-## ❓ **CLARIFYING QUESTIONS & DECISIONS NEEDED**
-
-### **✅ DECISIONS MADE:**
-
-#### **🗺️ Google Maps Integration:**
-
-- **Map Library**: `@react-google-maps/api` (most popular and well-maintained)
-- **Real-time Tracking**: ✅ **REQUIRED** - Live vehicle location markers
-- **Map Features**: Vehicle markers, incident location, route calculation, ETA display
-
-#### **🚀 Resource Assignment Logic:**
-
-- **Response Matrix**: ✅ **HARDCODED** - Easier customization and faster performance
-- **Vehicle Availability**: ✅ **Status Field Based** - Use `Vehicle.status.currentStatus`
-  - Available when: `currentStatus === 'available'`
-  - Unavailable when: `currentStatus === 'assigned' | 'en_route' | 'on_scene' | 'returning'`
-
-#### **🔔 Notification System:**
-
-- **Alert Interruption**: ✅ **MODERATE AGGRESSIVENESS**
-  - Critical/High priority: Floating notification with 8-second auto-switch
-  - Medium priority: Persistent notification requiring dispatcher click
-  - Low priority: Subtle indicator in incident queue
-
-### **📋 PENDING DECISIONS (Phase 3+):**
-
-#### **📱 Communication System:**
-
-3. **Vehicle Communication Tabs**: How do we identify the "leader" of each vehicle crew?
-   - Use `Assignment.resource.primaryCrewId`?
-   - Separate "Vehicle Leader" role in User schema?
-4. **Mobile App Integration**: Are the mobile apps (vehicle leader + citizen) already built?
-   - Do they have WebSocket connectivity?
-   - What's the message format between web ↔ mobile?
-
-### **📊 Data Integration:**
-
-8. **Missing Backend Implementation**: Do we need to create controllers/routes for:
-   - Vehicle management and GPS updates?
-   - Assignment dispatch operations?
-   - Real-time communication messaging?
-9. **WebSocket Events**: Beyond incident events, do we need:
-   - `vehicle_location_update` events?
-   - `assignment_status_change` events?
-   - `communication_message` events?
-
-### **🎨 UI/UX Implementation:**
-
-10. **Incident Categories**: The schema supports detailed categories per type. Should we:
-    - Show category selection dropdown in incident creation?
-    - Use categories for more specific resource matching?
-11. **Sri Lankan Localization**: The schemas include Sri Lankan-specific validation:
-    - Phone numbers (+94 format)
-    - Province enums (Western, Central, etc.)
-    - Coordinate boundaries (79.5-81.9 lng, 5.9-9.9 lat)
-    - Should UI reflect this localization?
-
----
-
-## 🚀 **IMMEDIATE NEXT STEPS**
-
-### **🚧 PHASE 2: READY TO IMPLEMENT**
-
-#### **IncidentWorkspace Component Features:**
-
-1. ✅ **Full incident detail view** using complete Incident schema
-2. ✅ **Google Maps integration** with `@react-google-maps/api`
-3. ✅ **Real-time vehicle tracking** markers on map
-4. ✅ **"Assign Resources" button** with intelligent suggestions
-5. ✅ **Hardcoded response matrix** for resource matching
-6. ✅ **Notes display and adding** functionality
-7. ✅ **Vehicle availability filtering** based on status field
-
-#### **Implementation Plan:**
-
-- **Step 1**: Install and configure Google Maps React library
-- **Step 2**: Create IncidentWorkspace component with incident details
-- **Step 3**: Embed Google Maps with incident location marker
-- **Step 4**: Add vehicle tracking markers with real-time updates
-- **Step 5**: Implement "Assign Resources" with response matrix logic
-- **Step 6**: Add incident notes functionality
-
-#### **Backend APIs Required:**
-
-- 🚧 **Vehicle Management**: GET `/api/vehicles` with availability filtering
-- 🚧 **Assignment Operations**: POST `/api/assignments` for dispatch operations
-- 🚧 **Real-time Vehicle Tracking**: WebSocket events for location updates
-
----
-
-_Last Updated: Complete repository analysis - Ready for Phase 2 implementation_
-*Next Phase: IncidentWorkspace with Google Maps integration*and intelligent resource assignment.
-
----
-
-## 🎯 **Core System Flow**
-
-### **Main Workflow:**
-
-1. **Incident Queue** → Dispatcher sees priority-sorted active incidents
-2. **Incident Selection** → Click incident → Enter full-screen incident workspace
-3. **Incident Details** → Full incident info with "Assign Resources" button
-4. **Resource Assignment** → Google Maps with intelligent suggestions
-5. **Active Monitoring** → Real-time tracking with incident communications
-6. **Context Switching** → Alerts for other incidents, easy navigation back
-
----
-
-## 🏗️ **System Architecture Decisions**
-
-| **Aspect**             | **Decision**            | **Rationale**                         |
-| ---------------------- | ----------------------- | ------------------------------------- |
-| **Interface Style**    | Full-screen workspace   | Real dispatch center workflow         |
-| **Multi-tasking**      | Single incident focus   | Dispatcher switches between incidents |
-| **Map Integration**    | Embedded in workspace   | No popups/overlays                    |
-| **Communication**      | Chat-like interface     | Modern, intuitive messaging           |
-| **Alert Interruption** | Moderate aggressiveness | Balance urgency with workflow         |
-| **Maps Provider**      | Google Maps             | API key available                     |
-| **Component Library**  | Simplest approach       | Maintain development speed            |
-
----
-
-## 📊 **Implementation Progress**
-
-### ✅ **PHASE 1: COMPLETED**
-
-**Component:** `IncidentQueue.tsx`
-**Status:** ✅ **FULLY IMPLEMENTED**
-
-**Features Completed:**
-
-- ✅ Real-time incident display with WebSocket integration
-- ✅ Priority-based sorting (Critical → High → Medium → Low)
-- ✅ Visual priority indicators (color-coded badges/borders)
-- ✅ Status filtering (Active, All, specific statuses)
-- ✅ Interactive incident selection
-- ✅ Live connection status ("Live Updates" indicator)
-- ✅ Responsive design optimized for dispatch operations
-- ✅ Backend schema compatibility
-- ✅ Error handling and loading states
-
-**Technical Stack:**
-
-- Socket.IO for real-time communication
-- JWT-based WebSocket authentication
-- Role-based rooms (dispatcher, responder, admin)
-- MongoDB Atlas integration
-- React with TypeScript
-
-### ✅ **PHASE 2: COMPLETED**
-
-**Component:** `IncidentWorkspace.tsx`
-**Status:** ✅ **FULLY IMPLEMENTED**
-
-**Features Completed:**
-
-- ✅ Full-screen incident detail view with embedded Google Maps
-- ✅ Complete incident information display with caller details
-- ✅ Google Maps integration with incident location markers
-- ✅ "Assign Resources" button with intelligent suggestions panel
-- ✅ Navigation back to incident queue
-- ✅ Real-time incident status updates via WebSocket
-- ✅ Live connection status indicator
 - ✅ Resource suggestion matrix with 50+ emergency scenarios
-- ✅ Notes display and management functionality
-- ✅ Responsive design optimized for dispatch operations
-- ✅ Priority-based visual indicators
-- ✅ Status-conditional resource assignment
+- ✅ Intelligent suggestions based on incident type + category
+- ✅ Distance and vehicle type matching logic
+- ✅ Visual suggestion display with priority indicators
 
-**Technical Implementation:**
+### **Missing (Critical):**
 
-- WebSocket real-time updates using `useWebSocket()` hook
-- Google Maps integration with `@react-google-maps/api`
-- Intelligent resource assignment using hardcoded response matrix
-- Live incident updates synchronized across multiple dispatchers
-- Status-based UI state management (pending/assigned/en_route/on_scene)
-- Real-time connection monitoring with visual indicators
+- ❌ **Assignment API endpoints** - No backend controller/routes for assignments
+- ❌ **Actual resource dispatch workflow** - Currently just shows alert()
+- ❌ **30-second acceptance timer** - Vehicle crews must accept/decline assignments
+- ❌ **Assignment status tracking** - Real-time status updates (assigned → accepted → en_route → on_scene)
+- ❌ **Auto-reassignment logic** - If crew declines or times out
+- ❌ **WebSocket events** for assignments - `assignment_created`, `assignment_accepted`, etc.
+
+### **Backend Schema Available:**
+
+- ✅ `Assignment.js` model exists with complete schema
+- ✅ Vehicle assignment fields in `Vehicle.js` model
+- ❌ No `assignmentController.js` or `/api/assignments` routes
+
+**Next Steps:**
+
+1. Create assignment API endpoints (`POST /api/assignments`, `PUT /api/assignments/:id/status`)
+2. Implement complete assignment workflow in frontend
+3. Add 30-second acceptance timer with auto-reassignment
+4. Add WebSocket events for real-time assignment tracking
 
 ---
 
-### ✅ **PHASE 2: COMPLETED**
+## 📋 **PLANNED PHASES**
 
-**Component:** `IncidentWorkspace.tsx`
-**Status:** ✅ **FULLY IMPLEMENTED**
+### **Phase 5: Communication System**
 
-**Features Completed:**
+- Real-time chat interface with vehicle crews
+- Separate tabs for each assigned vehicle (ambulance, fire truck, etc.)
+- Communication tab for incident requester
+- Web ↔ Mobile app messaging (vehicle leaders + citizens)
+- Message history per incident
 
-- ✅ Full-screen incident detail view with embedded Google Maps
-- ✅ Complete incident information display with caller details
-- ✅ Google Maps integration with incident location markers
-- ✅ "Assign Resources" button with intelligent suggestions panel
-- ✅ Navigation back to incident queue
-- ✅ Real-time incident status updates via WebSocket
-- ✅ Live connection status indicator
-- ✅ Resource suggestion matrix with 50+ emergency scenarios
-- ✅ Notes display and management functionality
-- ✅ Responsive design optimized for dispatch operations
-- ✅ Priority-based visual indicators
-- ✅ Status-conditional resource assignment
+### **Phase 6: Mobile Applications**
 
-**Technical Implementation:**
+- Vehicle leader mobile app (assignment acceptance, GPS tracking, communication)
+- Citizen mobile app (incident reporting, communication with dispatcher)
+- Push notifications and real-time synchronization
 
-- WebSocket real-time updates using `useWebSocket()` hook
-- Google Maps integration with `@react-google-maps/api`
-- Intelligent resource assignment using hardcoded response matrix
-- Live incident updates synchronized across multiple dispatchers
-- Status-based UI state management (pending/assigned/en_route/on_scene)
-- Real-time connection monitoring with visual indicators
+### **Phase 7: Notifications & Context Switching**
 
-**Component Structure:**
+- Priority-based alert system for dispatchers
+- Context switching between multiple incidents
+- Auto-reassignment workflows with dispatcher approval
+
+---
+
+## 🛠️ **TECHNICAL DECISIONS**
+
+| **Aspect**            | **Decision**                     | **Rationale**                         |
+| --------------------- | -------------------------------- | ------------------------------------- |
+| **Interface**         | Full-screen workspace            | Real dispatch center workflow         |
+| **Multi-tasking**     | Single incident focus            | Dispatcher switches between incidents |
+| **Maps**              | Google Maps (embedded)           | API key available, no popups          |
+| **Communication**     | Chat-like with vehicle tabs      | Modern, intuitive messaging           |
+| **Real-time**         | Socket.IO with JWT auth          | Established, working system           |
+| **Assignment**        | Distance + vehicle type matching | No crew skill considerations          |
+| **Auto-reassignment** | Requires dispatcher approval     | Safety and oversight                  |
+
+---
+
+## 🧠 **Resource Assignment Matrix**
+
+**Logic Priority:**
+
+1. **Incident Type Matching** - Use response matrix for required vehicle types
+2. **Distance Calculation** - Find nearest available vehicles
+3. **Vehicle Availability** - Only available/returning vehicles
+4. **No Crew Skills** - Assume all vehicles have qualified crews
+
+**Example Matrix:**
 
 ```typescript
-// IncidentWorkspace.tsx - COMPLETED
-interface IncidentWorkspaceProps {
-  incident: Incident;
-  onBackToQueue: () => void;
-  onAssignResources: (
-    incident: Incident,
-    suggestions: ResourceSuggestion[]
-  ) => void;
-}
-
-// Key Features Implemented:
-// - Real-time WebSocket integration for live incident updates
-// - Google Maps with incident location and vehicle markers
-// - Intelligent resource suggestion engine with 50+ scenarios
-// - Status-conditional UI (Assign Resources button only shows for pending incidents)
-// - Live connection status indicator
-// - Notes management system
-```
-
----
-
-### ✅ **PHASE 3: COMPLETED**
-
-**Component:** `ResourceAssignmentMap.tsx` & Enhanced Vehicle Tracking
-**Status:** ✅ **FULLY IMPLEMENTED**
-
-**Features Completed:**
-
-- ✅ Google Maps with real-time vehicle tracking
-- ✅ Intelligent resource suggestions based on:
-  - Distance to incident
-  - Vehicle type matching
-  - Availability status
-- ✅ Resource response matrix for incident types
-- ✅ Manual resource selection capability
-- ✅ Vehicle status visualization and tracking
-- ✅ Professional marker system with Heroicons integration
-
-### ✅ **PHASE 4: COMPLETED**
-
-**Component:** UI/UX Enhancement & Professional Design System
-**Status:** ✅ **FULLY IMPLEMENTED**
-
-**Features Completed:**
-
-- ✅ Professional map marker system with consistent design
-- ✅ Unified incident markers with severity-based coloring
-- ✅ Compact component design for better space utilization
-- ✅ Enhanced refresh system with targeted loading feedback
-- ✅ Smart map centering for improved user experience
-- ✅ Streamlined map controls with essential information only
-- ✅ Fixed UI issues (dropdown arrows, refresh behavior)
-- ✅ Auto-scroll functionality for incident queue navigation
-
-### 📋 **PHASE 5: PLANNED**
-
-**Component:** Advanced Communication System
-**Status:** 📋 **PLANNED**
-
-**Required Features:**
-
-- [ ] Real-time chat interface with vehicle crews
-- [ ] Voice communication integration
-- [ ] File sharing and photo attachments
-- [ ] Communication history and logs
-- [ ] Push notifications for critical updates
-- [ ] Mobile app integration for field personnel
-
----
-
-### 💬 **PHASE 4: PLANNED**
-
-**Component:** `IncidentCommunications.tsx`
-**Status:** 📋 **PLANNED**
-
-**Required Features:**
-
-- [ ] Chat-like interface with tabs:
-  - Tab per assigned vehicle (Ambulance, Fire Engine, etc.)
-  - Tab for communication with incident requester
-- [ ] Real-time messaging between:
-  - Web dispatcher ↔ Mobile vehicle leader
-  - Web dispatcher ↔ Mobile citizen app
-- [ ] Message history per incident
-- [ ] Read receipts and typing indicators
-
----
-
-### 🔔 **PHASE 5: PLANNED**
-
-**Component:** `NotificationSystem.tsx`
-**Status:** 📋 **PLANNED**
-
-**Required Features:**
-
-- [ ] Priority-based alert system
-- [ ] Context switching between incidents
-- [ ] Auto-reassignment timeout (requires dispatcher approval)
-- [ ] New incident notifications
-- [ ] Status change alerts
-- [ ] Quick switch navigation
-
----
-
-## 🗄️ **Backend Schema Integration**
-
-**⚠️ CRITICAL:** Always match existing backend schemas in `apps/backend/models/`
-
-### **Key Models:**
-
-- **Incident.js** - Main incident data structure
-- **Vehicle.js** - Emergency vehicles and resources
-- **User.js** - Dispatcher, responder, and citizen accounts
-- **Assignment.js** - Resource-to-incident assignments
-
-### **Vehicle Types Available:**
-
-- Ambulance
-- Fire Engine
-- Rescue Vehicle
-- Support Vehicle
-
-### **Incident Severity Levels:**
-
-- low (🟢 Green)
-- medium (🟡 Yellow)
-- high (🟠 Orange)
-- critical (🔴 Red)
-
-### **Incident Statuses:**
-
-- pending
-- assigned
-- en_route
-- on_scene
-- resolved
-- cancelled
-
----
-
-## 🧠 **Intelligent Resource Assignment Matrix**
-
-### **Response Logic:**
-
-```typescript
-// Resource Selection Priority:
-// 1. Incident Type Matching
-// 2. Distance Calculation (nearest available)
-// 3. Vehicle Availability Status
-// 4. No crew skill considerations (assume all qualified)
-
-const responseMatrix = {
-  medical_emergency: ["Ambulance"],
-  fire_small: ["Fire Engine"],
-  fire_large: ["Fire Engine", "Support Vehicle"],
-  rescue_operation: ["Rescue Vehicle", "Ambulance"],
-  traffic_accident: ["Ambulance", "Support Vehicle"],
-};
-```
-
----
-
-## 🔄 **Real-Time Features**
-
-### **WebSocket Events:**
-
-- `incident_created` - New incident added
-- `incident_updated` - Incident status/details changed
-- `incident_deleted` - Incident removed
-- `resource_assigned` - Vehicle assigned to incident
-- `resource_status_changed` - Vehicle status updated
-- `communication_message` - New chat message
-
-### **Multi-User Synchronization:**
-
-- Multiple dispatchers work simultaneously
-- Live updates across all browser windows
-- Role-based event filtering
-- JWT-based authentication
-
----
-
-## 🎨 **UI/UX Guidelines**
-
-### **Color Scheme:**
-
-- 🔴 **Critical:** Red (#EF4444)
-- 🟠 **High:** Orange (#F97316)
-- 🟡 **Medium:** Yellow (#EAB308)
-- 🟢 **Low:** Green (#22C55E)
-
-### **Layout Structure:**
-
-```
-┌─────────────────────────────────────────────────┐
-│ DispatcherDashboard (Main Container)           │
-├─────────────┬───────────────────────────────────┤
-│ Incident    │ IncidentWorkspace                 │
-│ Queue       │ ┌─────────────────────────────────┤
-│ (Left Panel)│ │ Incident Details                │
-│             │ ├─────────────────────────────────┤
-│ - Critical  │ │ Google Maps (Embedded)          │
-│ - High      │ ├─────────────────────────────────┤
-│ - Medium    │ │ Communications (Chat Tabs)      │
-│ - Low       │ └─────────────────────────────────┤
-└─────────────┴───────────────────────────────────┘
-```
-
----
-
-## 🚀 **Next Immediate Steps**
-
-### **Ready to Implement:**
-
-1. **Create IncidentWorkspace component**
-   - Display full incident details
-   - Integrate Google Maps
-   - Add "Assign Resources" button
-   - Handle incident selection from queue
-
-### **Questions to Resolve:**
-
-- ✅ Map provider: Google Maps
-- ✅ Interface style: Full-screen workspace
-- ✅ Multi-tasking: Single incident focus
-- ✅ Communication: Chat-like with vehicle tabs
-- ✅ Auto-reassignment: Requires dispatcher approval
-
----
-
-## 🧪 **TESTING & VERIFICATION INSTRUCTIONS**
-
-### **✅ Real-Time Functionality Testing**
-
-#### **WebSocket Connection Testing:**
-
-1. **Start Backend**: `npm run dev` (both frontend and backend)
-2. **Open Multiple Browser Windows**: Test multi-user synchronization
-3. **Stop Backend Server**: Verify connection status shows "Connecting..." then "Disconnected"
-4. **Restart Backend**: Verify automatic reconnection and "Live Updates" status
-5. **Check Console Logs**: Look for WebSocket connection messages
-
-#### **Phase 1 (IncidentQueue) Testing:**
-
-- ✅ **Connection Status**: Shows "Live Updates" when connected, "Connecting..." when attempting, "Disconnected" when failed
-- ✅ **Real-time Updates**: Create/update/delete incidents in database, verify immediate UI updates
-- ✅ **Multi-window Sync**: Changes in one browser window appear in others instantly
-- ✅ **Priority Sorting**: Critical → High → Medium → Low order maintained
-- ✅ **Status Filtering**: Active/All filters work correctly
-
-#### **Phase 2 (IncidentWorkspace) Testing:**
-
-- ✅ **Connection Status**: Matches Phase 1 behavior exactly
-- ✅ **Real-time Updates**: Individual incident updates appear immediately
-- ✅ **Google Maps**: Incident location displays correctly with markers
-- ✅ **Resource Assignment**: "Assign Resources" button shows only for pending incidents
-- ✅ **Resource Suggestions**: Intelligent recommendations based on incident type/category
-- ✅ **Status Updates**: Changes to incident status reflect immediately via WebSocket
-
-#### **WebSocket Event Verification:**
-
-```bash
-# Console logs should show:
-📱 [IncidentQueue] Real-time incident update received: INC-20251001-00001
-📱 [IncidentWorkspace] Real-time incident update received: INC-20251001-00001 Status: assigned
-✅ WebSocket authenticated: Mohamed Afham (Dispatcher)
-🔗 Client connected: Mohamed Afham (Dispatcher)
-```
-
-### **🚨 Critical Issues Fixed:**
-
-1. **✅ WebSocket Phase 2 Integration**: Added real-time updates to IncidentWorkspace
-2. **✅ Connection Status Consistency**: **FINAL FIX APPLIED** - Both phases now show identical connection states
-   - **Previous Issue**: IncidentQueue showed "Connecting..." when server stopped, IncidentWorkspace showed "Disconnected"
-   - **Root Cause**: IncidentQueue was missing `isConnecting` state usage
-   - **Fix Applied**: Updated IncidentQueue to use same logic as IncidentWorkspace
-   - **Result**: Both components now show: Connected → "Live Updates", Connecting → "Connecting...", Disconnected → "Disconnected"
-3. **✅ Socket.IO TypeScript Errors**: Resolved import and type definition issues
-4. **✅ Resource Assignment Logic**: Implemented intelligent 50+ scenario matrix
-5. **✅ Google Maps Integration**: Embedded maps with incident location markers
-
----
-
-## 📝 **Development Notes**
-
-- **Backend API:** Already set up with Socket.IO
-- **Authentication:** JWT-based with role management
-- **Database:** MongoDB Atlas with existing schemas
-- **Frontend:** React + TypeScript + Socket.IO client
-- **Real-time:** ✅ **FULLY IMPLEMENTED** - Phases 1 & 2 complete
-- **Environment:** Development setup complete
-
-### **📊 Current System Status:**
-
-- **Phase 1**: ✅ Complete - IncidentQueue with real-time updates
-- **Phase 2**: ✅ Complete - DispatchWorkspace with WebSocket integration
-- **Phase 3**: ✅ Complete - Vehicle Tracking & Map Visualization
-- **Next**: Phase 4 - Advanced Resource Management & Real-time GPS Integration
-
-### **🚗 Phase 3 Implementation Details:**
-
-**Files Created/Modified:**
-
-- `apps/web/src/utils/vehicleUtils.ts` - Complete vehicle management system
-- `components/dispatch/DispatchWorkspace.tsx` - Enhanced with vehicle tracking
-- Mock vehicle data with 6 realistic vehicles across Sri Lankan locations
-- Status-based marker system with consistent color scheme
-- Interactive map controls with status legends
-
-**WebSocket Events Added:**
-
-- `vehicle_location_update` - Real-time vehicle GPS updates
-- `vehicle_status_update` - Vehicle availability status changes
-
-**Features Implemented:**
-
-- All vehicles displayed with status-based colored markers
-- Selected incident highlighted with enhanced visualization
-- Assigned vehicles connected to incidents with polylines
-- Suggested resources shown with dashed connection routes
-- Comprehensive vehicle info windows with crew and equipment details
-- Map control panel with toggle options and status legends
-
-### **🎨 Phase 4 Technical Implementation Details:**
-
-**Enhanced Marker System:**
-
-```typescript
-// Professional vehicle icons with consistent white elements
-case "Ambulance":
-  return `<path stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" fill="none"/>
-          <path stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v8m-4-4h8"/>`;
-
-// Unified incident markers with severity-based colors
-const getIncidentSeverityColors = (severity: string) => {
-  switch (severity) {
-    case "critical": return { backgroundColor: "#dc2626", borderColor: "#991b1b" };
-    case "high": return { backgroundColor: "#ea580c", borderColor: "#c2410c" };
-    case "medium": return { backgroundColor: "#d97706", borderColor: "#b45309" };
-    case "low": return { backgroundColor: "#059669", borderColor: "#047857" };
+medical: {
+  cardiac_arrest: {
+    vehicleTypes: [
+      { vehicleType: "Ambulance", priority: 1, required: true },
+      { vehicleType: "Support Vehicle", priority: 3, required: false }
+    ],
+    estimatedResponseTime: 8,
+    minimumCrewSize: 2
   }
-};
-```
-
-**Smart Refresh System:**
-
-```typescript
-// Separate loading states for initial load vs refresh
-const [loading, setLoading] = useState(true); // Initial load
-const [refreshing, setRefreshing] = useState(false); // Refresh only
-
-// Targeted loading overlay for incident cards area only
-{
-  refreshing && (
-    <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-      <span className="text-sm text-gray-600">Refreshing incidents...</span>
-    </div>
-  );
 }
 ```
 
-**Streamlined Map Controls:**
-
-```typescript
-// Simplified control panel with essential information only
-<div className="absolute top-4 right-4 z-10 bg-white rounded-lg shadow-lg p-3 space-y-3 min-w-[180px]">
-  <div className="text-sm font-semibold text-gray-800">
-    Emergency Vehicles ({vehicles.length})
-  </div>
-  // Vehicle type counts + Status summary only
-</div>
-```
+**File**: `apps/web/src/utils/resourceMatrix.ts` (✅ Complete with 50+ scenarios)
 
 ---
 
-_Last Updated: Phase 4 Complete - UI/UX Enhancements & Professional Design System (October 2025)_
-_Current Focus: Advanced communication system and mobile app integration for Phase 5_
+## 🚀 **IMMEDIATE DEVELOPMENT TASKS**
+
+### **Assignment Workflow Implementation:**
+
+1. **Create Assignment Controller** (`apps/backend/controllers/assignmentController.js`)
+
+   - `POST /api/assignments` - Create new assignment
+   - `PUT /api/assignments/:id/status` - Update assignment status
+   - `GET /api/assignments/incident/:incidentId` - Get incident assignments
+
+2. **Assignment Routes** (`apps/backend/routes/assignments.js`)
+
+   - Authentication middleware
+   - Role-based permissions (Dispatcher, Admin, Supervisor)
+
+3. **Frontend Assignment Logic** (`DispatcherDashboard.tsx`)
+
+   - Replace `alert()` with actual API calls
+   - Implement assignment confirmation workflow
+   - Add 30-second acceptance timer display
+
+4. **WebSocket Events** (extend `WebSocketContext.tsx`)
+
+   - `assignment_created` - New assignment dispatched
+   - `assignment_status_update` - Crew accepted/declined/en_route
+   - `assignment_timeout` - Auto-reassignment needed
+
+5. **Real-time Assignment Tracking**
+   - Update incident status automatically
+   - Show assignment progress in DispatchWorkspace
+   - Handle multiple vehicles per incident
+
+---
+
+## � **CRITICAL DEVELOPMENT RULES**
+
+### **WebSocket Integration (Mandatory)**
+
+- ALL components displaying incident/assignment data MUST use WebSocket real-time updates
+- Connection status indicators must be consistent across components
+- Console logging format: `📱 [ComponentName] Event: data`
+
+### **Backend Schema Compliance (Mandatory)**
+
+- ALWAYS match existing schemas in `apps/backend/models/`
+- Use exact field names, data types, and enums as defined
+- No frontend-only fields without backend support
+
+### **Assignment Status Flow (Mandatory)**
+
+```
+pending → assigned → [accepted/declined] → en_route → on_scene → completed
+```
+
+### **Vehicle Types (Fixed)**
+
+- Ambulance, Fire Engine, Rescue Vehicle, Support Vehicle
+- No sub-types or skill considerations
+
+---
+
+## 📋 **VERIFICATION CHECKLIST**
+
+**Before any deployment:**
+
+- [ ] WebSocket real-time updates working
+- [ ] Assignment API endpoints functional
+- [ ] 30-second timer with auto-reassignment
+- [ ] Multiple browser window synchronization
+- [ ] Assignment status tracking end-to-end
+- [ ] Error handling and loading states
+- [ ] Backend schema field validation
+
+---
+
+_Last Updated: October 2, 2025 - Assignment Logic Phase 4 Analysis Complete_
+_Next: Complete assignment workflow implementation with backend API endpoints_
