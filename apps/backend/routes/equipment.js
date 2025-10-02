@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const EquipmentController = require('../controllers/equipmentController');
+const MaintenanceRecord = require('../models/MaintenanceRecord');
 const { authenticate, auditLog } = require('../middleware/auth');
 
 /**
@@ -271,6 +273,355 @@ router.get('/checks',
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve equipment checks',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/equipment/status
+ * @desc    Get equipment status overview for supervisor dashboard (UC-005)
+ * @access  Supervisors, Admins
+ */
+router.get('/status', 
+  auditLog('VIEW_EQUIPMENT_STATUS', 'ANALYTICS'),
+  async (req, res) => {
+    try {
+      const result = await EquipmentController.getEquipmentStatus(req, res);
+      return result;
+    } catch (error) {
+      console.error('❌ Equipment status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get equipment status',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/equipment/test-vehicles
+ * @desc    Get all vehicles for testing maintenance record creation
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.get('/test-vehicles',     
+  auditLog('GET_TEST_VEHICLES', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      const Vehicle = require('../models/Vehicle');
+      const vehicles = await Vehicle.find({}, 'registration._id registration.plateNumber registration.vehicleType');
+      
+      console.log('🚗 Found vehicles for testing:', vehicles.length);
+      
+      res.json({
+        success: true,
+        message: 'Test vehicles retrieved successfully',
+        data: vehicles.map(v => ({
+          id: v._id,
+          plateNumber: v.registration?.plateNumber || 'Unknown',
+          vehicleType: v.registration?.vehicleType || 'Unknown'
+        }))
+      });
+    } catch (error) {
+      console.error('❌ Error getting test vehicles:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve test vehicles',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
+ * @route   POST /api/equipment/maintenance
+ * @desc    Add manual maintenance record (Supervisor function)
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.post('/maintenance',
+  auditLog('CREATE_MAINTENANCE_RECORD', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('🔧 Creating maintenance record:', JSON.stringify(req.body, null, 2));
+      console.log('👤 User:', req.user?.auth?.role, req.user?.email);
+      
+      const allowedRoles = ['Supervisor', 'Maintenance Technician', 'Admin'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to create maintenance records'
+        });
+      }
+
+      const { vehicleId, recordType, description, priority } = req.body;
+      
+      // Validate required fields
+      if (!vehicleId || !recordType || !description) {
+        return res.status(400).json({
+          success: false,
+          message: 'Missing required fields: vehicleId, recordType, and description are required'
+        });
+      }
+
+      // Validate vehicleId format
+      if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid vehicle ID format'
+        });
+      }
+
+      // Check if vehicle exists
+      const Vehicle = require('../models/Vehicle');
+      const vehicle = await Vehicle.findById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vehicle not found'
+        });
+      }
+
+      const maintenanceRecord = new MaintenanceRecord({
+        vehicleId,
+        recordType,
+        description,
+        priority: priority || 'MEDIUM',
+        createdBy: req.user.email || req.user.username || 'Unknown',
+        createdAt: new Date()
+      });
+      
+      const savedRecord = await maintenanceRecord.save();
+      await savedRecord.populate('vehicleId', 'registration.plateNumber registration.vehicleType');
+      
+      // Update vehicle status to maintenance when maintenance record is created
+      await Vehicle.findByIdAndUpdate(vehicleId, {
+        'status.operational': 'maintenance'
+      });
+      
+      console.log('✅ Maintenance record created successfully:', savedRecord._id);
+      console.log('🔧 Vehicle status updated to maintenance for vehicle:', vehicleId);
+      
+      res.status(201).json({
+        success: true,
+        message: 'Maintenance record created successfully',
+        data: {
+          id: savedRecord._id,
+          vehicleId: savedRecord.vehicleId._id,
+          vehicleNumber: savedRecord.vehicleId.registration?.plateNumber || 'Unknown',
+          vehicleType: savedRecord.vehicleId.registration?.vehicleType || 'Unknown',
+          recordType: savedRecord.recordType,
+          description: savedRecord.description,
+          priority: savedRecord.priority,
+          createdBy: savedRecord.createdBy,
+          createdAt: savedRecord.createdAt.toISOString(),
+          status: savedRecord.status
+        }
+      });
+    } catch (error) {
+      console.error('❌ Maintenance record creation error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        body: req.body
+      });
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create maintenance record',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
+ * @route   PUT /api/equipment/maintenance/:id
+ * @desc    Update maintenance record
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.put('/maintenance/:id',
+  auditLog('UPDATE_MAINTENANCE_RECORD', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('🔧 Updating maintenance record:', req.params.id, JSON.stringify(req.body, null, 2));
+      
+      const allowedRoles = ['Supervisor', 'Maintenance Technician', 'Admin'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to update maintenance records'
+        });
+      }
+
+      const { id } = req.params;
+      const { vehicleId, recordType, description, priority } = req.body;
+      
+      // Validate record ID format
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid maintenance record ID format'
+        });
+      }
+
+      // Validate required fields
+      if (!vehicleId || !recordType || !description) {
+        return res.status(400).json({
+          success: false,
+          message: 'Missing required fields: vehicleId, recordType, and description are required'
+        });
+      }
+
+      // Validate vehicleId format
+      if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid vehicle ID format'
+        });
+      }
+
+      // Check if maintenance record exists
+      const existingRecord = await MaintenanceRecord.findById(id);
+      if (!existingRecord) {
+        return res.status(404).json({
+          success: false,
+          message: 'Maintenance record not found'
+        });
+      }
+
+      // Check if vehicle exists
+      const Vehicle = require('../models/Vehicle');
+      const vehicle = await Vehicle.findById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vehicle not found'
+        });
+      }
+
+      // Update the maintenance record
+      const updatedRecord = await MaintenanceRecord.findByIdAndUpdate(
+        id,
+        {
+          vehicleId,
+          recordType,
+          description,
+          priority: priority || 'MEDIUM',
+          updatedAt: new Date()
+        },
+        { new: true }
+      ).populate('vehicleId', 'registration.plateNumber registration.vehicleType');
+      
+      console.log('✅ Maintenance record updated successfully:', updatedRecord._id);
+      
+      res.json({
+        success: true,
+        message: 'Maintenance record updated successfully',
+        data: {
+          id: updatedRecord._id,
+          vehicleId: updatedRecord.vehicleId._id,
+          vehicleNumber: updatedRecord.vehicleId.registration?.plateNumber || 'Unknown',
+          vehicleType: updatedRecord.vehicleId.registration?.vehicleType || 'Unknown',
+          recordType: updatedRecord.recordType,
+          description: updatedRecord.description,
+          priority: updatedRecord.priority,
+          createdBy: updatedRecord.createdBy,
+          createdAt: updatedRecord.createdAt.toISOString(),
+          updatedAt: updatedRecord.updatedAt?.toISOString(),
+          status: updatedRecord.status
+        }
+      });
+    } catch (error) {
+      console.error('❌ Maintenance record update error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        body: req.body,
+        params: req.params
+      });
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update maintenance record',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
+ * @route   DELETE /api/equipment/maintenance/:id
+ * @desc    Delete maintenance record
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.delete('/maintenance/:id',
+  auditLog('DELETE_MAINTENANCE_RECORD', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('🗑️ Deleting maintenance record:', req.params.id);
+      
+      const allowedRoles = ['Supervisor', 'Maintenance Technician', 'Admin'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to delete maintenance records'
+        });
+      }
+
+      const { id } = req.params;
+      
+      // Validate record ID format
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid maintenance record ID format'
+        });
+      }
+
+      // Check if maintenance record exists
+      const existingRecord = await MaintenanceRecord.findById(id)
+        .populate('vehicleId', 'registration.plateNumber registration.vehicleType');
+      
+      if (!existingRecord) {
+        return res.status(404).json({
+          success: false,
+          message: 'Maintenance record not found'
+        });
+      }
+
+      // Delete the maintenance record
+      await MaintenanceRecord.findByIdAndDelete(id);
+      
+      console.log('✅ Maintenance record deleted successfully:', id);
+      
+      res.json({
+        success: true,
+        message: 'Maintenance record deleted successfully',
+        data: {
+          deletedRecord: {
+            id: existingRecord._id,
+            vehicleNumber: existingRecord.vehicleId.registration?.plateNumber || 'Unknown',
+            recordType: existingRecord.recordType,
+            description: existingRecord.description
+          }
+        }
+      });
+    } catch (error) {
+      console.error('❌ Maintenance record deletion error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        params: req.params
+      });
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete maintenance record',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }

@@ -331,6 +331,35 @@ class EquipmentService {
 
     return data.data;
   }
+
+  /**
+   * Get equipment status overview for supervisor dashboard (UC-005)
+   * @returns Promise<{ success: boolean, data: EquipmentStatus }>
+   */
+  async getEquipmentStatus(): Promise<{ success: boolean; data: any }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/equipment/status`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.getAuthToken()}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return {
+        success: result.success,
+        data: result.data,
+      };
+    } catch (error) {
+      console.error("❌ Equipment status fetch error:", error);
+      throw error;
+    }
+  }
 }
 
 export const equipmentService = new EquipmentService();
