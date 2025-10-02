@@ -1480,6 +1480,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -1544,6 +1545,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -1595,6 +1597,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Advanced",
       certifications: [
         {
@@ -1650,6 +1653,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -1705,6 +1709,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Advanced",
       certifications: [
         {
@@ -1762,6 +1767,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -1826,6 +1832,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -1877,6 +1884,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Advanced",
       certifications: [
         {
@@ -1928,6 +1936,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Advanced",
       certifications: [
         {
@@ -1983,6 +1992,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -2034,6 +2044,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Advanced",
       certifications: [
         {
@@ -2089,6 +2100,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -2142,6 +2154,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -2206,6 +2219,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Advanced",
       certifications: [
         {
@@ -2262,6 +2276,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -2313,6 +2328,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Advanced",
       certifications: [
         {
@@ -2369,6 +2385,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Advanced",
       certifications: [
         {
@@ -2427,6 +2444,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Expert",
       certifications: [
         {
@@ -2486,6 +2504,7 @@ const crew = [
     },
     professional: {
       role: "Supervisor",
+      isLeader: true,
       certificationLevel: "Advanced",
       certifications: [
         {
@@ -2537,6 +2556,7 @@ const crew = [
     },
     professional: {
       role: "Driver",
+      isLeader: true,
       certificationLevel: "Intermediate",
       certifications: [
         {
@@ -3670,12 +3690,7 @@ const shifts = [
     },
     staffing: {
       requiredCrewCount: 4,
-      requiredRoles: [
-        "Paramedic",
-        "Firefighter",
-        "Firefighter",
-        "Supervisor",
-      ],
+      requiredRoles: ["Paramedic", "Firefighter", "Firefighter", "Supervisor"],
       minimumCertificationLevel: "Advanced",
       assignedCrew: [],
     },

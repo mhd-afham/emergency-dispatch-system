@@ -53,6 +53,11 @@ const crewSchema = new mongoose.Schema(
             "Invalid role. Allowed roles: EMT, Paramedic, Firefighter, Driver, Supervisor",
         },
       },
+      isLeader: {
+        type: Boolean,
+        default: false,
+        required: [true, "Leader status is required"],
+      },
       certificationLevel: {
         type: String,
         required: [true, "Certification level is required"],
