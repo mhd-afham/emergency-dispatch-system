@@ -254,6 +254,21 @@ const updateCrewLocation = async (req, res) => {
 
     console.log(`✅ [CrewController] Location updated successfully`);
 
+    // Emit WebSocket event for real-time GPS tracking on dispatcher map
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("crew_location_update", {
+        crewId: crew._id,
+        crewName: `${crew.personal.firstName} ${crew.personal.lastName}`,
+        location: {
+          type: "Point",
+          coordinates: [lng, lat],
+        },
+        timestamp: new Date().toISOString(),
+      });
+      console.log("📡 WebSocket event emitted: crew_location_update");
+    }
+
     res.status(200).json({
       success: true,
       message: "Location updated successfully",
