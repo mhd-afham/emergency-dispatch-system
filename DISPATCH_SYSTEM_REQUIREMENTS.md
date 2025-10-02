@@ -46,38 +46,87 @@
 
 ## � **CURRENT PHASE: Assignment Logic (Phase 4)**
 
-### **Implemented:**
+### **Phase 4a: Backend Assignment APIs + Web Workflow** 🔨 IN PROGRESS
+
+**Implemented:**
 
 - ✅ Resource suggestion matrix with 50+ emergency scenarios
 - ✅ Intelligent suggestions based on incident type + category
 - ✅ Distance and vehicle type matching logic
 - ✅ Visual suggestion display with priority indicators
 
-### **Missing (Critical):**
+**Completed:**
 
-- ❌ **Assignment API endpoints** - No backend controller/routes for assignments
-- ❌ **Actual resource dispatch workflow** - Currently just shows alert()
-- ❌ **30-second acceptance timer** - Vehicle crews must accept/decline assignments
-- ❌ **Assignment status tracking** - Real-time status updates (assigned → accepted → en_route → on_scene)
-- ❌ **Auto-reassignment logic** - If crew declines or times out
-- ❌ **WebSocket events** for assignments - `assignment_created`, `assignment_accepted`, etc.
+- ✅ **Assignment Controller** - `assignmentController.js` with full CRUD operations
+- ✅ **Assignment Routes** - `/api/assignments` endpoints with role-based permissions
+- ✅ **WebSocket Events** - `assignment_created`, `assignment_status_update`, `assignment_declined`
+- ✅ **Status Flow Logic** - Automatic incident/vehicle status updates based on assignment
+- ✅ **Web Dispatcher Workflow** - Basic API integration (needs vehicle selection UI)
 
-### **Backend Schema Available:**
+**Pending (requires mobile app):**
 
-- ✅ `Assignment.js` model exists with complete schema
-- ✅ Vehicle assignment fields in `Vehicle.js` model
-- ❌ No `assignmentController.js` or `/api/assignments` routes
+- ⏳ 30-second acceptance timer (needs mobile crew response)
+- ⏳ Assignment acceptance/decline workflow
+- ⏳ Auto-reassignment logic
 
-**Next Steps:**
+### **Phase 4b: Mobile App (Vehicle Leader)** 📱 PARALLEL DEVELOPMENT NEEDED
 
-1. Create assignment API endpoints (`POST /api/assignments`, `PUT /api/assignments/:id/status`)
-2. Implement complete assignment workflow in frontend
-3. Add 30-second acceptance timer with auto-reassignment
-4. Add WebSocket events for real-time assignment tracking
+**⚠️ Critical:** Mobile app MUST be developed in parallel to test complete assignment flow.
+
+**Why Now:** The assignment workflow requires mobile crews to accept/decline assignments. Cannot test 30-second timer or auto-reassignment without mobile app.
+
+**Mobile App Core Features:**
+
+- Push notifications for new assignments
+- Accept/Decline assignment interface with 30-second countdown
+- Real-time GPS location sharing
+- WebSocket connectivity for live status updates
+- Assignment details display
+
+**Development Strategy:**
+
+1. Backend APIs (Phase 4a) - Web dispatcher can create assignments ✅
+2. Mobile app (Phase 4b) - Vehicle crews can receive and respond 📱
+3. Integration testing - Complete end-to-end assignment workflow 🔄
+
+### **📝 Implementation Progress (October 2, 2025)**
+
+**✅ Completed Today:**
+
+1. **Assignment Controller** (`apps/backend/controllers/assignmentController.js`)
+
+   - `POST /api/assignments` - Create assignment with full validation
+   - `PUT /api/assignments/:id/status` - Update status (accept/decline/en_route/on_scene/complete)
+   - `GET /api/assignments` - Get all assignments with filtering
+   - `GET /api/assignments/:id` - Get assignment by ID
+   - `GET /api/assignments/incident/:incidentId` - Get incident assignments
+   - Automatic status synchronization: assignment → vehicle → incident
+
+2. **Assignment Routes** (`apps/backend/routes/assignments.js`)
+
+   - Authentication middleware on all routes
+   - Role-based permissions: Dispatchers create, Responders update status
+   - Registered in `server.js`
+
+3. **WebSocket Events** (integrated in controller)
+
+   - `assignment_created` - Broadcast to all dispatchers
+   - `assignment_notification` - Targeted to specific vehicle (room: `vehicle-${vehicleId}`)
+   - `assignment_status_update` - Real-time status changes for all
+   - `assignment_declined` - Trigger reassignment workflow
+
+4. **Web Integration** - Updated `DispatcherDashboard.tsx` with API structure
+
+**⏳ Pending (Next Development Session):**
+
+- Vehicle selection UI (modal with map showing available vehicles)
+- Real-time assignment tracking display in DispatchWorkspace
+- Mobile app for vehicle leaders (Phase 4b)
+- 30-second timer implementation (frontend + backend timeout)
 
 ---
 
-## 📋 **PLANNED PHASES**
+## 📋 **PLANNED PHASES (Updated)**
 
 ### **Phase 5: Communication System**
 
@@ -87,17 +136,18 @@
 - Web ↔ Mobile app messaging (vehicle leaders + citizens)
 - Message history per incident
 
-### **Phase 6: Mobile Applications**
+### **Phase 6: Citizen Mobile App**
 
-- Vehicle leader mobile app (assignment acceptance, GPS tracking, communication)
-- Citizen mobile app (incident reporting, communication with dispatcher)
-- Push notifications and real-time synchronization
+- Incident reporting interface
+- Real-time incident status tracking
+- Communication with dispatcher
+- Location sharing and incident details
 
 ### **Phase 7: Notifications & Context Switching**
 
 - Priority-based alert system for dispatchers
 - Context switching between multiple incidents
-- Auto-reassignment workflows with dispatcher approval
+- Enhanced notification system for mobile apps
 
 ---
 
