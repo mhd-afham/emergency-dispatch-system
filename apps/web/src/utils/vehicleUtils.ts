@@ -148,7 +148,43 @@ export const getVehicleStatusColors = (
   }
 };
 
-// Incident Status Color Mapping (consistent with existing)
+// Incident Severity Color Mapping (color-coded by severity, not status)
+export const getIncidentSeverityColors = (severity: string) => {
+  switch (severity) {
+    case "critical":
+      return {
+        backgroundColor: "#dc2626", // red-600
+        borderColor: "#991b1b", // red-800
+        textColor: "#ffffff",
+      };
+    case "high":
+      return {
+        backgroundColor: "#ea580c", // orange-600
+        borderColor: "#c2410c", // orange-700
+        textColor: "#ffffff",
+      };
+    case "medium":
+      return {
+        backgroundColor: "#d97706", // amber-600
+        borderColor: "#b45309", // amber-700
+        textColor: "#ffffff",
+      };
+    case "low":
+      return {
+        backgroundColor: "#059669", // emerald-600
+        borderColor: "#047857", // emerald-700
+        textColor: "#ffffff",
+      };
+    default:
+      return {
+        backgroundColor: "#6b7280", // gray-500
+        borderColor: "#4b5563", // gray-600
+        textColor: "#ffffff",
+      };
+  }
+};
+
+// Incident Status Color Mapping (kept for backward compatibility)
 export const getIncidentStatusColors = (status: string) => {
   switch (status) {
     case "pending":
@@ -202,24 +238,23 @@ export const getVehicleTypePath = (
 ) => {
   switch (vehicleType) {
     case "Ambulance":
-      return `<path d="M2 8H6V10H10V8H14V12H2V8Z" fill="currentColor"/>
-              <path d="M6 6H10V8H6V6Z" fill="currentColor"/>
-              <path d="M8 3H8V5H8Z" fill="currentColor" stroke="currentColor" stroke-width="2"/>`;
+      // Medical cross icon with outline like other icons
+      return `<path stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" fill="none"/>
+              <path stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v8m-4-4h8"/>`;
     case "Fire Engine":
-      return `<path d="M2 10H14V12H2V10Z" fill="currentColor"/>
-              <path d="M3 6H13V10H3V6Z" fill="currentColor"/>
-              <path d="M5 8H11V9H5V8Z" fill="currentColor" opacity="0.7"/>`;
+      // Fire/flame icon
+      return `<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14l4-2c-1 1-3 2-4 2z"/>`;
     case "Rescue Vehicle":
-      return `<path d="M2 8H14V12H2V8Z" fill="currentColor"/>
-              <path d="M4 5H12V8H4V5Z" fill="currentColor"/>
-              <path d="M8 2V4" stroke="currentColor" stroke-width="2"/>`;
+      // Shield with checkmark
+      return `<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>`;
     case "Support Vehicle":
-      return `<path d="M2 10H14V12H2V10Z" fill="currentColor"/>
-              <path d="M3 7H13V10H3V7Z" fill="currentColor"/>
-              <path d="M6 4H10V7H6V4Z" fill="currentColor" opacity="0.8"/>`;
+      // Wrench/tools icon
+      return `<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>`;
     default:
-      return `<path d="M2 9H14V12H2V9Z" fill="currentColor"/>
-              <path d="M4 6H12V9H4V6Z" fill="currentColor"/>`;
+      // Generic truck icon
+      return `<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h4a1 1 0 011 1v2m4 0h2a2 2 0 012 2v6a2 2 0 01-2 2h-2m-4 0v2a1 1 0 01-1 1H8a1 1 0 01-1-1v-2M7 4H5a2 2 0 00-2 2v6a2 2 0 002 2h2m0 0h8"/>`;
   }
 };
 
@@ -263,10 +298,12 @@ export const generateVehicleMarkerSVG = (
         stroke="${colors.borderColor}" 
         stroke-width="${strokeWidth}"
       />
-      <g transform="translate(${size / 2 - 8}, ${size / 2 - 8})" fill="${
-    colors.textColor
-  }">
-        ${vehiclePath}
+      <g transform="translate(${size / 2 - 12}, ${
+    size / 2 - 12
+  }) scale(1)" fill="${colors.textColor}">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          ${vehiclePath}
+        </svg>
       </g>
       ${
         isSelected
@@ -288,30 +325,18 @@ export const generateIncidentMarkerSVG = (
   severity: string,
   isSelected: boolean = false
 ): string => {
-  const colors = getIncidentStatusColors(status);
+  const colors = getIncidentSeverityColors(severity);
   const size = isSelected ? 40 : 32;
   const strokeWidth = isSelected ? 3 : 2;
 
-  // Severity icon SVG path mapping
-  const getSeverityIconPath = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return `<circle cx="8" cy="8" r="6" fill="currentColor"/>
-                <path d="M8 4V9M8 11V12" stroke="white" stroke-width="2" stroke-linecap="round"/>`;
-      case "high":
-        return `<path d="M8 2L14 14H2L8 2Z" fill="currentColor"/>
-                <path d="M8 6V10M8 12V12" stroke="white" stroke-width="1.5" stroke-linecap="round"/>`;
-      case "medium":
-        return `<path d="M8 2L8 14M8 14L2 10L14 10L8 14Z" fill="currentColor"/>`;
-      case "low":
-        return `<circle cx="8" cy="8" r="6" fill="currentColor"/>
-                <path d="M8 4V8M8 10V12" stroke="white" stroke-width="1.5" stroke-linecap="round"/>`;
-      default:
-        return `<path d="M8 2L8 14M8 14L2 10L14 10L8 14Z" fill="currentColor"/>`;
-    }
+  // Universal incident icon - exclamation circle for all incidents
+  const getIncidentIconPath = () => {
+    // Same icon for all incidents - exclamation circle
+    return `<path stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" fill="none"/>
+            <circle cx="12" cy="16" r="1.5" fill="white"/>`;
   };
 
-  const severityPath = getSeverityIconPath(severity);
+  const incidentPath = getIncidentIconPath();
 
   const svg = `
     <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -323,10 +348,10 @@ export const generateIncidentMarkerSVG = (
         stroke="${colors.borderColor}" 
         stroke-width="${strokeWidth}"
       />
-      <g transform="translate(${size / 2 - 8}, ${size / 2 - 8})" fill="${
-    colors.textColor
-  }">
-        ${severityPath}
+      <g transform="translate(${size / 2 - 12}, ${size / 2 - 12}) scale(1)">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          ${incidentPath}
+        </svg>
       </g>
       ${
         isSelected

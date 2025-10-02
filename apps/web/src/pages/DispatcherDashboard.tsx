@@ -61,13 +61,14 @@ const DispatcherDashboard: React.FC = () => {
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(
     null
   );
+  const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
 
   const handleIncidentSelect = (incident: Incident) => {
     setSelectedIncident(incident);
   };
 
-  const handleBackToQueue = () => {
-    setSelectedIncident(null);
+  const handleIncidentsUpdate = (incidents: Incident[]) => {
+    setAllIncidents(incidents);
   };
 
   const handleAssignResources = (
@@ -128,34 +129,20 @@ const DispatcherDashboard: React.FC = () => {
           <IncidentQueue
             onIncidentSelect={handleIncidentSelect}
             selectedIncidentId={selectedIncident?._id}
+            onIncidentsUpdate={handleIncidentsUpdate}
           />
         </div>
 
         {/* Right Panel - Incident Workspace */}
         <div className="flex-1 flex flex-col">
-          {selectedIncident ? (
-            <GoogleMapsProvider>
-              <DispatchWorkspace
-                incident={selectedIncident}
-                onBackToQueue={handleBackToQueue}
-                onAssignResources={handleAssignResources}
-              />
-            </GoogleMapsProvider>
-          ) : (
-            /* No Incident Selected State */
-            <div className="flex-1 flex items-center justify-center bg-white">
-              <div className="text-center text-gray-500">
-                <div className="text-6xl mb-4">📋</div>
-                <h2 className="text-xl font-medium text-gray-900 mb-2">
-                  Select an Incident
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Choose an incident from the queue to view details and manage
-                  resources
-                </p>
-              </div>
-            </div>
-          )}
+          <GoogleMapsProvider>
+            <DispatchWorkspace
+              incident={selectedIncident}
+              allIncidents={allIncidents}
+              onIncidentSelect={handleIncidentSelect}
+              onAssignResources={handleAssignResources}
+            />
+          </GoogleMapsProvider>
         </div>
       </div>
     </div>
