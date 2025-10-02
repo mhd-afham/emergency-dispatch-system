@@ -123,4 +123,44 @@ router.put("/:id/assignment", (req, res, next) => {
   VehicleController.updateVehicleAssignment(req, res, next);
 });
 
+/**
+ * @route   POST /api/vehicles/:vehicleId/assign-crew
+ * @desc    Assign crew members to a vehicle (validates exactly one leader required)
+ * @access  Supervisors, Admins
+ */
+router.post("/:vehicleId/assign-crew", (req, res, next) => {
+  const allowedRoles = ["Supervisor", "Admin"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to assign crew to vehicles",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  VehicleController.assignCrewToVehicle(req, res, next);
+});
+
+/**
+ * @route   PUT /api/vehicles/:vehicleId/unassign-crew
+ * @desc    Unassign crew members from a vehicle
+ * @access  Supervisors, Admins
+ */
+router.put("/:vehicleId/unassign-crew", (req, res, next) => {
+  const allowedRoles = ["Supervisor", "Admin"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to unassign crew from vehicles",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  VehicleController.unassignCrewFromVehicle(req, res, next);
+});
+
 module.exports = router;

@@ -146,34 +146,54 @@
 - ✅ Existing: LoginScreen, DashboardScreen, local services/constants
 - 🎯 Focus: Crew Leader features first, Citizen features later
 
-### **Authentication & Data Model:**
+### **Authentication & Data Model (Revised Strategy):**
 
-**Dual-Model Architecture:**
+**🎯 Core Principle: Permanent Leader Designation**
+
+- **Crew Leader = Designated Role**, not assignment-dependent
+- Only crew leaders can access mobile app
+- Leaders assigned to vehicles during shift scheduling (Supervisor task)
+- Vehicle readiness checks performed by leader BEFORE any assignments
+- One leader per vehicle (enforced at shift scheduling)
+
+**Schema Structure:**
 
 - **User Model** → Authentication (email/password, JWT tokens)
-  - `auth.role = "Field Crew"` for mobile app access
+  - `auth.role = "Field Crew"` for potential mobile app access
   - `auth.employeeId` links to Crew model
 - **Crew Model** → Professional field operations
   - `personal.employeeId` matches User.auth.employeeId
+  - **`professional.isLeader: Boolean`** ✅ **NEW FIELD** - Designates crew leaders
   - `currentStatus.assignedVehicleId` links to Vehicle
+- **Vehicle Model** → Emergency vehicles
+  - `assignment.crew[]` - Array of assigned crew members
+  - Leader = crew member with `isLeader: true` (one per vehicle)
 - **Assignment Model** → Dispatch workflow
-  - `resource.primaryCrewId` = Crew Leader (authoritative)
-  - Only primaryCrewId can accept/decline assignments
+  - `resource.primaryCrewId` auto-populated from vehicle's leader
+  - System finds leader automatically during assignment creation
 
-**Login Flow:**
+**Simplified Login Flow:**
 
 1. Authenticate via User model (email/password) → JWT token
-2. Validate role = "Field Crew"
+2. Validate `role = "Field Crew"`
 3. Fetch Crew profile by employeeId
-4. Connect WebSocket with crew room: `crew-${crewId}`
-5. Navigate to Crew Leader Dashboard
+4. **Validate `crew.professional.isLeader === true`** ✅ **NEW CHECK**
+5. If not leader → Reject access (mobile app for leaders only)
+6. Connect WebSocket with crew room: `crew-${crewId}`
+7. Navigate to Crew Leader Dashboard
 
 **Required Backend APIs:**
 
 ```javascript
-GET /api/crews/by-employee/:employeeId  // Get crew profile
-GET /api/crews/:crewId/assignments      // Get crew assignments
-GET /api/crews/:crewId/vehicle          // Get assigned vehicle
+// Authentication & Profile
+GET /api/crews/by-employee/:employeeId  // Get crew profile (with isLeader check)
+GET /api/crews/:crewId/assignments      // Get crew's active assignments
+GET /api/crews/:crewId/vehicle          // Get assigned vehicle details
+
+// Supervisor Functions (NEW)
+POST /api/vehicles/:vehicleId/assign-crew  // Assign crew to vehicle at shift start
+PUT /api/vehicles/:vehicleId/unassign-crew // Remove crew from vehicle
+GET /api/crews/leaders/available           // Get available crew leaders for scheduling
 ```
 
 ---
@@ -251,6 +271,8 @@ GET /api/crews/:crewId/vehicle          // Get assigned vehicle
 
 | Priority | Feature                     | Estimate | Dependency      |
 | -------- | --------------------------- | -------- | --------------- |
+| 🔴 P0    | Schema Update (isLeader)    | 0.5 day  | None            |
+| 🔴 P0    | Leader-Only Authentication  | 0.5 day  | Schema change   |
 | 🔴 P0    | Assignment Notifications    | 1 day    | Socket.IO setup |
 | 🔴 P0    | Accept/Decline UI + Timer   | 1 day    | None            |
 | 🔴 P0    | Status Update Buttons       | 0.5 day  | None            |
@@ -278,16 +300,44 @@ GET /api/crews/:crewId/vehicle          // Get assigned vehicle
 | **GPS Frequency**        | Continuous (15s) while en_route, on-demand else  | Balance accuracy vs battery life           |
 | **Communication**        | Socket.IO chat (dispatcher → text, crew → quick) | Consistent with real-time architecture     |
 | **Vehicle Readiness**    | Simplified checklist (5-7 items, PASS/FAIL)      | Quick pre-shift, skip complex work orders  |
-| **Authentication**       | User (login) + Crew (operations)                 | Existing schema, no changes needed         |
-| **Crew Leader ID**       | Assignment.resource.primaryCrewId                | Already in schema, authoritative source    |
+| **Authentication**       | User + Crew with `isLeader` flag                 | Leaders only - permanent designation       |
+| **Crew Leader ID**       | Permanent via `Crew.professional.isLeader`       | Designated role, not assignment-dependent  |
+| **Leader Assignment**    | Supervisor assigns at shift start                | One leader per vehicle, enforced by system |
 
 ---
 
 ## 📋 **USE CASE SCENARIOS**
 
+### **UC-001: Assign Crew to Vehicle (Shift Start - NEW)**
+
+**Actor:** Supervisor
+
+**Pre-condition:** Crew members are on-duty and available
+
+**Main Flow:**
+
+1. Supervisor opens vehicle management interface
+2. System displays list of vehicles at station
+3. Supervisor selects vehicle needing crew assignment
+4. System shows available crew members with leader status indicators
+5. Supervisor selects crew members (must include exactly ONE leader)
+6. System validates: One and only one crew member has `isLeader: true`
+7. System assigns crew to vehicle (`Vehicle.assignment.crew[]`)
+8. System updates crew status (`assignedVehicleId` for all crew members)
+9. System marks vehicle as "Ready for Readiness Check"
+10. Crew leader receives notification to perform vehicle readiness check
+
+**Branching Actions:**
+
+- **A: No Leader Selected** - System rejects: "Must assign at least one crew leader"
+- **B: Multiple Leaders Selected** - System rejects: "Cannot assign multiple leaders to one vehicle"
+- **C: Vehicle Already Has Crew** - System asks to confirm replacement of existing crew
+
 ### **UC-002: Assign Resources (Primary Workflow)**
 
 **Actors:** Dispatcher (primary), Crew Leader (secondary), Citizen (secondary)
+
+**Pre-condition:** Vehicle has assigned crew with leader (from UC-001)
 
 **Main Flow:**
 
@@ -295,13 +345,15 @@ GET /api/crews/:crewId/vehicle          // Get assigned vehicle
 2. System displays incident details (type, location, severity, notes)
 3. System suggests nearest resources using matrix (type + distance + availability)
 4. Dispatcher reviews suggestions on map interface with ETAs
-5. Dispatcher selects preferred resource
-6. System sends notification to crew via Socket.IO (`assignment_notification`)
-7. System starts 30-second acceptance timer
-8. **Crew leader accepts via mobile app**
-9. System updates incident status to "En Route"
-10. System begins GPS tracking and sends ETA to citizen
-11. Dispatcher monitors unit progress on real-time dashboard
+5. Dispatcher selects preferred vehicle
+6. **System automatically identifies leader from vehicle's assigned crew** ✅ **NEW**
+7. System creates assignment with `primaryCrewId` = vehicle's leader
+8. System sends notification to leader via Socket.IO (`assignment_notification` to `crew-${leaderId}`)
+9. System starts 30-second acceptance timer
+10. **Crew leader accepts via mobile app**
+11. System updates incident status to "En Route"
+12. System begins GPS tracking and sends ETA to citizen
+13. Dispatcher monitors unit progress on real-time dashboard
 
 **Branching Actions:**
 
@@ -405,23 +457,45 @@ medical: {
 
 ## 🚀 **NEXT DEVELOPMENT TASKS (Phase 4b - Mobile App)**
 
-### **Sprint 1: Core Assignment Workflow (P0 - Critical) - 4.5 days**
+### **Sprint 0: Schema Updates & Supervisor Features (NEW - 1 day)**
+
+**Schema Changes (0.5 day):**
+
+1. **Update Crew Model** - Add `professional.isLeader: Boolean` field
+   - Default: `false`
+   - Required: `true`
+   - Migration script to set existing crew leaders
+2. **Update Assignment Controller** - Auto-populate `primaryCrewId` from vehicle's leader
+   - Find crew with `isLeader: true` from `Vehicle.assignment.crew[]`
+   - Validate vehicle has exactly one leader
+
+**Supervisor APIs (0.5 day):**
+
+3. `POST /api/vehicles/:vehicleId/assign-crew` - Assign crew to vehicle at shift start
+   - Validate: Exactly one crew member has `isLeader: true`
+   - Update `Vehicle.assignment.crew[]` and `Crew.currentStatus.assignedVehicleId`
+4. `PUT /api/vehicles/:vehicleId/unassign-crew` - Remove crew from vehicle
+5. `GET /api/crews/leaders/available` - List available crew leaders for scheduling
+
+### **Sprint 1: Core Assignment Workflow (P0 - Critical) - 5 days**
 
 **Backend APIs (0.5 day):**
 
-1. `GET /api/crews/by-employee/:employeeId` - Fetch crew profile by employee ID
+1. `GET /api/crews/by-employee/:employeeId` - Fetch crew profile by employee ID (with `isLeader` check)
 2. `GET /api/crews/:crewId/assignments` - Get crew's active assignments
 3. `GET /api/crews/:crewId/vehicle` - Get crew's assigned vehicle details
 4. `PUT /api/crews/:crewId/location` - Update crew GPS location
 
-**Mobile App (4 days):**
+**Mobile App (4.5 days):**
 
-1. **Authentication Flow** (0.5 day)
+1. **Leader-Only Authentication Flow** (0.5 day)
 
    - Login screen with User model authentication
    - Fetch linked Crew profile via employeeId
+   - **Validate `crew.professional.isLeader === true`** ✅ **NEW**
+   - Reject non-leaders with clear error message
    - Store token + crewId securely (SecureStore)
-   - Role validation (Field Crew only)
+   - Role validation (Field Crew + Leader only)
 
 2. **Socket.IO Integration** (0.5 day)
 
@@ -557,9 +631,9 @@ pending → assigned → [accepted/declined] → en_route → on_scene → compl
 ### **Schema Models:**
 
 - **User** - Authentication (email/password, role: "Field Crew")
-- **Crew** - Field personnel (employeeId links to User, assignedVehicleId)
-- **Vehicle** - Emergency vehicles (crew[] array, status, location)
-- **Assignment** - Dispatch workflow (primaryCrewId = crew leader)
+- **Crew** - Field personnel (employeeId links to User, **`isLeader: Boolean`** ✅ NEW, assignedVehicleId)
+- **Vehicle** - Emergency vehicles (crew[] array with one leader, status, location)
+- **Assignment** - Dispatch workflow (primaryCrewId auto-populated from vehicle's leader)
 - **Incident** - Emergency events (type, location, status, priority)
 
 ### **Key API Endpoints:**
@@ -570,21 +644,24 @@ pending → assigned → [accepted/declined] → en_route → on_scene → compl
 
 **Assignments:**
 
-- `POST /api/assignments` - Create assignment (Dispatcher)
-- `PUT /api/assignments/:id/status` - Update status (Crew Leader)
+- `POST /api/assignments` - Create assignment (Dispatcher) - Auto-finds leader from vehicle
+- `PUT /api/assignments/:id/status` - Update status (Crew Leader only)
 - `GET /api/assignments/incident/:incidentId` - Get incident assignments
 
-**Crews (New - Required for Mobile):**
+**Crews (Required for Mobile):**
 
-- `GET /api/crews/by-employee/:employeeId` - Get crew by employee ID
-- `GET /api/crews/:crewId/assignments` - Get crew's assignments
-- `GET /api/crews/:crewId/vehicle` - Get assigned vehicle
+- `GET /api/crews/by-employee/:employeeId` - Get crew by employee ID (validates isLeader)
+- `GET /api/crews/:crewId/assignments` - Get crew's active assignments
+- `GET /api/crews/:crewId/vehicle` - Get assigned vehicle details
 - `PUT /api/crews/:crewId/location` - Update GPS location
+- `GET /api/crews/leaders/available` - Get available crew leaders ✅ NEW
 
-**Vehicles:**
+**Vehicles (Supervisor Functions):**
 
 - `GET /api/vehicles` - List all vehicles with filters
-- `POST /api/vehicles/:vehicleId/readiness-check` - Submit checklist
+- `POST /api/vehicles/:vehicleId/assign-crew` - Assign crew at shift start ✅ NEW
+- `PUT /api/vehicles/:vehicleId/unassign-crew` - Remove crew from vehicle ✅ NEW
+- `POST /api/vehicles/:vehicleId/readiness-check` - Submit checklist (Leader only)
 
 ### **WebSocket Events:**
 
@@ -615,5 +692,21 @@ pending → assigned → [accepted/declined] → en_route → on_scene → compl
 
 ---
 
-_Last Updated: October 2, 2025 - Stakeholder Requirements & Mobile Strategy Documented_
-_Next: Implement Sprint 1 (Core Assignment Workflow) - Mobile App Phase 4b_
+## 🔄 **STRATEGY REVISION HISTORY**
+
+**October 3, 2025 - Leadership Model Revised:**
+
+- **Problem Identified:** Assignment-based leadership was temporary and prevented pre-assignment operations (vehicle readiness)
+- **Solution Adopted:** Permanent leader designation via `Crew.professional.isLeader` boolean
+- **Key Changes:**
+  - Only crew leaders can access mobile app
+  - Leaders assigned to vehicles by supervisor at shift start
+  - Assignment controller auto-finds leader from vehicle's crew
+  - Supervisor workflow added (UC-001)
+  - Authentication simplified (direct isLeader check)
+- **Benefits:** Pre-assignment operations, clearer authority, simpler implementation, matches real-world operations
+
+---
+
+_Last Updated: October 3, 2025 - Leadership Strategy Revised to Permanent Designation Model_
+_Next: Implement Sprint 0 (Schema Updates) → Sprint 1 (Core Assignment Workflow) - Phase 4b_

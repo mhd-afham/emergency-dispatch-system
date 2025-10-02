@@ -1,6 +1,7 @@
 const Assignment = require("../models/Assignment");
 const Incident = require("../models/Incident");
 const Vehicle = require("../models/Vehicle");
+const Crew = require("../models/Crew");
 const mongoose = require("mongoose");
 
 /**
@@ -22,15 +23,14 @@ class AssignmentController {
       );
       console.log("🔍 Assignment request:", JSON.stringify(req.body, null, 2));
 
-      const { incidentId, vehicleId, primaryCrewId, additionalCrew, priority } =
-        req.body;
+      const { incidentId, vehicleId, additionalCrew, priority } = req.body;
 
       // Validate required fields
-      if (!incidentId || !vehicleId || !primaryCrewId) {
+      if (!incidentId || !vehicleId) {
         return res.status(400).json({
           success: false,
           message: "Missing required fields",
-          required: ["incidentId", "vehicleId", "primaryCrewId"],
+          required: ["incidentId", "vehicleId"],
         });
       }
 
@@ -44,11 +44,41 @@ class AssignmentController {
       }
 
       // Verify vehicle exists and is available
-      const vehicle = await Vehicle.findById(vehicleId);
+      const vehicle = await Vehicle.findById(vehicleId).populate(
+        "assignment.crew"
+      );
       if (!vehicle) {
         return res.status(404).json({
           success: false,
           message: `Vehicle not found: ${vehicleId}`,
+        });
+      }
+
+      // Auto-find crew leader from vehicle's assigned crew
+      let primaryCrewId = null;
+      if (vehicle.assignment.crew && vehicle.assignment.crew.length > 0) {
+        const crewLeader = vehicle.assignment.crew.find(
+          (crewMember) =>
+            crewMember.professional && crewMember.professional.isLeader
+        );
+
+        if (crewLeader) {
+          primaryCrewId = crewLeader._id;
+          console.log(
+            `✅ Auto-detected crew leader: ${crewLeader.personal.firstName} ${crewLeader.personal.lastName} (${crewLeader.employeeId})`
+          );
+        } else {
+          return res.status(400).json({
+            success: false,
+            message:
+              "No crew leader found in vehicle's assigned crew. Vehicle must have at least one crew member with isLeader=true.",
+          });
+        }
+      } else {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Vehicle has no assigned crew. Please assign crew to vehicle before creating assignment.",
         });
       }
 
