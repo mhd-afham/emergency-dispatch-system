@@ -717,7 +717,18 @@ class VehicleController {
         });
       }
 
-      // Log the rejection action before deletion
+      // Mark vehicle as rejected instead of deleting (for history tracking)
+      vehicle.isActive = false;
+      vehicle.rejectionDetails = {
+        rejectedBy: req.user._id,
+        rejectedAt: new Date(),
+        reason: reason,
+        status: 'rejected'
+      };
+      
+      await vehicle.save();
+
+      // Log the rejection action
       await AuditLog.logAction({
         actionType: 'reject',
         description: `Vehicle rejected: ${vehicle.registration.vehicleType} ${vehicle.registration.plateNumber}`,
@@ -747,10 +758,7 @@ class VehicleController {
         }
       });
 
-      // Remove the rejected vehicle (hard delete since it was never approved)
-      await Vehicle.findByIdAndDelete(id);
-
-      console.log(`❌ Vehicle rejected and removed:`, vehicle.registration.plateNumber);
+      console.log(`❌ Vehicle marked as rejected (preserved for history):`, vehicle.registration.plateNumber);
 
       res.status(200).json({
         success: true,
@@ -1153,6 +1161,73 @@ class VehicleController {
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve vehicle history',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Get all approved vehicles
+   * GET /api/vehicles/approved
+   */
+  static async getApprovedVehicles(req, res) {
+    try {
+      console.log('📋 Fetching approved vehicles');
+
+      const approvedVehicles = await Vehicle.find({ 
+        isActive: true,
+        rejectionDetails: { $exists: false }
+      })
+        .populate('registration.approvedBy', 'personal.firstName personal.lastName auth.role')
+        .populate('station.homeStationId', 'name location')
+        .sort({ 'registration.approvalDate': -1 });
+
+      res.status(200).json({
+        success: true,
+        count: approvedVehicles.length,
+        data: {
+          approvedVehicles: approvedVehicles
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Get approved vehicles error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve approved vehicles',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Get all rejected vehicles
+   * GET /api/vehicles/rejected
+   */
+  static async getRejectedVehicles(req, res) {
+    try {
+      console.log('📋 Fetching rejected vehicles');
+
+      const rejectedVehicles = await Vehicle.find({ 
+        'rejectionDetails.status': 'rejected'
+      })
+        .populate('rejectionDetails.rejectedBy', 'personal.firstName personal.lastName auth.role')
+        .populate('station.homeStationId', 'name location')
+        .sort({ 'rejectionDetails.rejectedAt': -1 });
+
+      res.status(200).json({
+        success: true,
+        count: rejectedVehicles.length,
+        data: {
+          rejectedVehicles: rejectedVehicles
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Get rejected vehicles error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve rejected vehicles',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }

@@ -38,6 +38,7 @@ app.use("/api/incidents", require("./routes/incidents"));
 app.use("/api/equipment", require("./routes/equipment"));
 app.use("/api/vehicles", require("./routes/vehicles"));
 app.use("/api/crew", require("./routes/crew"));
+app.use("/api/drafts", require("./routes/drafts"));
 // app.use('/api/shifts', require('./routes/shifts'));
 
 // Error handling middleware

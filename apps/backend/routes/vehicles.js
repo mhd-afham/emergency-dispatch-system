@@ -60,6 +60,44 @@ router.get('/pending-approval', (req, res, next) => {
 });
 
 /**
+ * @route   GET /api/vehicles/approved
+ * @desc    Get all approved vehicles
+ * @access  Admins, Supervisors
+ */
+router.get('/approved', (req, res, next) => {
+  const allowedRoles = ['Admin', 'Supervisor'];
+  
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view approved vehicles',
+      requiredRoles: allowedRoles
+    });
+  }
+
+  VehicleController.getApprovedVehicles(req, res, next);
+});
+
+/**
+ * @route   GET /api/vehicles/rejected
+ * @desc    Get all rejected vehicles
+ * @access  Admins, Supervisors
+ */
+router.get('/rejected', (req, res, next) => {
+  const allowedRoles = ['Admin', 'Supervisor'];
+  
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view rejected vehicles',
+      requiredRoles: allowedRoles
+    });
+  }
+
+  VehicleController.getRejectedVehicles(req, res, next);
+});
+
+/**
  * @route   POST /api/vehicles/validate-plate
  * @desc    Validate plate number uniqueness (real-time validation)
  * @access  Admins, Supervisors

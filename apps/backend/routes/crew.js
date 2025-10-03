@@ -60,6 +60,44 @@ router.get('/pending-approval', (req, res, next) => {
 });
 
 /**
+ * @route   GET /api/crew/approved
+ * @desc    Get all approved crew members
+ * @access  Admins, Supervisors
+ */
+router.get('/approved', (req, res, next) => {
+  const allowedRoles = ['Admin', 'Supervisor'];
+  
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view approved crew members',
+      requiredRoles: allowedRoles
+    });
+  }
+
+  CrewController.getApprovedCrew(req, res, next);
+});
+
+/**
+ * @route   GET /api/crew/rejected
+ * @desc    Get all rejected crew members
+ * @access  Admins, Supervisors
+ */
+router.get('/rejected', (req, res, next) => {
+  const allowedRoles = ['Admin', 'Supervisor'];
+  
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to view rejected crew members',
+      requiredRoles: allowedRoles
+    });
+  }
+
+  CrewController.getRejectedCrew(req, res, next);
+});
+
+/**
  * @route   GET /api/crew/available/:role
  * @desc    Get available crew members by role for assignment
  * @access  Dispatchers, Supervisors, Admins

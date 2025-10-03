@@ -1249,7 +1249,18 @@ class CrewController {
         role: crewMember.professional.role
       };
 
-      // Log the rejection action BEFORE deleting
+      // Mark crew member as rejected instead of deleting (for history tracking)
+      crewMember.settings.isActive = false;
+      crewMember.rejectionDetails = {
+        rejectedBy: req.user._id,
+        rejectedAt: new Date(),
+        reason: reason,
+        status: 'rejected'
+      };
+      
+      await crewMember.save();
+
+      // Log the rejection action
       await AuditLog.logAction({
         actionType: 'reject',
         description: `Crew member rejected: ${crewInfo.role} ${crewInfo.fullName} - Reason: ${reason}`,
@@ -1269,13 +1280,10 @@ class CrewController {
         isPrivileged: true
       });
 
-      // Delete the rejected crew member
-      await Crew.findByIdAndDelete(id);
-
       // TODO: Send email notification to admin who registered the crew member
       console.log('📧 TODO: Send rejection notification email');
 
-      console.log('✅ Crew member rejected and deleted:', crewInfo.employeeId);
+      console.log('✅ Crew member marked as rejected (preserved for history):', crewInfo.employeeId);
 
       res.status(200).json({
         success: true,
@@ -1292,6 +1300,73 @@ class CrewController {
       res.status(500).json({
         success: false,
         message: 'Failed to reject crew member',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Get all approved crew members
+   * GET /api/crew/approved
+   */
+  static async getApprovedCrew(req, res) {
+    try {
+      console.log('📋 Fetching approved crew members');
+
+      const approvedCrew = await Crew.find({ 
+        'settings.isActive': true,
+        rejectionDetails: { $exists: false }
+      })
+        .populate('professional.homeStation', 'name location')
+        .populate('professional.currentStation', 'name location')
+        .sort({ 'audit.createdAt': -1 });
+
+      res.status(200).json({
+        success: true,
+        count: approvedCrew.length,
+        data: {
+          approvedCrew: approvedCrew
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Get approved crew error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve approved crew members',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Get all rejected crew members
+   * GET /api/crew/rejected
+   */
+  static async getRejectedCrew(req, res) {
+    try {
+      console.log('📋 Fetching rejected crew members');
+
+      const rejectedCrew = await Crew.find({ 
+        'rejectionDetails.status': 'rejected'
+      })
+        .populate('rejectionDetails.rejectedBy', 'personal.firstName personal.lastName auth.role')
+        .populate('professional.homeStation', 'name location')
+        .sort({ 'rejectionDetails.rejectedAt': -1 });
+
+      res.status(200).json({
+        success: true,
+        count: rejectedCrew.length,
+        data: {
+          rejectedCrew: rejectedCrew
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Get rejected crew error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve rejected crew members',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
