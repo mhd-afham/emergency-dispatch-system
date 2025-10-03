@@ -120,6 +120,30 @@ export interface CreateShiftForm {
   recurrence: 'none' | 'daily' | 'weekly' | 'custom';
 }
 
+// Update format that matches backend's nested structure
+export interface UpdateShiftData {
+  shift?: {
+    name?: string;
+    type?: 'regular' | 'overtime' | 'emergency';
+  };
+  schedule?: {
+    startTime?: string;
+    endTime?: string;
+    recurrence?: 'none' | 'daily' | 'weekly' | 'custom';
+  };
+  staffing?: {
+    requiredCrewCount?: number;
+    requiredRoles?: string[];
+    minimumCertificationLevel?: 'Basic' | 'Intermediate' | 'Advanced' | 'Expert';
+  };
+  supervision?: {
+    supervisorNotes?: string;
+  };
+  status?: {
+    current?: 'planned' | 'active' | 'completed' | 'cancelled';
+  };
+}
+
 export interface ShiftsResponse {
   success: boolean;
   data: Shift[];
@@ -183,7 +207,7 @@ export const shiftService = {
   },
 
   // Update shift
-  updateShift: async (id: string, updates: Partial<CreateShiftForm>): Promise<ShiftResponse> => {
+  updateShift: async (id: string, updates: UpdateShiftData | Partial<CreateShiftForm>): Promise<ShiftResponse> => {
     const response = await api.put(`/api/shifts/${id}`, updates);
     return response.data;
   },

@@ -3,6 +3,7 @@ const router = express.Router();
 const Shift = require("../models/Shift");
 const Crew = require("../models/Crew");
 const User = require("../models/User");
+const Station = require("../models/Station");
 const { authenticate, authorize } = require("../middleware/auth");
 
 // @route   GET /api/shifts
@@ -636,14 +637,16 @@ router.post("/:id/assign-crew", authenticate, authorize("Supervisor", "Admin"), 
       }
     );
 
-    // Populate for response
-    await shift.populate("staffing.assignedCrew.crewId", "personal professional");
+    // Populate for response with full details
+    await shift.populate("stationId", "name location");
+    await shift.populate("supervision.supervisorId", "firstName lastName email");
+    await shift.populate("staffing.assignedCrew.crewId", "personal professional currentStatus");
 
     res.json({
       success: true,
       message: `Successfully assigned ${newAssignments.length} crew members to shift`,
-      data: {
-        shift,
+      data: shift,
+      meta: {
         newAssignments: newAssignments.length,
         totalAssigned: shift.staffing.assignedCrew.length,
         remainingNeeded: shift.staffing.requiredCrewCount - shift.staffing.assignedCrew.length,
