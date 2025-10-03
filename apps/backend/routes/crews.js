@@ -9,7 +9,7 @@ const {
 } = require("../controllers/crewController");
 
 // Import authentication middleware
-const { protect, authorize } = require("../middleware/auth");
+const { authenticate, authorize } = require("../middleware/auth");
 
 /**
  * Crew Routes
@@ -22,7 +22,7 @@ const { protect, authorize } = require("../middleware/auth");
 // @access  Private (Field Crew)
 router.get(
   "/by-employee/:employeeId",
-  protect,
+  authenticate,
   authorize("Field Crew", "Admin"),
   getCrewByEmployeeId
 );
@@ -32,7 +32,7 @@ router.get(
 // @access  Private (Supervisor, Admin)
 router.get(
   "/leaders/available",
-  protect,
+  authenticate,
   authorize("Supervisor", "Admin"),
   getAvailableLeaders
 );
@@ -42,7 +42,7 @@ router.get(
 // @access  Private (Field Crew, Dispatcher, Admin)
 router.get(
   "/:crewId/assignments",
-  protect,
+  authenticate,
   authorize("Field Crew", "Dispatcher", "Admin"),
   getCrewAssignments
 );
@@ -52,7 +52,7 @@ router.get(
 // @access  Private (Field Crew, Dispatcher, Admin)
 router.get(
   "/:crewId/vehicle",
-  protect,
+  authenticate,
   authorize("Field Crew", "Dispatcher", "Admin"),
   getCrewVehicle
 );
@@ -62,7 +62,7 @@ router.get(
 // @access  Private (Field Crew)
 router.put(
   "/:crewId/location",
-  protect,
+  authenticate,
   authorize("Field Crew", "Admin"),
   updateCrewLocation
 );

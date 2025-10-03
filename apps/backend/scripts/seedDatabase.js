@@ -546,13 +546,33 @@ class DatabaseSeeder {
     createdVehicles,
     createdCrew,
     createdIncidents,
-    createdShifts
+    createdShifts,
+    createdUsers
   ) {
     console.log(
       "🔹 Phase 2: Updating circular dependencies following documented strategy..."
     );
 
     try {
+      // 0. Verify User-Crew linking via employeeId (no database update needed)
+      console.log("   • Verifying User-Crew links via employeeId...");
+      let linkedCount = 0;
+      for (const crewMember of createdCrew) {
+        if (crewMember.professional.isLeader) {
+          // Find matching User by employeeId
+          const matchingUser = createdUsers.find(
+            (user) => user.auth.employeeId === crewMember.personal.employeeId
+          );
+
+          if (matchingUser && matchingUser.auth.role === "Field Crew") {
+            linkedCount++;
+          }
+        }
+      }
+      console.log(
+        `   • Verified ${linkedCount} crew leaders have matching User accounts`
+      );
+
       // 1. Update Crew → Vehicle assignments (assign each crew leader to a vehicle)
       console.log("   • Assigning crew leaders to vehicles...");
       for (
@@ -638,6 +658,9 @@ class DatabaseSeeder {
       // Log assignment summary
       console.log("📋 Assignment Summary:");
       console.log(
+        `   • ${linkedCount} crew leaders have matching User accounts (linked via employeeId)`
+      );
+      console.log(
         `   • ${Math.min(
           createdCrew.length,
           createdVehicles.length
@@ -717,7 +740,8 @@ class DatabaseSeeder {
         createdVehicles,
         createdCrew,
         createdIncidents,
-        createdShifts
+        createdShifts,
+        createdUsers
       );
 
       console.log("");

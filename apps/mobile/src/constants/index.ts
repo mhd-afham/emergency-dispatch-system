@@ -1,25 +1,48 @@
 // Local constants for mobile app
+
+// API Configuration
+export const API_BASE_URL = "http://localhost:5000/api";
+export const WEBSOCKET_URL = "http://localhost:5000";
+
 export const API_ENDPOINTS = {
-  AUTH: "/api/auth",
-  INCIDENTS: "/api/incidents",
-  VEHICLES: "/api/vehicles",
-  CREW: "/api/crew",
-  STATIONS: "/api/stations",
-  SHIFTS: "/api/shifts",
-  ASSIGNMENTS: "/api/assignments",
-  COMMUNICATIONS: "/api/communications",
-  REPORTS: "/api/reports",
-  EQUIPMENT: "/api/equipment",
-  AUDIT: "/api/audit",
+  AUTH: "/auth",
+  INCIDENTS: "/incidents",
+  VEHICLES: "/vehicles",
+  CREWS: "/crews",
+  STATIONS: "/stations",
+  SHIFTS: "/shifts",
+  ASSIGNMENTS: "/assignments",
+  COMMUNICATIONS: "/communications",
+  REPORTS: "/reports",
+  EQUIPMENT: "/equipment",
+  AUDIT: "/audit",
 };
 
 export const USER_ROLES = {
   ADMIN: "Admin",
   SUPERVISOR: "Supervisor",
   DISPATCHER: "Dispatcher",
-  CALL_TAKER: "Call Taker",
-  CREW_MEMBER: "Crew Member",
+  FIELD_CREW: "Field Crew", // Mobile app users
 } as const;
+
+export const ASSIGNMENT_STATUS = {
+  ASSIGNED: "assigned",
+  ACCEPTED: "accepted",
+  DECLINED: "declined",
+  EN_ROUTE: "en_route",
+  ON_SCENE: "on_scene",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+} as const;
+
+export const DECLINE_REASONS = [
+  { label: "Vehicle Issue", value: "vehicle_issue" },
+  { label: "Medical Emergency", value: "medical_emergency" },
+  { label: "Equipment Failure", value: "equipment_failure" },
+  { label: "Other", value: "other" },
+] as const;
+
+export const GPS_UPDATE_INTERVAL = 15000; // 15 seconds when en_route
 
 export const INCIDENT_TYPES = {
   FIRE: "Fire",

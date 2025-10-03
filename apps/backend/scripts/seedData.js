@@ -132,6 +132,528 @@ const users = [
       },
     },
   },
+  // FIELD CREW LEADERS (20 users matching crew leaders with isLeader: true)
+  // Employee IDs: EMP000001-EMP000019 and EMP000021
+  {
+    personal: {
+      firstName: "Nuwan",
+      lastName: "Silva",
+      email: "nuwan.silva@respondr.lk",
+      dateOfBirth: new Date("1982-05-10"),
+      gender: "male",
+      address: {
+        street: "12 Chatham Street",
+        city: "Colombo",
+        province: "Western Province",
+        postalCode: "00100",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234501",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000021",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Chamara",
+      lastName: "Jayasinghe",
+      email: "chamara.jayasinghe@respondr.lk",
+      dateOfBirth: new Date("1984-02-15"),
+      gender: "male",
+      address: {
+        street: "67 Peradeniya Road",
+        city: "Kandy",
+        province: "Central Province",
+        postalCode: "20000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234503",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000001",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Ravindra",
+      lastName: "Fernando",
+      email: "ravindra.fernando@respondr.lk",
+      dateOfBirth: new Date("1986-09-20"),
+      gender: "male",
+      address: {
+        street: "23 Lighthouse Street",
+        city: "Galle",
+        province: "Southern Province",
+        postalCode: "80000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234505",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000002",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Asanka",
+      lastName: "Rajapaksa",
+      email: "asanka.rajapaksa@respondr.lk",
+      dateOfBirth: new Date("1983-07-08"),
+      gender: "male",
+      address: {
+        street: "45 Matara Road",
+        city: "Matara",
+        province: "Southern Province",
+        postalCode: "81000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234507",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000003",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Mahinda",
+      lastName: "Wijeratne",
+      email: "mahinda.wijeratne@respondr.lk",
+      dateOfBirth: new Date("1985-11-14"),
+      gender: "male",
+      address: {
+        street: "78 Sacred City Road",
+        city: "Anuradhapura",
+        province: "North Central Province",
+        postalCode: "50000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234509",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000004",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Chaminda",
+      lastName: "Perera",
+      email: "chaminda.perera@respondr.lk",
+      dateOfBirth: new Date("1989-06-25"),
+      gender: "male",
+      address: {
+        street: "34 Galle Road",
+        city: "Mount Lavinia",
+        province: "Western Province",
+        postalCode: "10370",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234511",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000005",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Suresh",
+      lastName: "Mendis",
+      email: "suresh.mendis@respondr.lk",
+      dateOfBirth: new Date("1987-04-18"),
+      gender: "male",
+      address: {
+        street: "89 Main Street",
+        city: "Matale",
+        province: "Central Province",
+        postalCode: "21000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234513",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000006",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Priyantha",
+      lastName: "Gunasekara",
+      email: "priyantha.gunasekara@respondr.lk",
+      dateOfBirth: new Date("1988-12-03"),
+      gender: "male",
+      address: {
+        street: "56 Station Road",
+        city: "Dehiwala",
+        province: "Western Province",
+        postalCode: "10350",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234515",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000007",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Lakmal",
+      lastName: "Wijesuriya",
+      email: "lakmal.wijesuriya@respondr.lk",
+      dateOfBirth: new Date("1990-01-28"),
+      gender: "male",
+      address: {
+        street: "12 Beach Road",
+        city: "Hikkaduwa",
+        province: "Southern Province",
+        postalCode: "80240",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234517",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000008",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Kamal",
+      lastName: "Ratnayake",
+      email: "kamal.ratnayake@respondr.lk",
+      dateOfBirth: new Date("1986-10-12"),
+      gender: "male",
+      address: {
+        street: "34 Ancient City Road",
+        city: "Polonnaruwa",
+        province: "North Central Province",
+        postalCode: "51000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234519",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000009",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Upul",
+      lastName: "Bandara",
+      email: "upul.bandara@respondr.lk",
+      dateOfBirth: new Date("1991-03-22"),
+      gender: "male",
+      address: {
+        street: "67 Harbour Road",
+        city: "Trincomalee",
+        province: "Eastern Province",
+        postalCode: "31000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234521",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000010",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Ajith",
+      lastName: "Kumara",
+      email: "ajith.kumara@respondr.lk",
+      dateOfBirth: new Date("1988-07-15"),
+      gender: "male",
+      address: {
+        street: "23 Galle Road",
+        city: "Bentota",
+        province: "Southern Province",
+        postalCode: "80500",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234523",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000011",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Saman",
+      lastName: "Wickramasinghe",
+      email: "saman.wickramasinghe@respondr.lk",
+      dateOfBirth: new Date("1985-04-20"),
+      gender: "male",
+      address: {
+        street: "45 Lewis Place",
+        city: "Negombo",
+        province: "Western Province",
+        postalCode: "11500",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234525",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000012",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Tharaka",
+      lastName: "Senanayake",
+      email: "tharaka.senanayake@respondr.lk",
+      dateOfBirth: new Date("1987-08-30"),
+      gender: "male",
+      address: {
+        street: "12 Galle Road",
+        city: "Ratmalana",
+        province: "Western Province",
+        postalCode: "10390",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234527",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000013",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Dinesh",
+      lastName: "Ratnayake",
+      email: "dinesh.ratnayake@respondr.lk",
+      dateOfBirth: new Date("1984-12-05"),
+      gender: "male",
+      address: {
+        street: "78 William Gopallawa Mawatha",
+        city: "Peradeniya",
+        province: "Central Province",
+        postalCode: "20400",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234529",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000014",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Janaka",
+      lastName: "Dissanayake",
+      email: "janaka.dissanayake@respondr.lk",
+      dateOfBirth: new Date("1989-05-18"),
+      gender: "male",
+      address: {
+        street: "34 Main Street",
+        city: "Batticaloa",
+        province: "Eastern Province",
+        postalCode: "30000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234531",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000015",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Roshan",
+      lastName: "Cooray",
+      email: "roshan.cooray@respondr.lk",
+      dateOfBirth: new Date("1988-01-30"),
+      gender: "male",
+      address: {
+        street: "56 Galle Road",
+        city: "Ambalangoda",
+        province: "Southern Province",
+        postalCode: "80300",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234533",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000016",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Nimal",
+      lastName: "Jayawardena",
+      email: "nimal.jayawardena@respondr.lk",
+      dateOfBirth: new Date("1982-06-12"),
+      gender: "male",
+      address: {
+        street: "23 Colombo Fort",
+        city: "Colombo",
+        province: "Western Province",
+        postalCode: "00100",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234535",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000017",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Susil",
+      lastName: "Fonseka",
+      email: "susil.fonseka@respondr.lk",
+      dateOfBirth: new Date("1986-04-25"),
+      gender: "male",
+      address: {
+        street: "45 Dalada Veediya",
+        city: "Kandy",
+        province: "Central Province",
+        postalCode: "20000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234537",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000018",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
+  {
+    personal: {
+      firstName: "Gamini",
+      lastName: "Silva",
+      email: "gamini.silva@respondr.lk",
+      dateOfBirth: new Date("1990-08-15"),
+      gender: "male",
+      address: {
+        street: "67 Main Street",
+        city: "Galle",
+        province: "Southern Province",
+        postalCode: "80000",
+        country: "Sri Lanka",
+      },
+      phone: "+94771234539",
+    },
+    auth: {
+      password: "crew12345",
+      role: "Field Crew",
+      employeeId: "EMP000019",
+    },
+    settings: {
+      isActive: true,
+      emailVerified: true,
+    },
+  },
 ];
 
 // Station seed data for Sri Lanka
@@ -1475,7 +1997,7 @@ const crew = [
       employeeId: "EMP000021",
       firstName: "Nuwan",
       lastName: "Silva",
-      email: "nuwan.silva@fire.gov.lk",
+      email: "nuwan.silva@respondr.lk",
       phone: "+94771234501",
     },
     professional: {
@@ -1540,7 +2062,7 @@ const crew = [
       employeeId: "EMP000001",
       firstName: "Chamara",
       lastName: "Jayasinghe",
-      email: "chamara.jayasinghe@fire.gov.lk",
+      email: "chamara.jayasinghe@respondr.lk",
       phone: "+94771234503",
     },
     professional: {
@@ -1592,7 +2114,7 @@ const crew = [
       employeeId: "EMP000002",
       firstName: "Ravindra",
       lastName: "Fernando",
-      email: "ravindra.fernando@fire.gov.lk",
+      email: "ravindra.fernando@respondr.lk",
       phone: "+94771234505",
     },
     professional: {
@@ -1648,7 +2170,7 @@ const crew = [
       employeeId: "EMP000003",
       firstName: "Asanka",
       lastName: "Rajapaksa",
-      email: "asanka.rajapaksa@fire.gov.lk",
+      email: "asanka.rajapaksa@respondr.lk",
       phone: "+94771234507",
     },
     professional: {
@@ -1704,7 +2226,7 @@ const crew = [
       employeeId: "EMP000004",
       firstName: "Mahinda",
       lastName: "Wijeratne",
-      email: "mahinda.wijeratne@fire.gov.lk",
+      email: "mahinda.wijeratne@respondr.lk",
       phone: "+94771234509",
     },
     professional: {
@@ -1762,7 +2284,7 @@ const crew = [
       employeeId: "EMP000005",
       firstName: "Chaminda",
       lastName: "Perera",
-      email: "chaminda.perera@health.gov.lk",
+      email: "chaminda.perera@respondr.lk",
       phone: "+94771234511",
     },
     professional: {
@@ -1827,7 +2349,7 @@ const crew = [
       employeeId: "EMP000006",
       firstName: "Suresh",
       lastName: "Mendis",
-      email: "suresh.mendis@health.gov.lk",
+      email: "suresh.mendis@respondr.lk",
       phone: "+94771234513",
     },
     professional: {
@@ -1879,7 +2401,7 @@ const crew = [
       employeeId: "EMP000007",
       firstName: "Priyantha",
       lastName: "Gunasekara",
-      email: "priyantha.gunasekara@health.gov.lk",
+      email: "priyantha.gunasekara@respondr.lk",
       phone: "+94771234515",
     },
     professional: {
@@ -1931,7 +2453,7 @@ const crew = [
       employeeId: "EMP000008",
       firstName: "Lakmal",
       lastName: "Wijesuriya",
-      email: "lakmal.wijesuriya@health.gov.lk",
+      email: "lakmal.wijesuriya@respondr.lk",
       phone: "+94771234517",
     },
     professional: {
@@ -1987,7 +2509,7 @@ const crew = [
       employeeId: "EMP000009",
       firstName: "Kamal",
       lastName: "Ratnayake",
-      email: "kamal.ratnayake@health.gov.lk",
+      email: "kamal.ratnayake@respondr.lk",
       phone: "+94771234519",
     },
     professional: {
@@ -2039,7 +2561,7 @@ const crew = [
       employeeId: "EMP000010",
       firstName: "Upul",
       lastName: "Bandara",
-      email: "upul.bandara@health.gov.lk",
+      email: "upul.bandara@respondr.lk",
       phone: "+94771234521",
     },
     professional: {
@@ -2095,7 +2617,7 @@ const crew = [
       employeeId: "EMP000011",
       firstName: "Ajith",
       lastName: "Kumara",
-      email: "ajith.kumara@health.gov.lk",
+      email: "ajith.kumara@respondr.lk",
       phone: "+94771234523",
     },
     professional: {
@@ -2149,7 +2671,7 @@ const crew = [
       employeeId: "EMP000012",
       firstName: "Saman",
       lastName: "Wickramasinghe",
-      email: "saman.wickramasinghe@rescue.gov.lk",
+      email: "saman.wickramasinghe@respondr.lk",
       phone: "+94771234525",
     },
     professional: {
@@ -2214,7 +2736,7 @@ const crew = [
       employeeId: "EMP000013",
       firstName: "Tharaka",
       lastName: "Senanayake",
-      email: "tharaka.senanayake@rescue.gov.lk",
+      email: "tharaka.senanayake@respondr.lk",
       phone: "+94771234527",
     },
     professional: {
@@ -2271,7 +2793,7 @@ const crew = [
       employeeId: "EMP000014",
       firstName: "Dinesh",
       lastName: "Ratnayake",
-      email: "dinesh.ratnayake@rescue.gov.lk",
+      email: "dinesh.ratnayake@respondr.lk",
       phone: "+94771234529",
     },
     professional: {
@@ -2323,7 +2845,7 @@ const crew = [
       employeeId: "EMP000015",
       firstName: "Janaka",
       lastName: "Dissanayake",
-      email: "janaka.dissanayake@rescue.gov.lk",
+      email: "janaka.dissanayake@respondr.lk",
       phone: "+94771234531",
     },
     professional: {
@@ -2380,7 +2902,7 @@ const crew = [
       employeeId: "EMP000016",
       firstName: "Roshan",
       lastName: "Cooray",
-      email: "roshan.cooray@rescue.gov.lk",
+      email: "roshan.cooray@respondr.lk",
       phone: "+94771234533",
     },
     professional: {
@@ -2439,7 +2961,7 @@ const crew = [
       employeeId: "EMP000017",
       firstName: "Inspector Nimal",
       lastName: "Jayawardena",
-      email: "nimal.jayawardena@police.gov.lk",
+      email: "nimal.jayawardena@respondr.lk",
       phone: "+94771234535",
     },
     professional: {
@@ -2499,7 +3021,7 @@ const crew = [
       employeeId: "EMP000018",
       firstName: "Sergeant Susil",
       lastName: "Fonseka",
-      email: "susil.fonseka@police.gov.lk",
+      email: "susil.fonseka@respondr.lk",
       phone: "+94771234537",
     },
     professional: {
@@ -2551,7 +3073,7 @@ const crew = [
       employeeId: "EMP000019",
       firstName: "Constable Gamini",
       lastName: "Silva",
-      email: "gamini.silva@police.gov.lk",
+      email: "gamini.silva@respondr.lk",
       phone: "+94771234539",
     },
     professional: {

@@ -1,11 +1,12 @@
 import axios, { AxiosInstance, AxiosResponse } from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../constants";
 
 class ApiClient {
   private instance: AxiosInstance;
   private authToken: string = "";
 
-  constructor(baseURL: string = "http://localhost:5000") {
+  constructor(baseURL: string = API_BASE_URL) {
     this.instance = axios.create({
       baseURL,
       timeout: 10000,
@@ -113,6 +114,40 @@ class ApiClient {
 
   public async deleteIncident(id: string): Promise<AxiosResponse> {
     return this.delete(`/incidents/${id}`);
+  }
+
+  // Crew endpoints (Sprint 1)
+  public async getCrewByEmployeeId(employeeId: string): Promise<AxiosResponse> {
+    return this.get(`/crews/by-employee/${employeeId}`);
+  }
+
+  public async getCrewAssignments(crewId: string): Promise<AxiosResponse> {
+    return this.get(`/crews/${crewId}/assignments`);
+  }
+
+  public async getCrewVehicle(crewId: string): Promise<AxiosResponse> {
+    return this.get(`/crews/${crewId}/vehicle`);
+  }
+
+  public async updateCrewLocation(
+    crewId: string,
+    coordinates: [number, number]
+  ): Promise<AxiosResponse> {
+    return this.put(`/crews/${crewId}/location`, { coordinates });
+  }
+
+  // Assignment endpoints (Sprint 1)
+  public async updateAssignmentStatus(
+    assignmentId: string,
+    status: string,
+    declineReason?: string,
+    notes?: string
+  ): Promise<AxiosResponse> {
+    return this.put(`/assignments/${assignmentId}/status`, {
+      status,
+      declineReason,
+      notes,
+    });
   }
 }
 
