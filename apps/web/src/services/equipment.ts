@@ -360,6 +360,147 @@ class EquipmentService {
       throw error;
     }
   }
+
+  // ========== MAINTENANCE RECORDS METHODS ==========
+
+  /**
+   * Get all maintenance records with optional filters
+   */
+  async getAllMaintenanceRecords(params?: {
+    vehicleId?: string;
+    status?: string;
+    recordType?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.vehicleId) queryParams.append('vehicleId', params.vehicleId);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.recordType) queryParams.append('recordType', params.recordType);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await fetch(`${API_BASE_URL}/equipment/maintenance?${queryParams}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get maintenance records: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  /**
+   * Create a new maintenance record
+   */
+  async createMaintenanceRecord(recordData: {
+    vehicleId: string;
+    recordType: 'ROUTINE' | 'CORRECTIVE' | 'EMERGENCY';
+    description: string;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+    createdBy: string;
+  }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/equipment/maintenance`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(recordData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create maintenance record: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  /**
+   * Update an existing maintenance record
+   */
+  async updateMaintenanceRecord(id: string, updateData: {
+    recordType?: 'ROUTINE' | 'CORRECTIVE' | 'EMERGENCY';
+    description?: string;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+    status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/equipment/maintenance/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(updateData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update maintenance record: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  /**
+   * Delete a maintenance record
+   */
+  async deleteMaintenanceRecord(id: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/equipment/maintenance/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete maintenance record: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  // ========== CHECKLIST TEMPLATES METHODS ==========
+
+  /**
+   * Get all checklist templates with optional filters
+   */
+  async getChecklistTemplates(params?: {
+    vehicleType?: string;
+    isActive?: boolean;
+  }): Promise<{ templates: any[]; count: number }> {
+    const queryParams = new URLSearchParams();
+    if (params?.vehicleType) queryParams.append('vehicleType', params.vehicleType);
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
+
+    const response = await fetch(`${API_BASE_URL}/equipment/checklist-templates?${queryParams}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get checklist templates: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  // ========== VEHICLES METHODS ==========
+
+  /**
+   * Get all vehicles for selection in forms
+   */
+  async getAllVehicles(): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/equipment/test-vehicles`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get vehicles: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
 }
 
 export const equipmentService = new EquipmentService();

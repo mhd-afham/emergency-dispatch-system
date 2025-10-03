@@ -302,6 +302,66 @@ router.get('/status',
 );
 
 /**
+ * @route   GET /api/equipment/checklist-templates
+ * @desc    Get all checklist templates with optional vehicle type filter
+ * @access  Field Crews, Supervisors, Admins
+ */
+router.get('/checklist-templates',
+  auditLog('GET_CHECKLIST_TEMPLATES', 'EQUIPMENT'),
+  async (req, res) => {
+    try {
+      console.log('📋 Fetching checklist templates with filters:', req.query);
+      
+      const allowedRoles = ['Field Crew', 'Crew Leader', 'Supervisor', 'Admin'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to view checklist templates'
+        });
+      }
+
+      const { vehicleType, isActive } = req.query;
+
+      const EquipmentChecklistTemplate = require('../models/EquipmentChecklistTemplate');
+      
+      // Build query
+      const query = {};
+      
+      if (vehicleType) {
+        query.vehicleType = vehicleType;
+      }
+      
+      if (isActive !== undefined) {
+        query['settings.isActive'] = isActive === 'true';
+      }
+
+      const templates = await EquipmentChecklistTemplate.find(query)
+        .populate('audit.createdBy', 'personal.firstName personal.lastName')
+        .sort({ 'template.version': -1 });
+
+      console.log(`✅ Found ${templates.length} checklist templates`);
+
+      res.json({
+        success: true,
+        message: 'Checklist templates retrieved successfully',
+        data: {
+          templates: templates,
+          count: templates.length
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error fetching checklist templates:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve checklist templates',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
  * @route   GET /api/equipment/test-vehicles
  * @desc    Get all vehicles for testing maintenance record creation
  * @access  Supervisors, Maintenance Technicians, Admins
@@ -329,6 +389,117 @@ router.get('/test-vehicles',
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve test vehicles',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/equipment/maintenance
+ * @desc    Get all maintenance records with filtering
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.get('/maintenance',
+  auditLog('GET_MAINTENANCE_RECORDS', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('🔍 Fetching maintenance records with filters:', req.query);
+      
+      const allowedRoles = ['Supervisor', 'Maintenance Technician', 'Admin', 'Field Crew', 'Crew Leader'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to view maintenance records'
+        });
+      }
+
+      const { 
+        page = 1, 
+        limit = 10,
+        vehicleId,
+        recordType,
+        priority,
+        status,
+        startDate,
+        endDate,
+        sortBy = 'createdAt',
+        sortOrder = 'desc'
+      } = req.query;
+
+      // Build query
+      const query = {};
+      
+      if (vehicleId && mongoose.Types.ObjectId.isValid(vehicleId)) {
+        query.vehicleId = vehicleId;
+      }
+      
+      if (recordType) {
+        query.recordType = recordType;
+      }
+      
+      if (priority) {
+        query.priority = priority;
+      }
+      
+      if (status) {
+        query.status = status;
+      }
+      
+      if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) {
+          query.createdAt.$gte = new Date(startDate);
+        }
+        if (endDate) {
+          query.createdAt.$lte = new Date(endDate);
+        }
+      }
+
+      console.log('🔍 Query:', JSON.stringify(query, null, 2));
+
+      // Calculate pagination
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+
+      // Execute query with pagination
+      const maintenanceRecords = await MaintenanceRecord.find(query)
+        .populate('vehicleId', 'registration.plateNumber registration.vehicleType type specifications.model')
+        .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+
+      // Get total count for pagination
+      const total = await MaintenanceRecord.countDocuments(query);
+
+      console.log(`✅ Found ${maintenanceRecords.length} maintenance records (total: ${total})`);
+
+      res.json({
+        success: true,
+        message: 'Maintenance records retrieved successfully',
+        data: {
+          maintenanceRecords: maintenanceRecords,
+          pagination: {
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(total / parseInt(limit)),
+            totalRecords: total,
+            hasNextPage: skip + maintenanceRecords.length < total,
+            hasPrevPage: parseInt(page) > 1
+          },
+          filters: {
+            vehicleId,
+            recordType,
+            priority,
+            status,
+            dateRange: { startDate, endDate }
+          }
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error fetching maintenance records:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve maintenance records',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
