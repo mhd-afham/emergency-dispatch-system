@@ -331,6 +331,98 @@ class EquipmentService {
 
     return data.data;
   }
+
+  // Vehicle Management Methods
+  async getAllVehicles(): Promise<any[]> {
+    try {
+      // For now, return mock data since the backend endpoint doesn't exist yet
+      // TODO: Implement backend endpoint /api/vehicles
+      console.warn('getAllVehicles: Using mock data - backend endpoint not implemented');
+      return [];
+    } catch (error) {
+      console.error('Failed to get vehicles:', error);
+      return [];
+    }
+  }
+
+  // Maintenance Record Methods
+  async getAllMaintenanceRecords(params: {
+    page?: number;
+    limit?: number;
+    vehicleId?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  } = {}): Promise<{
+    maintenanceRecords: any[];
+    pagination?: {
+      currentPage: number;
+      totalPages: number;
+      totalRecords: number;
+    };
+  }> {
+    try {
+      // For now, return mock data since the backend endpoint doesn't exist yet
+      // TODO: Implement backend endpoint /api/equipment/maintenance
+      console.warn('getAllMaintenanceRecords: Using mock data - backend endpoint not implemented');
+      return {
+        maintenanceRecords: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 0,
+          totalRecords: 0
+        }
+      };
+    } catch (error) {
+      console.error('Failed to get maintenance records:', error);
+      return {
+        maintenanceRecords: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 0,
+          totalRecords: 0
+        }
+      };
+    }
+  }
+
+  async createMaintenanceRecord(recordData: any): Promise<any> {
+    try {
+      // For now, just log and return mock data
+      // TODO: Implement backend endpoint POST /api/equipment/maintenance
+      console.warn('createMaintenanceRecord: Using mock implementation - backend endpoint not implemented');
+      console.log('Would create maintenance record:', recordData);
+      return { _id: 'mock-id', ...recordData };
+    } catch (error) {
+      console.error('Failed to create maintenance record:', error);
+      throw error;
+    }
+  }
+
+  async updateMaintenanceRecord(id: string, recordData: any): Promise<any> {
+    try {
+      // For now, just log and return mock data
+      // TODO: Implement backend endpoint PUT /api/equipment/maintenance/:id
+      console.warn('updateMaintenanceRecord: Using mock implementation - backend endpoint not implemented');
+      console.log('Would update maintenance record:', id, recordData);
+      return { _id: id, ...recordData };
+    } catch (error) {
+      console.error('Failed to update maintenance record:', error);
+      throw error;
+    }
+  }
+
+  async deleteMaintenanceRecord(id: string): Promise<void> {
+    try {
+      // For now, just log
+      // TODO: Implement backend endpoint DELETE /api/equipment/maintenance/:id
+      console.warn('deleteMaintenanceRecord: Using mock implementation - backend endpoint not implemented');
+      console.log('Would delete maintenance record:', id);
+    } catch (error) {
+      console.error('Failed to delete maintenance record:', error);
+      throw error;
+    }
+  }
 }
 
 export const equipmentService = new EquipmentService();
