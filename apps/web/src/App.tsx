@@ -9,7 +9,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import AuthRoute from "./components/common/AuthRoute";
 import RoleBasedDashboard from "./components/common/RoleBasedDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
+import ModularAdminDashboard from "./pages/ModularAdminDashboard";
 import CallTakerDashboard from "./pages/CallTakerDashboard";
 import DispatcherDashboard from "./pages/DispatcherDashboard";
 import ModularSupervisorDashboard from "./pages/ModularSupervisorDashboard";
@@ -104,7 +104,7 @@ function App() {
               path="/dashboard/admin"
               element={
                 <ProtectedRoute requiredRoles={["Admin"]}>
-                  <AdminDashboard />
+                  <ModularAdminDashboard />
                 </ProtectedRoute>
               }
             />

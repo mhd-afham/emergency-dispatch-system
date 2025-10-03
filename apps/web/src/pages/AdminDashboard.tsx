@@ -1,6 +1,7 @@
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
 import CreateUserForm from "../components/admin/CreateUserForm";
+import RegistrationManagement from "../components/admin/RegistrationManagement";
 
 const AdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -228,6 +229,23 @@ const AdminDashboard: React.FC = () => {
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Registration Management Section */}
+          <div className="mt-8">
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Registration Management
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Register new vehicles and crew members to the emergency dispatch system
+                </p>
+              </div>
+              <div className="p-6">
+                <RegistrationManagement />
               </div>
             </div>
           </div>

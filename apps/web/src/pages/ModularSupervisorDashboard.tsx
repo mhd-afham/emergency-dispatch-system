@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import SupervisorEquipmentSection from "../components/supervisor/SupervisorEquipmentSection";
 import SupervisorShiftSection from "../components/supervisor/SupervisorShiftSection";
+import SupervisorPendingApprovals from "../components/supervisor/SupervisorPendingApprovals";
 
 /**
  * Modular Supervisor Dashboard
@@ -17,9 +18,9 @@ import SupervisorShiftSection from "../components/supervisor/SupervisorShiftSect
 
 const ModularSupervisorDashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const [activeSection, setActiveSection] = useState<'overview' | 'equipment' | 'shifts'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'equipment' | 'shifts' | 'approvals'>('overview');
   
-  // Core supervisor data (owned by main dashboard)
+  // Core supervisor data (owned by main dashboard) - MUST be before any conditional returns
   const [pendingApprovals] = useState([
     {
       id: "APPR-001",
@@ -87,6 +88,22 @@ const ModularSupervisorDashboard: React.FC = () => {
     }
   };
 
+  // Debug logging
+  console.log('ModularSupervisorDashboard - User:', user);
+  console.log('ModularSupervisorDashboard - Active Section:', activeSection);
+
+  // Safety check - if no user, show loading (AFTER all hooks)
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading supervisor dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation Header */}
@@ -151,6 +168,16 @@ const ModularSupervisorDashboard: React.FC = () => {
               }`}
             >
               📅 Shift Management
+            </button>
+            <button
+              onClick={() => setActiveSection('approvals')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeSection === 'approvals'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              ✓ Pending Approvals
             </button>
           </nav>
         </div>
@@ -298,6 +325,11 @@ const ModularSupervisorDashboard: React.FC = () => {
         {/* Shift Management Section */}
         {activeSection === 'shifts' && (
           <SupervisorShiftSection />
+        )}
+
+        {/* Pending Approvals Section */}
+        {activeSection === 'approvals' && (
+          <SupervisorPendingApprovals />
         )}
       </div>
     </div>
