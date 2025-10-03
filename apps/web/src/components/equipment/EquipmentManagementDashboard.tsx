@@ -27,6 +27,14 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
     passRate: '0%',
   });
 
+  // Maintenance Summary Statistics
+  const [maintenanceSummary, setMaintenanceSummary] = useState({
+    maintenanceVehiclesCount: 0,
+    activeMaintenanceRecords: 0,
+    completedThisWeek: 0,
+    highPriorityCount: 0,
+  });
+
   // Maintenance Records
   const [maintenanceRecords, setMaintenanceRecords] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
@@ -37,6 +45,7 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
     recordType: 'ROUTINE' as 'ROUTINE' | 'CORRECTIVE' | 'EMERGENCY',
     description: '',
     priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH',
+    status: 'PENDING' as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED',
   });
 
   // Equipment Checks
@@ -47,6 +56,7 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
 
   useEffect(() => {
     loadDashboardData();
+    loadMaintenanceSummary();
     loadVehicles();
   }, []);
 
@@ -87,6 +97,23 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMaintenanceSummary = async () => {
+    try {
+      const summaryData = await equipmentService.getMaintenanceSummary();
+      setMaintenanceSummary(summaryData);
+      console.log('✅ Maintenance summary loaded:', summaryData);
+    } catch (err) {
+      console.error('Failed to load maintenance summary:', err);
+      // Set default values if loading fails
+      setMaintenanceSummary({
+        maintenanceVehiclesCount: 0,
+        activeMaintenanceRecords: 0,
+        completedThisWeek: 0,
+        highPriorityCount: 0,
+      });
     }
   };
 
@@ -143,9 +170,11 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
         recordType: 'ROUTINE',
         description: '',
         priority: 'MEDIUM',
+        status: 'PENDING',
       });
       loadMaintenanceRecords();
-      showToast('success', 'Maintenance record created successfully!');
+      loadMaintenanceSummary(); // Reload summary to update maintenance vehicle count
+      showToast('success', 'Maintenance record created successfully! Vehicle status updated to maintenance.');
     } catch (err) {
       showToast('error', 'Failed to create maintenance record: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
@@ -169,8 +198,10 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
         recordType: 'ROUTINE',
         description: '',
         priority: 'MEDIUM',
+        status: 'PENDING',
       });
       loadMaintenanceRecords();
+      loadMaintenanceSummary(); // Reload summary to update maintenance vehicle count
       showToast('success', 'Maintenance record updated successfully!');
     } catch (err) {
       showToast('error', 'Failed to update maintenance record: ' + (err instanceof Error ? err.message : 'Unknown error'));
@@ -247,7 +278,7 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
       {/* Summary Statistics */}
       <div className="p-6 bg-gray-50 border-b border-gray-200">
         <h3 className="text-sm font-medium text-gray-700 mb-3">Summary Statistics</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <div className="text-2xl font-bold text-blue-600">{statistics.totalChecks}</div>
             <div className="text-sm text-gray-600">Total Checks</div>
@@ -267,6 +298,15 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <div className="text-2xl font-bold text-red-600">{statistics.criticalFailures}</div>
             <div className="text-sm text-gray-600">Critical Failures</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg border border-orange-300 shadow-sm border-2">
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-2xl font-bold text-orange-600">{maintenanceSummary.maintenanceVehiclesCount}</div>
+              <div className="text-orange-500">🔧</div>
+            </div>
+            <div className="text-sm text-gray-600">Maintenance Vehicles</div>
+            <div className="text-xs text-orange-500 mt-1">Currently under maintenance</div>
           </div>
         </div>
       </div>
@@ -369,6 +409,7 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
                                   recordType: record.recordType,
                                   description: record.description,
                                   priority: record.priority,
+                                  status: record.status || 'PENDING',
                                 });
                                 setShowMaintenanceModal(true);
                               }}
@@ -526,6 +567,27 @@ const EquipmentManagementDashboard: React.FC<EquipmentManagementDashboardProps> 
                   <option value="HIGH">HIGH</option>
                 </select>
               </div>
+
+              {editingRecord && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={maintenanceForm.status}
+                    onChange={(e) => setMaintenanceForm({ ...maintenanceForm, status: e.target.value as any })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="PENDING">PENDING</option>
+                    <option value="IN_PROGRESS">IN_PROGRESS</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 Setting status to COMPLETED or CANCELLED will change vehicle status back to active
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

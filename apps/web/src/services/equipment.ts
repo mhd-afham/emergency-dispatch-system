@@ -421,6 +421,7 @@ class EquipmentService {
    * Update an existing maintenance record
    */
   async updateMaintenanceRecord(id: string, updateData: {
+    vehicleId?: string;
     recordType?: 'ROUTINE' | 'CORRECTIVE' | 'EMERGENCY';
     description?: string;
     priority?: 'LOW' | 'MEDIUM' | 'HIGH';
@@ -496,6 +497,30 @@ class EquipmentService {
 
     if (!response.ok) {
       throw new Error(`Failed to get vehicles: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  // ========== MAINTENANCE SUMMARY METHODS ==========
+
+  /**
+   * Get maintenance summary statistics including count of vehicles in maintenance
+   */
+  async getMaintenanceSummary(): Promise<{
+    maintenanceVehiclesCount: number;
+    activeMaintenanceRecords: number;
+    completedThisWeek: number;
+    highPriorityCount: number;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/equipment/maintenance/summary`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get maintenance summary: ${response.statusText}`);
     }
 
     const data = await response.json();

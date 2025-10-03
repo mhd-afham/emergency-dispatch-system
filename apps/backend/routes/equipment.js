@@ -396,6 +396,86 @@ router.get('/test-vehicles',
 );
 
 /**
+ * @route   GET /api/equipment/maintenance/summary
+ * @desc    Get maintenance summary statistics including count of vehicles in maintenance
+ * @access  Supervisors, Admins
+ */
+router.get('/maintenance/summary',
+  auditLog('GET_MAINTENANCE_SUMMARY', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('📊 Getting maintenance summary statistics');
+      
+      const allowedRoles = ['Supervisor', 'Admin', 'Data Analyst'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to view maintenance summary'
+        });
+      }
+
+      const Vehicle = require('../models/Vehicle');
+      const MaintenanceRecord = require('../models/MaintenanceRecord');
+      
+      // Count UNIQUE vehicles with active maintenance records (PENDING or IN_PROGRESS)
+      // This is the correct way - count from maintenance records, not vehicle status
+      const activeMaintenanceRecords = await MaintenanceRecord.find({
+        status: { $in: ['PENDING', 'IN_PROGRESS'] }
+      }).select('vehicleId');
+      
+      // Get unique vehicle IDs from active maintenance records
+      const uniqueVehicleIds = [...new Set(activeMaintenanceRecords.map(record => record.vehicleId.toString()))];
+      const maintenanceVehiclesCount = uniqueVehicleIds.length;
+      
+      // Total count of active maintenance records (can be multiple per vehicle)
+      const totalActiveMaintenanceRecords = activeMaintenanceRecords.length;
+      
+      // Get count of completed maintenance records this week
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      
+      const completedThisWeek = await MaintenanceRecord.countDocuments({
+        status: 'COMPLETED',
+        createdAt: { $gte: weekAgo }
+      });
+      
+      // Get count by priority for active records
+      const highPriorityCount = await MaintenanceRecord.countDocuments({
+        priority: 'HIGH',
+        status: { $in: ['PENDING', 'IN_PROGRESS'] }
+      });
+      
+      console.log('✅ Maintenance summary calculated:', {
+        maintenanceVehiclesCount,
+        totalActiveMaintenanceRecords,
+        completedThisWeek,
+        highPriorityCount,
+        uniqueVehicleIds
+      });
+      
+      res.json({
+        success: true,
+        message: 'Maintenance summary retrieved successfully',
+        data: {
+          maintenanceVehiclesCount,
+          activeMaintenanceRecords: totalActiveMaintenanceRecords,
+          completedThisWeek,
+          highPriorityCount
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error getting maintenance summary:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve maintenance summary',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
  * @route   GET /api/equipment/maintenance
  * @desc    Get all maintenance records with filtering
  * @access  Supervisors, Maintenance Technicians, Admins
@@ -629,7 +709,7 @@ router.put('/maintenance/:id',
       }
 
       const { id } = req.params;
-      const { vehicleId, recordType, description, priority } = req.body;
+      const { vehicleId, recordType, description, priority, status } = req.body;
       
       // Validate record ID format
       if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -675,15 +755,30 @@ router.put('/maintenance/:id',
       }
 
       // Update the maintenance record
+      const updateData = {
+        vehicleId,
+        recordType,
+        description,
+        priority: priority || 'MEDIUM',
+        updatedAt: new Date()
+      };
+
+      // If status is provided, include it in the update
+      if (status) {
+        updateData.status = status;
+        
+        // If maintenance is completed or cancelled, change vehicle status back to active
+        if (status === 'COMPLETED' || status === 'CANCELLED') {
+          await Vehicle.findByIdAndUpdate(vehicleId, {
+            'status.operational': 'active'
+          });
+          console.log('🔧 Vehicle status updated to active for vehicle:', vehicleId);
+        }
+      }
+
       const updatedRecord = await MaintenanceRecord.findByIdAndUpdate(
         id,
-        {
-          vehicleId,
-          recordType,
-          description,
-          priority: priority || 'MEDIUM',
-          updatedAt: new Date()
-        },
+        updateData,
         { new: true }
       ).populate('vehicleId', 'registration.plateNumber registration.vehicleType');
       
