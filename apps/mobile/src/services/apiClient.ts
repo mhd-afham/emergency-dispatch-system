@@ -19,24 +19,55 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor to add auth token
+    // Request interceptor to add auth token and log requests
     this.instance.interceptors.request.use(
       (config) => {
         const token = this.getAuthToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Enhanced request logging for debugging
+        console.log("🔵 API Request:", {
+          method: config.method?.toUpperCase(),
+          url: config.url,
+          baseURL: config.baseURL,
+          fullURL: `${config.baseURL}${config.url}`,
+          data: config.data,
+          hasToken: !!token,
+        });
+
         return config;
       },
       (error) => {
+        console.error("❌ Request Error:", error);
         return Promise.reject(error);
       }
     );
 
-    // Response interceptor for error handling
+    // Response interceptor for error handling and logging
     this.instance.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Enhanced response logging for debugging
+        console.log("✅ API Response:", {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.config.url,
+          data: response.data,
+        });
+        return response;
+      },
       (error) => {
+        // Enhanced error logging for debugging
+        console.error("❌ API Error:", {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          url: error.config?.url,
+          data: error.response?.data,
+          code: error.code,
+        });
+
         if (error.response?.status === 401) {
           this.handleAuthError();
         }
