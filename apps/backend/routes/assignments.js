@@ -68,8 +68,14 @@ router.get("/incident/:incidentId", (req, res, next) => {
  * @access  Dispatchers, Responders, Admins, Supervisors
  */
 router.put("/:id/status", (req, res, next) => {
-  // Both dispatchers and responders can update assignment status
-  const allowedRoles = ["Dispatcher", "Responder", "Admin", "Supervisor"];
+  // Dispatchers, responders, field crew, admins, and supervisors can update assignment status
+  const allowedRoles = [
+    "Dispatcher",
+    "Responder",
+    "Field Crew",
+    "Admin",
+    "Supervisor",
+  ];
 
   if (!allowedRoles.includes(req.user.auth.role)) {
     return res.status(403).json({

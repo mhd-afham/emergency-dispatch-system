@@ -37,7 +37,20 @@ export interface Vehicle {
   assignment: {
     currentIncidentId?: string;
     assignedAt?: string;
-    crew: string[]; // Array of Crew ObjectIds
+    crew: Array<{
+      _id: string;
+      employeeId: string;
+      personal: {
+        firstName: string;
+        lastName: string;
+        email?: string;
+      };
+      professional: {
+        isLeader: boolean;
+        department?: string;
+        position?: string;
+      };
+    }>; // Array of populated Crew objects (or just ObjectIds if not populated)
   };
   // Equipment Information
   equipment: {

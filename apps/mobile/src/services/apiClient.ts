@@ -28,7 +28,7 @@ class ApiClient {
         }
 
         // Enhanced request logging for debugging
-        console.log("🔵 API Request:", {
+        console.log("[API REQUEST]:", {
           method: config.method?.toUpperCase(),
           url: config.url,
           baseURL: config.baseURL,
@@ -40,7 +40,7 @@ class ApiClient {
         return config;
       },
       (error) => {
-        console.error("❌ Request Error:", error);
+        console.error("[API REQUEST ERROR]:", error);
         return Promise.reject(error);
       }
     );
@@ -49,7 +49,7 @@ class ApiClient {
     this.instance.interceptors.response.use(
       (response) => {
         // Enhanced response logging for debugging
-        console.log("✅ API Response:", {
+        console.log("[API SUCCESS]:", {
           status: response.status,
           statusText: response.statusText,
           url: response.config.url,
@@ -59,7 +59,7 @@ class ApiClient {
       },
       (error) => {
         // Enhanced error logging for debugging
-        console.error("❌ API Error:", {
+        console.error("[API ERROR]:", {
           message: error.message,
           status: error.response?.status,
           statusText: error.response?.statusText,
@@ -99,7 +99,8 @@ class ApiClient {
 
   // Auth endpoints
   public async login(email: string, password: string): Promise<AxiosResponse> {
-    return this.instance.post("/auth/login", { email, password });
+    // Backend expects "login" field (not "email")
+    return this.instance.post("/auth/login", { login: email, password });
   }
 
   public async register(userData: any): Promise<AxiosResponse> {

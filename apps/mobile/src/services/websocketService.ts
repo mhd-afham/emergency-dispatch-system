@@ -13,13 +13,13 @@ class WebSocketService {
    */
   public connect(token: string, crewId: string): void {
     if (this.socket && this.isConnected) {
-      console.log("📡 [WebSocket] Already connected");
+      console.log("[WebSocket] Already connected");
       return;
     }
 
     this.crewId = crewId;
 
-    console.log(`📡 [WebSocket] Connecting to ${WEBSOCKET_URL}...`);
+    console.log(`[WebSocket] Connecting to ${WEBSOCKET_URL}...`);
 
     this.socket = io(WEBSOCKET_URL, {
       auth: {
@@ -42,7 +42,7 @@ class WebSocketService {
     if (!this.socket) return;
 
     this.socket.on("connect", () => {
-      console.log("✅ [WebSocket] Connected successfully");
+      console.log("[WebSocket] Connected successfully");
       this.isConnected = true;
       this.reconnectAttempts = 0;
 
@@ -53,16 +53,16 @@ class WebSocketService {
     });
 
     this.socket.on("disconnect", (reason) => {
-      console.log(`❌ [WebSocket] Disconnected: ${reason}`);
+      console.log(`[WebSocket] Disconnected: ${reason}`);
       this.isConnected = false;
     });
 
     this.socket.on("connect_error", (error) => {
-      console.error("❌ [WebSocket] Connection error:", error.message);
+      console.error("[WebSocket] Connection error:", error.message);
       this.reconnectAttempts++;
 
       if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-        console.error("❌ [WebSocket] Max reconnection attempts reached");
+        console.error("[WebSocket] Max reconnection attempts reached");
       }
     });
 
@@ -71,11 +71,11 @@ class WebSocketService {
     });
 
     this.socket.on("reconnect_error", (error) => {
-      console.error("❌ [WebSocket] Reconnection error:", error.message);
+      console.error("[WebSocket] Reconnection error:", error.message);
     });
 
     this.socket.on("reconnect_failed", () => {
-      console.error("❌ [WebSocket] Reconnection failed");
+      console.error("[WebSocket] Reconnection failed");
     });
   }
 
@@ -87,7 +87,7 @@ class WebSocketService {
 
     const roomName = `crew-${crewId}`;
     this.socket.emit("join_crew_room", roomName);
-    console.log(`📡 [WebSocket] Joined room: ${roomName}`);
+    console.log(`[WebSocket] Joined room: ${roomName}`);
   }
 
   /**
@@ -142,7 +142,7 @@ class WebSocketService {
    */
   public disconnect(): void {
     if (this.socket) {
-      console.log("📡 [WebSocket] Disconnecting...");
+      console.log("[WebSocket] Disconnecting...");
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;

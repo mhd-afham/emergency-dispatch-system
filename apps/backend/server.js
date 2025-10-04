@@ -12,7 +12,12 @@ const httpServer = createServer(app);
 // Middleware
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: [
+      process.env.CLIENT_URL || "http://localhost:3000",
+      "http://192.168.1.101:8081", // Expo Dev Server
+      /^http:\/\/192\.168\.1\.\d+:8081$/, // Allow any device on local network (Expo)
+      /^http:\/\/192\.168\.1\.\d+:19000$/, // Expo Metro bundler
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
@@ -29,7 +34,12 @@ connectDB();
 // Socket.io setup
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: [
+      process.env.CLIENT_URL || "http://localhost:3000",
+      "http://192.168.1.101:8081", // Expo Dev Server
+      /^http:\/\/192\.168\.1\.\d+:8081$/, // Allow any device on local network (Expo)
+      /^http:\/\/192\.168\.1\.\d+:19000$/, // Expo Metro bundler
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -71,14 +81,18 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
+const HOST = "0.0.0.0"; // Listen on all network interfaces (IPv4)
 
 // Make io available globally for use in controllers
 global.io = io;
 app.set("io", io);
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, HOST, () => {
   console.log(`🚀 Emergency Dispatch Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`🔗 Server URL: http://localhost:${PORT}`);
-  console.log(`🔌 WebSocket Server: ws://localhost:${PORT}`);
+  console.log(`🔗 Local URL: http://localhost:${PORT}`);
+  console.log(`📱 Network URL: http://192.168.1.101:${PORT}`);
+  console.log(`🔌 WebSocket Server: ws://192.168.1.101:${PORT}`);
+  console.log(`✅ CORS enabled for mobile devices on local network`);
+  console.log(`🌐 Listening on all network interfaces (${HOST})`);
 });

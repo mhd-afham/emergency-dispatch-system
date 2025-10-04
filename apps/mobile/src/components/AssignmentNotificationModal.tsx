@@ -263,12 +263,12 @@ export default function AssignmentNotificationModal({
                   </Text>
                 </View>
 
-                {incident.location?.coordinates && (
+                {incident.location?.coordinates?.coordinates && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Coordinates:</Text>
                     <Text style={styles.detailValue}>
-                      {incident.location.coordinates[1].toFixed(6)},{" "}
-                      {incident.location.coordinates[0].toFixed(6)}
+                      {incident.location.coordinates.coordinates[1].toFixed(6)},{" "}
+                      {incident.location.coordinates.coordinates[0].toFixed(6)}
                     </Text>
                   </View>
                 )}

@@ -1,6 +1,7 @@
 const Crew = require("../models/Crew");
 const Vehicle = require("../models/Vehicle");
 const Assignment = require("../models/Assignment");
+const Station = require("../models/Station");
 
 /**
  * @desc    Get crew member by employee ID
@@ -90,7 +91,7 @@ const getCrewAssignments = async (req, res) => {
     // Find active assignments where crew is primary crew leader
     const assignments = await Assignment.find({
       "resource.primaryCrewId": crewId,
-      "response.status": { $nin: ["completed", "cancelled"] }, // Exclude completed/cancelled
+      "response.status": { $nin: ["completed", "cancelled", "declined"] }, // Exclude completed/cancelled/declined
     })
       .populate(
         "incident.incidentId",

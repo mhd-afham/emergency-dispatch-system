@@ -44,9 +44,11 @@ class AssignmentController {
       }
 
       // Verify vehicle exists and is available
-      const vehicle = await Vehicle.findById(vehicleId).populate(
-        "assignment.crew"
-      );
+      const vehicle = await Vehicle.findById(vehicleId).populate({
+        path: "assignment.crew",
+        model: "Crew",
+        select: "personal professional employeeId",
+      });
       if (!vehicle) {
         return res.status(404).json({
           success: false,
@@ -57,57 +59,117 @@ class AssignmentController {
       // Auto-find crew leader from vehicle's assigned crew
       let primaryCrewId = null;
       if (vehicle.assignment.crew && vehicle.assignment.crew.length > 0) {
-        const crewLeader = vehicle.assignment.crew.find(
-          (crewMember) =>
-            crewMember.professional && crewMember.professional.isLeader
+        console.log(
+          `🔍 Searching for crew leader in vehicle ${vehicle.registration.plateNumber}...`
         );
+        console.log(
+          `🔍 Vehicle has ${vehicle.assignment.crew.length} crew member(s)`
+        );
+
+        const crewLeader = vehicle.assignment.crew.find((crewMember) => {
+          const hasLeaderFlag =
+            crewMember.professional &&
+            crewMember.professional.isLeader === true;
+          console.log(
+            `   - Checking crew member: ${
+              crewMember.personal?.firstName || "Unknown"
+            } ${crewMember.personal?.lastName || ""} (ID: ${
+              crewMember._id
+            }) - isLeader: ${hasLeaderFlag}`
+          );
+          return hasLeaderFlag;
+        });
 
         if (crewLeader) {
           primaryCrewId = crewLeader._id;
           console.log(
-            `✅ Auto-detected crew leader: ${crewLeader.personal.firstName} ${crewLeader.personal.lastName} (${crewLeader.employeeId})`
+            `✅ Auto-detected crew leader: ${crewLeader.personal.firstName} ${crewLeader.personal.lastName} (${crewLeader.employeeId}) - ID: ${primaryCrewId}`
           );
         } else {
+          console.log(
+            "❌ No crew leader found in vehicle's assigned crew. Crew details:"
+          );
+          vehicle.assignment.crew.forEach((c) => {
+            console.log(
+              `   - ${c.personal?.firstName} ${c.personal?.lastName} (${c.employeeId}): isLeader = ${c.professional?.isLeader}`
+            );
+          });
+
           return res.status(400).json({
             success: false,
             message:
               "No crew leader found in vehicle's assigned crew. Vehicle must have at least one crew member with isLeader=true.",
+            debug: {
+              vehicleId: vehicle._id,
+              plateNumber: vehicle.registration.plateNumber,
+              crewCount: vehicle.assignment.crew.length,
+              crewMembers: vehicle.assignment.crew.map((c) => ({
+                id: c._id,
+                name: `${c.personal?.firstName} ${c.personal?.lastName}`,
+                employeeId: c.employeeId,
+                isLeader: c.professional?.isLeader,
+              })),
+            },
           });
         }
       } else {
+        console.log(
+          `❌ Vehicle ${vehicle.registration.plateNumber} has no assigned crew`
+        );
         return res.status(400).json({
           success: false,
           message:
             "Vehicle has no assigned crew. Please assign crew to vehicle before creating assignment.",
+          debug: {
+            vehicleId: vehicle._id,
+            plateNumber: vehicle.registration.plateNumber,
+          },
         });
       }
 
-      // Check if vehicle is already assigned
-      if (
-        vehicle.status.currentStatus !== "available" &&
-        vehicle.status.currentStatus !== "returning"
-      ) {
+      // Check if vehicle is busy with an active assignment
+      const busyStatuses = ["assigned", "en_route", "on_scene"];
+      if (busyStatuses.includes(vehicle.status.currentStatus)) {
         return res.status(400).json({
           success: false,
           message: `Vehicle is not available. Current status: ${vehicle.status.currentStatus}`,
         });
       }
 
-      // Check if vehicle is already assigned to this incident
+      // Check if vehicle has any pending or active assignments (not declined/completed/cancelled)
       const existingAssignment = await Assignment.findOne({
-        "incident.incidentId": incidentId,
         "resource.vehicleId": vehicleId,
-        "response.status": { $nin: ["completed", "cancelled"] },
+        "response.status": { $nin: ["completed", "cancelled", "declined"] },
       });
 
       if (existingAssignment) {
         return res.status(400).json({
           success: false,
-          message: "Vehicle is already assigned to this incident",
+          message: `Vehicle already has an active or pending assignment (Status: ${existingAssignment.response.status})`,
+          assignmentId: existingAssignment._id,
         });
       }
 
-      // Create assignment
+      // Validate incident has location coordinates
+      if (
+        !incident.location?.coordinates?.coordinates ||
+        incident.location.coordinates.coordinates.length !== 2
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Incident does not have valid location coordinates. Cannot create assignment.",
+          debug: {
+            incidentId: incident._id,
+            incidentIdString: incident.incidentId,
+            hasLocation: !!incident.location,
+            hasCoordinates: !!incident.location?.coordinates,
+            coordinates: incident.location?.coordinates?.coordinates,
+          },
+        });
+      }
+
+      // Create assignment with incident location (GeoJSON format)
       const assignment = new Assignment({
         incident: {
           incidentId: incidentId,
@@ -125,29 +187,44 @@ class AssignmentController {
         response: {
           status: "assigned",
         },
+        location: {
+          dispatchLocation: {
+            type: "Point",
+            coordinates: incident.location.coordinates.coordinates, // [longitude, latitude]
+          },
+        },
       });
 
       await assignment.save();
       console.log("✅ Assignment created:", assignment._id);
 
-      // Update vehicle status to assigned
-      vehicle.status.currentStatus = "assigned";
-      vehicle.assignment = {
-        currentIncidentId: incidentId,
-        assignedAt: new Date(),
-      };
-      await vehicle.save();
-      console.log("✅ Vehicle status updated to assigned:", vehicle._id);
+      // Don't update vehicle status until crew accepts
+      // Vehicle remains "available" but has a pending assignment
+      console.log(
+        "⏳ Assignment created, vehicle remains available until crew accepts"
+      );
 
-      // Update incident with assigned resource
+      // Update incident with assigned resource (pending crew acceptance)
       incident.assignedResources.push({
         resourceId: vehicleId,
         assignedAt: new Date(),
-        status: "assigned",
+        status: "pending", // Assignment created but not yet accepted
       });
-      incident.status = "assigned";
-      await incident.save();
-      console.log("✅ Incident updated with assigned resource:", incident._id);
+      // Don't change incident status yet - wait for crew acceptance
+      try {
+        await incident.save();
+        console.log(
+          "✅ Incident updated with pending assignment:",
+          incident._id
+        );
+      } catch (incidentSaveError) {
+        console.error("❌ Failed to save incident:", incidentSaveError.message);
+        // Delete the assignment since we couldn't update the incident
+        await Assignment.findByIdAndDelete(assignment._id);
+        throw new Error(
+          `Failed to update incident: ${incidentSaveError.message}`
+        );
+      }
 
       // Emit WebSocket event for real-time updates
       const io = req.app.get("io");
@@ -170,8 +247,9 @@ class AssignmentController {
           timestamp: new Date().toISOString(),
         });
 
-        // Notify the specific vehicle crew (they will receive this on mobile app)
-        io.to(`vehicle-${vehicleId}`).emit("assignment_notification", {
+        // Notify the specific crew leader (they will receive this on mobile app)
+        // Mobile app joins room: crew-${crewId}, NOT vehicle-${vehicleId}
+        io.to(`crew-${primaryCrewId}`).emit("assignment_notification", {
           assignmentId: assignment._id,
           incident: {
             incidentId: incident.incidentId,
@@ -180,14 +258,102 @@ class AssignmentController {
             location: incident.location,
             description: incident.description,
           },
+          vehicle: {
+            _id: vehicle._id,
+            plateNumber: vehicle.registration.plateNumber,
+            vehicleType: vehicle.registration.vehicleType,
+          },
           timeoutSeconds: 30, // 30-second acceptance timer
           timestamp: new Date().toISOString(),
         });
 
         console.log(
-          "📡 WebSocket events emitted: assignment_created, assignment_notification"
+          `📡 WebSocket events emitted: assignment_created (all dispatchers), assignment_notification (crew-${primaryCrewId})`
         );
       }
+
+      // Set up auto-decline timeout (30 seconds)
+      setTimeout(async () => {
+        try {
+          // Check if assignment is still pending (not accepted/declined)
+          const currentAssignment = await Assignment.findById(assignment._id)
+            .populate("incident.incidentId")
+            .populate("resource.vehicleId");
+
+          if (
+            currentAssignment &&
+            currentAssignment.response.status === "assigned"
+          ) {
+            console.log(
+              `⏰ Assignment ${assignment._id} timed out - auto-declining`
+            );
+
+            // Update assignment to declined with timeout reason
+            currentAssignment.response.status = "declined";
+            currentAssignment.response.declinedAt = new Date();
+            currentAssignment.response.declineReason =
+              "Crew did not respond within 30 seconds (timeout)";
+            await currentAssignment.save();
+
+            // Update vehicle status back to available
+            const timeoutVehicle = currentAssignment.resource.vehicleId;
+            if (timeoutVehicle) {
+              timeoutVehicle.status.currentStatus = "available";
+              timeoutVehicle.assignment.currentIncidentId = null;
+              timeoutVehicle.assignment.assignedAt = null;
+              await timeoutVehicle.save();
+            }
+
+            // Update incident - remove this resource from assignedResources
+            const timeoutIncident = currentAssignment.incident.incidentId;
+            if (timeoutIncident) {
+              timeoutIncident.assignedResources =
+                timeoutIncident.assignedResources.filter(
+                  (r) =>
+                    r.resourceId.toString() !== timeoutVehicle._id.toString()
+                );
+
+              // If no resources left, set incident back to pending
+              if (timeoutIncident.assignedResources.length === 0) {
+                timeoutIncident.status = "pending";
+              }
+
+              await timeoutIncident.save();
+            }
+
+            // Emit WebSocket events for timeout
+            if (io) {
+              io.emit("assignment_declined", {
+                assignmentId: currentAssignment._id,
+                incidentId: timeoutIncident.incidentId,
+                vehicleId: timeoutVehicle._id,
+                reason: "Crew did not respond within 30 seconds (timeout)",
+                timestamp: new Date().toISOString(),
+              });
+
+              io.emit("assignment_status_update", {
+                assignmentId: currentAssignment._id,
+                status: "declined",
+                incident: {
+                  _id: timeoutIncident._id,
+                  incidentId: timeoutIncident.incidentId,
+                  status: timeoutIncident.status,
+                },
+                vehicle: {
+                  _id: timeoutVehicle._id,
+                  plateNumber: timeoutVehicle.registration.plateNumber,
+                  status: timeoutVehicle.status.currentStatus,
+                },
+                timestamp: new Date().toISOString(),
+              });
+
+              console.log("📡 WebSocket events emitted for timeout");
+            }
+          }
+        } catch (timeoutError) {
+          console.error("❌ Error handling assignment timeout:", timeoutError);
+        }
+      }, 30000); // 30 seconds
 
       // Populate the assignment with full details before sending response
       const populatedAssignment = await Assignment.findById(assignment._id)
@@ -311,10 +477,10 @@ class AssignmentController {
           case "declined":
           case "cancelled":
             vehicle.status.currentStatus = "available";
-            vehicle.assignment = {
-              currentIncidentId: null,
-              assignedAt: null,
-            };
+            // Clear incident assignment but keep crew assigned to vehicle
+            vehicle.assignment.currentIncidentId = null;
+            vehicle.assignment.assignedAt = null;
+            // Do NOT clear vehicle.assignment.crew - crew stays with vehicle
             break;
         }
         await vehicle.save();
@@ -330,23 +496,25 @@ class AssignmentController {
         );
 
         if (resourceIndex !== -1) {
-          incident.assignedResources[resourceIndex].status = status;
+          // Map assignment status to incident resource status
+          // Assignment statuses: assigned, accepted, declined, en_route, on_scene, completed, cancelled
+          // Incident resource statuses: pending, assigned, en_route, on_scene, completed
+          let incidentResourceStatus = status;
+
+          if (status === "accepted") {
+            // When crew accepts, change incident resource from "pending" to "assigned"
+            incidentResourceStatus = "assigned";
+          } else if (status === "declined" || status === "cancelled") {
+            // These will be removed from array below, no need to update status
+            incidentResourceStatus = status; // doesn't matter, will be removed
+          }
+
+          incident.assignedResources[resourceIndex].status =
+            incidentResourceStatus;
         }
 
-        // Update incident status based on assignment status
-        if (status === "en_route" && incident.status === "assigned") {
-          incident.status = "en_route";
-        } else if (status === "on_scene") {
-          incident.status = "on_scene";
-        } else if (status === "completed") {
-          // Check if all assigned resources are completed
-          const allCompleted = incident.assignedResources.every(
-            (r) => r.status === "completed"
-          );
-          if (allCompleted) {
-            incident.status = "resolved";
-          }
-        } else if (status === "declined" || status === "cancelled") {
+        // Update incident status based on ALL assigned resources (multi-vehicle aware)
+        if (status === "declined" || status === "cancelled") {
           // Remove the resource from assigned resources
           incident.assignedResources = incident.assignedResources.filter(
             (r) => r.resourceId.toString() !== vehicle._id.toString()
@@ -354,6 +522,64 @@ class AssignmentController {
 
           // If no resources left, set back to pending
           if (incident.assignedResources.length === 0) {
+            incident.status = "pending";
+          }
+          // If still has resources, check their statuses to update incident status
+          else {
+            const remainingStatuses = incident.assignedResources.map(
+              (r) => r.status
+            );
+            if (remainingStatuses.every((s) => s === "pending")) {
+              incident.status = "pending";
+            } else if (remainingStatuses.some((s) => s === "on_scene")) {
+              incident.status = "on_scene";
+            } else if (remainingStatuses.some((s) => s === "en_route")) {
+              incident.status = "en_route";
+            } else if (
+              remainingStatuses.every(
+                (s) => s === "assigned" || s === "accepted"
+              )
+            ) {
+              incident.status = "assigned";
+            }
+          }
+        } else if (status === "completed") {
+          // Check if ALL assigned resources are completed
+          const allCompleted = incident.assignedResources.every(
+            (r) => r.status === "completed"
+          );
+          if (allCompleted) {
+            incident.status = "resolved";
+          }
+          // If not all completed, keep incident in highest active status
+          else {
+            const activeStatuses = incident.assignedResources
+              .filter((r) => r.status !== "completed")
+              .map((r) => r.status);
+            if (activeStatuses.some((s) => s === "on_scene")) {
+              incident.status = "on_scene";
+            } else if (activeStatuses.some((s) => s === "en_route")) {
+              incident.status = "en_route";
+            } else if (
+              activeStatuses.some((s) => s === "assigned" || s === "accepted")
+            ) {
+              incident.status = "assigned";
+            }
+          }
+        } else {
+          // For accepted, en_route, on_scene: Use highest status among all resources
+          const allStatuses = incident.assignedResources.map((r) => r.status);
+
+          // Priority: on_scene > en_route > assigned/accepted > pending
+          if (allStatuses.some((s) => s === "on_scene")) {
+            incident.status = "on_scene";
+          } else if (allStatuses.some((s) => s === "en_route")) {
+            incident.status = "en_route";
+          } else if (
+            allStatuses.some((s) => s === "assigned" || s === "accepted")
+          ) {
+            incident.status = "assigned";
+          } else if (allStatuses.every((s) => s === "pending")) {
             incident.status = "pending";
           }
         }
@@ -390,9 +616,12 @@ class AssignmentController {
             reason: declineReason,
             timestamp: new Date().toISOString(),
           });
+          console.log(
+            "📡 WebSocket event emitted: assignment_status_update, assignment_declined"
+          );
+        } else {
+          console.log("📡 WebSocket event emitted: assignment_status_update");
         }
-
-        console.log("📡 WebSocket event emitted: assignment_status_update");
       }
 
       res.status(200).json({
@@ -420,8 +649,12 @@ class AssignmentController {
 
       console.log(`📋 Fetching assignments for incident: ${incidentId}`);
 
+      // Only fetch active assignments (exclude declined and cancelled)
       const assignments = await Assignment.find({
         "incident.incidentId": incidentId,
+        "response.status": {
+          $nin: ["declined", "cancelled"],
+        },
       })
         .populate("incident.incidentId")
         .populate("resource.vehicleId")

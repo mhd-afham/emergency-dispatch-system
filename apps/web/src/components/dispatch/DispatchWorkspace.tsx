@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import { useGoogleMaps } from "../../contexts/GoogleMapsContext";
 import { useWebSocket } from "../../contexts/WebSocketContext";
+import toast, { Toaster } from "react-hot-toast";
 import {
   getResourceSuggestions,
-  getEstimatedResponseTime,
   ResourceSuggestion,
 } from "../../utils/resourceMatrix";
 import {
@@ -12,9 +12,9 @@ import {
   generateVehicleMarkerSVG,
   generateIncidentMarkerSVG,
   getVehicleStatusColors,
-  getIncidentStatusColors,
   getVehicleTypeIcon,
 } from "../../utils/vehicleUtils";
+import ResourceSelectionBar from "./ResourceSelectionBar";
 
 interface Incident {
   _id: string;
@@ -89,7 +89,6 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
   const { isLoaded } = useGoogleMaps();
   const { subscribe, isConnected, isConnecting } = useWebSocket();
   const [incident, setIncident] = useState<Incident | null>(initialIncident);
-  const [showResourceSuggestions, setShowResourceSuggestions] = useState(false);
   const [selectedInfoWindow, setSelectedInfoWindow] = useState<string | null>(
     null
   );
@@ -101,17 +100,26 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const mapRef = useRef<google.maps.Map | null>(null);
 
+  // Phase 4: Vehicle assignment state
+  const [showResourceBar, setShowResourceBar] = useState(false);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [activeAssignments, setActiveAssignments] = useState<any[]>([]);
+
   // Fetch vehicles from backend
   const fetchVehicles = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/vehicles", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      // Request vehicles with populated crew data (including leader info)
+      const response = await fetch(
+        "http://localhost:5000/api/vehicles?populate=crew",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -121,7 +129,9 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
 
       if (result.success && result.data) {
         setVehicles(result.data);
-        console.log(`✅ Fetched ${result.data.length} vehicles successfully`);
+        console.log(
+          `✅ Fetched ${result.data.length} vehicles successfully (with crew data)`
+        );
       } else {
         console.error("API returned unsuccessful response:", result);
         setVehicles([]);
@@ -223,6 +233,87 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
     };
   }, [subscribe]);
 
+  // Fetch assignments when incident loads
+  useEffect(() => {
+    if (incident) {
+      fetchIncidentAssignments(incident._id);
+    }
+  }, [incident]);
+
+  // Subscribe to assignment events (WebSocket real-time updates)
+  useEffect(() => {
+    if (!incident) return;
+
+    const unsubscribeCreated = subscribe("assignment_created", async (data) => {
+      console.log("📱 [DispatchWorkspace] Assignment created:", data);
+      if (data.assignment.incidentId === incident._id) {
+        // Refresh assignments to get the latest data instead of manually adding to state
+        await fetchIncidentAssignments(incident._id);
+        // Don't show toast here - assignment pending crew acceptance
+        // Toast will show when crew accepts or declines
+      }
+    });
+
+    const unsubscribeStatusUpdate = subscribe(
+      "assignment_status_update",
+      async (data) => {
+        console.log("📱 [DispatchWorkspace] Assignment status update:", data);
+
+        // Refresh vehicles to get updated status on map and resource bar
+        await fetchVehicles();
+
+        // Refresh assignments for current incident
+        if (incident?._id) {
+          await fetchIncidentAssignments(incident._id);
+        }
+
+        // Show success toast when assignment is accepted
+        if (data.status === "accepted") {
+          toast.success(`Assignment accepted by crew leader!`, {
+            duration: 3000,
+            position: "top-right",
+          });
+        } else if (data.status !== "declined") {
+          // For other status updates, show info toast (skip declined - handled by assignment_declined event)
+          toast(`Assignment status: ${data.status.replace("_", " ")}`, {
+            duration: 2000,
+            position: "top-right",
+            icon: "ℹ️",
+          });
+        }
+      }
+    );
+
+    const unsubscribeDeclined = subscribe(
+      "assignment_declined",
+      async (data) => {
+        console.log("📱 [DispatchWorkspace] Assignment declined:", data);
+        toast.error(
+          `Assignment declined: ${data.reason || "No reason provided"}`,
+          {
+            duration: 5000,
+            position: "top-right",
+          }
+        );
+
+        // Refresh vehicles to show vehicle as available again
+        await fetchVehicles();
+
+        // Refresh assignments for current incident
+        if (incident?._id) {
+          await fetchIncidentAssignments(incident._id);
+        }
+      }
+    );
+
+    return () => {
+      unsubscribeCreated();
+      unsubscribeStatusUpdate();
+      unsubscribeDeclined();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscribe, incident]);
+
   // Update local incident state when prop changes (initial load or navigation)
   useEffect(() => {
     setIncident(initialIncident);
@@ -260,6 +351,39 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
     }
   }, [initialIncident]);
 
+  // Recenter map when resource bar opens/closes
+  useEffect(() => {
+    if (
+      incident &&
+      mapRef.current &&
+      incident.location.coordinates &&
+      showResourceBar
+    ) {
+      const incidentLat = incident.location.coordinates.coordinates[1];
+      const incidentLng = incident.location.coordinates.coordinates[0];
+
+      // Get current map bounds
+      const bounds = mapRef.current.getBounds();
+      if (bounds) {
+        const incidentPosition = new google.maps.LatLng(
+          incidentLat,
+          incidentLng
+        );
+
+        // Check if incident marker is within visible bounds after bar opens
+        // The bar reduces viewport height, so marker might now be out of view
+        if (!bounds.contains(incidentPosition)) {
+          // Center the map on the incident
+          mapRef.current.panTo({ lat: incidentLat, lng: incidentLng });
+          console.log(
+            "🗺️ Recentering map after resource bar opened:",
+            incident.incidentId
+          );
+        }
+      }
+    }
+  }, [showResourceBar, incident]);
+
   // Calculate resource suggestions - only if incident exists
   const resourceSuggestions = incident
     ? getResourceSuggestions(
@@ -268,10 +392,6 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
         incident.severity
       )
     : [];
-
-  const estimatedResponseTime = incident
-    ? getEstimatedResponseTime(incident.incidentType, incident.incidentCategory)
-    : 0;
 
   // Map configuration
   const mapOptions = {
@@ -282,17 +402,201 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
     fullscreenControl: false,
   };
 
-  const handleAssignResources = () => {
-    if (incident) {
-      onAssignResources(incident, resourceSuggestions);
-    }
-  };
-
   const handleAddNote = () => {
     if (newNote.trim()) {
       // TODO: Implement API call to add note
       console.log("Adding note:", newNote);
       setNewNote("");
+    }
+  };
+
+  // Handle vehicle assignment creation
+  const handleAssignVehicles = async (selectedVehicles: Vehicle[]) => {
+    if (!incident) return;
+
+    setAssignmentLoading(true);
+    setShowResourceBar(false);
+
+    try {
+      const token = localStorage.getItem("token");
+
+      // Create assignment for each selected vehicle
+      const assignmentPromises = selectedVehicles.map((vehicle) => {
+        return fetch("http://localhost:5000/api/assignments", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            incidentId: incident._id,
+            vehicleId: vehicle._id,
+            // primaryCrewId will be auto-populated by backend from vehicle's leader
+          }),
+        });
+      });
+
+      const responses = await Promise.all(assignmentPromises);
+
+      // Check if all assignments were successful
+      const results = await Promise.all(
+        responses.map((response) => response.json())
+      );
+
+      const successCount = results.filter((r) => r.success).length;
+      const failureCount = results.length - successCount;
+
+      if (successCount > 0) {
+        // Show info toast instead of success - assignment needs crew acceptance
+        toast(`Assignment request sent to ${successCount} crew leader(s)`, {
+          duration: 4000,
+          position: "top-right",
+          icon: "📤",
+        });
+
+        // Refresh vehicles and assignments to update their status
+        await fetchVehicles();
+        await fetchIncidentAssignments(incident._id);
+      }
+
+      if (failureCount > 0) {
+        toast.error(
+          `${failureCount} vehicle(s) failed to assign. Please check and try again.`,
+          {
+            duration: 5000,
+            position: "top-right",
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Error creating assignments:", error);
+      toast.error("Failed to assign vehicles. Please try again.", {
+        duration: 5000,
+        position: "top-right",
+      });
+    } finally {
+      setAssignmentLoading(false);
+    }
+  };
+
+  // Fetch assignments for current incident
+  const fetchIncidentAssignments = async (incidentId: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `http://localhost:5000/api/assignments/incident/${incidentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        setActiveAssignments(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching assignments:", error);
+    }
+  };
+
+  // Update assignment status (for viva demo)
+  const handleUpdateAssignmentStatus = async (
+    assignmentId: string,
+    newStatus: string
+  ) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `http://localhost:5000/api/assignments/${assignmentId}/status`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`Assignment status updated to ${newStatus}`, {
+          duration: 3000,
+          position: "top-right",
+        });
+
+        // Update local state
+        setActiveAssignments((prev) =>
+          prev.map((a) =>
+            a._id === assignmentId ? { ...a, status: newStatus } : a
+          )
+        );
+
+        // Refresh vehicles to show updated status
+        await fetchVehicles();
+      } else {
+        toast.error(result.message || "Failed to update status", {
+          duration: 4000,
+          position: "top-right",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating assignment status:", error);
+      toast.error("Failed to update assignment status", {
+        duration: 4000,
+        position: "top-right",
+      });
+    }
+  };
+
+  // Cancel/Delete assignment
+  const handleCancelAssignment = async (assignmentId: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `http://localhost:5000/api/assignments/${assignmentId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success("Assignment cancelled successfully", {
+          duration: 3000,
+          position: "top-right",
+        });
+
+        // Remove from local state
+        setActiveAssignments((prev) =>
+          prev.filter((a) => a._id !== assignmentId)
+        );
+
+        // Refresh vehicles to show updated status
+        await fetchVehicles();
+      } else {
+        toast.error(result.message || "Failed to cancel assignment", {
+          duration: 4000,
+          position: "top-right",
+        });
+      }
+    } catch (error) {
+      console.error("Error cancelling assignment:", error);
+      toast.error("Failed to cancel assignment", {
+        duration: 4000,
+        position: "top-right",
+      });
     }
   };
 
@@ -359,21 +663,21 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
     <div className="h-full flex flex-col bg-white">
       {/* Header - Only show when incident is selected */}
       {incident && (
-        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-semibold text-gray-900">
+            <div className="flex items-center space-x-3">
+              <h1 className="text-lg font-semibold text-gray-900">
                 {incident.incidentId}
               </h1>
               <span
-                className={`px-3 py-1 rounded-full text-sm font-medium border ${getSeverityColor(
+                className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getSeverityColor(
                   incident.severity
                 )}`}
               >
                 {incident.severity.toUpperCase()} PRIORITY
               </span>
               <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
                   incident.status
                 )}`}
               >
@@ -381,7 +685,7 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
               </span>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-500">
+              <span className="text-xs text-gray-500">
                 Created: {new Date(incident.createdAt).toLocaleString()}
               </span>
 
@@ -413,82 +717,56 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                 </span>
               </div>
 
-              {incident.status === "pending" && (
-                <button
-                  onClick={() =>
-                    setShowResourceSuggestions(!showResourceSuggestions)
-                  }
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                >
-                  Assign Resources
-                </button>
-              )}
+              {/* Show resource bar button for all non-completed incidents */}
+              {incident.status !== "resolved" &&
+                incident.status !== "cancelled" && (
+                  <button
+                    onClick={() => setShowResourceBar(!showResourceBar)}
+                    disabled={assignmentLoading}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      assignmentLoading
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : showResourceBar
+                        ? "bg-gray-600 hover:bg-gray-700 text-white"
+                        : activeAssignments.length > 0
+                        ? "bg-green-600 hover:bg-green-700 text-white"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
+                  >
+                    {assignmentLoading
+                      ? "Assigning..."
+                      : showResourceBar
+                      ? "Hide Resources"
+                      : activeAssignments.length > 0
+                      ? `Manage Resources (${activeAssignments.length})`
+                      : "Assign Resources"}
+                  </button>
+                )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Resource Suggestions Panel */}
-      {incident && showResourceSuggestions && (
-        <div className="flex-shrink-0 bg-blue-50 border-b border-blue-200 px-6 py-4">
-          <div className="mb-3">
-            <h3 className="text-lg font-medium text-blue-900 mb-2">
-              Recommended Resources
-            </h3>
-            <p className="text-sm text-blue-700">
-              Based on incident type: <strong>{incident.incidentType}</strong> →{" "}
-              <strong>{incident.incidentCategory}</strong>
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            {resourceSuggestions.map((suggestion, index) => (
-              <div
-                key={index}
-                className={`p-3 rounded-lg border-2 ${
-                  suggestion.required
-                    ? "border-red-300 bg-red-50"
-                    : "border-blue-300 bg-blue-50"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-gray-900">
-                    {suggestion.vehicleType}
-                  </span>
-                  <span
-                    className={`px-2 py-1 text-xs rounded-full ${
-                      suggestion.required
-                        ? "bg-red-100 text-red-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}
-                  >
-                    {suggestion.required ? "Required" : "Optional"}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600">{suggestion.reasoning}</p>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-blue-700">
-              <span className="font-medium">Estimated Response Time:</span>{" "}
-              {estimatedResponseTime} minutes
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setShowResourceSuggestions(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAssignResources}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                Proceed with Assignment
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Resource Selection Bar - Now shows both assignments and available vehicles */}
+      {incident && (
+        <ResourceSelectionBar
+          isOpen={showResourceBar}
+          incidentLocation={{
+            lat:
+              incident.location.coordinates?.coordinates[1] ||
+              DEFAULT_CENTER.lat,
+            lng:
+              incident.location.coordinates?.coordinates[0] ||
+              DEFAULT_CENTER.lng,
+          }}
+          incidentId={incident.incidentId}
+          suggestions={resourceSuggestions}
+          assignments={activeAssignments}
+          onAssign={handleAssignVehicles}
+          onStatusUpdate={handleUpdateAssignmentStatus}
+          onCancelAssignment={handleCancelAssignment}
+          assignmentLoading={assignmentLoading}
+        />
       )}
 
       {/* Main Content */}
@@ -615,34 +893,6 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                   )}
                 </div>
               </div>
-
-              {/* Assigned Resources */}
-              {incident.assignedResources.length > 0 && (
-                <div className="bg-white rounded-lg p-3 shadow-sm">
-                  <h3 className="text-base font-medium text-gray-900 mb-2">
-                    Assigned Resources
-                  </h3>
-                  <div className="space-y-1">
-                    {incident.assignedResources.map((resource, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm"
-                      >
-                        <span className="text-gray-900">
-                          Resource #{resource.resourceId.slice(-6)}
-                        </span>
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full ${getStatusColor(
-                            resource.status
-                          )}`}
-                        >
-                          {resource.status.replace("_", " ")}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Notes Section */}
               <div className="bg-white rounded-lg p-3 shadow-sm">
@@ -946,6 +1196,24 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                         </span>
                       </div>
 
+                      {/* Crew Leader Information */}
+                      {(() => {
+                        const crewLeader =
+                          selectedVehicle.assignment?.crew?.find(
+                            (member: any) =>
+                              member.professional?.isLeader === true
+                          );
+                        return crewLeader ? (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Leader:</span>
+                            <span className="font-medium text-indigo-600">
+                              {crewLeader.personal.firstName}{" "}
+                              {crewLeader.personal.lastName}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
+
                       {selectedVehicle.assignment?.currentIncidentId && (
                         <div className="flex justify-between">
                           <span className="text-gray-600">Assigned to:</span>
@@ -953,7 +1221,9 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                             {selectedVehicle.assignment.currentIncidentId ===
                             incident?._id
                               ? "This Incident"
-                              : selectedVehicle.assignment.currentIncidentId}
+                              : `INC-${selectedVehicle.assignment.currentIncidentId
+                                  .slice(-6)
+                                  .toUpperCase()}`}
                           </span>
                         </div>
                       )}
@@ -1002,6 +1272,9 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
           )}
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      <Toaster />
     </div>
   );
 };

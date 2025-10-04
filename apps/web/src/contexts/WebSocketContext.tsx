@@ -201,6 +201,79 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         }
       });
 
+      // Handle assignment events
+      newSocket.on("assignment_created", (data: any) => {
+        console.log("Socket.IO: Assignment created", data);
+        const subscribers = subscribersRef.current.get("assignment_created");
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment_created subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      newSocket.on("assignment_status_update", (data: any) => {
+        console.log("Socket.IO: Assignment status update", data);
+        const subscribers = subscribersRef.current.get(
+          "assignment_status_update"
+        );
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment_status_update subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      newSocket.on("assignment_declined", (data: any) => {
+        console.log("Socket.IO: Assignment declined", data);
+        const subscribers = subscribersRef.current.get("assignment_declined");
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment_declined subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      newSocket.on("assignment_notification", (data: any) => {
+        console.log("Socket.IO: Assignment notification", data);
+        const subscribers = subscribersRef.current.get(
+          "assignment_notification"
+        );
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment_notification subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
       newSocket.on("connect_error", (error: Error) => {
         console.error("Socket.IO: Connection error", error);
         setIsConnected(false);

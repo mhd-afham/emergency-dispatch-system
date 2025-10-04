@@ -1,8 +1,10 @@
 // Local constants for mobile app
 
 // API Configuration
-export const API_BASE_URL = "http://localhost:5000/api";
-export const WEBSOCKET_URL = "http://localhost:5000";
+// Use your computer's local IP address instead of localhost for physical devices
+// Change this to your computer's IP address (find with: ipconfig on Windows, ifconfig on Mac/Linux)
+export const API_BASE_URL = "http://192.168.1.101:5000/api";
+export const WEBSOCKET_URL = "http://192.168.1.101:5000";
 
 export const API_ENDPOINTS = {
   AUTH: "/auth",

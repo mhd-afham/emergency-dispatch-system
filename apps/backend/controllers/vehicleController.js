@@ -26,6 +26,7 @@ class VehicleController {
         currentStatus, // current status (available, assigned, en_route, on_scene, returning)
         vehicleType, // vehicle type (Ambulance, Fire Engine, etc.)
         assignedIncident, // filter by assigned incident
+        populate, // populate crew data (set to 'crew' to populate)
         page = 1,
         limit = 50,
       } = req.query;
@@ -54,18 +55,34 @@ class VehicleController {
       // Calculate pagination
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
+      // Build query
+      let query = Vehicle.find(filter)
+        .sort({ "status.lastLocationUpdate": -1 })
+        .limit(parseInt(limit))
+        .skip(skip);
+
+      // Populate crew data if requested
+      if (populate === "crew") {
+        query = query.populate({
+          path: "assignment.crew",
+          model: "Crew",
+          select: "employeeId personal professional",
+        });
+        console.log("👥 Populating crew data with leader information");
+      }
+
       // Fetch vehicles with pagination
       const [vehicles, totalCount] = await Promise.all([
-        Vehicle.find(filter)
-          .sort({ "status.lastLocationUpdate": -1 })
-          .limit(parseInt(limit))
-          .skip(skip)
-          .exec(),
+        query.exec(),
         Vehicle.countDocuments(filter),
       ]);
 
       console.log(
-        `📊 Found ${vehicles.length} vehicles (${totalCount} total matching filters)`
+        `📊 Found ${
+          vehicles.length
+        } vehicles (${totalCount} total matching filters)${
+          populate === "crew" ? " with crew data" : ""
+        }`
       );
 
       res.status(200).json({
