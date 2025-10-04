@@ -56,7 +56,7 @@ const users = [
       phone: "+94771234569",
     },
     auth: {
-      password: "dispatcher123",
+      password: "DisMoh168202",
       role: "Dispatcher",
       employeeId: "EMP000022",
     },
@@ -307,7 +307,7 @@ const users = [
       phone: "+94771234513",
     },
     auth: {
-      password: "crew12345",
+      password: "SureMend845",
       role: "Field Crew",
       employeeId: "EMP000006",
     },

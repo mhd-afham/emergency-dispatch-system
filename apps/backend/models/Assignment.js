@@ -82,6 +82,8 @@ const assignmentSchema = new mongoose.Schema(
       enRouteAt: Date,
       onSceneAt: Date,
       completedAt: Date,
+      returningAt: Date, // NEW - When vehicle starts returning to station
+      returnedAt: Date, // NEW - When vehicle arrives back at station
       cancelledAt: Date,
       cancellationReason: {
         type: String,

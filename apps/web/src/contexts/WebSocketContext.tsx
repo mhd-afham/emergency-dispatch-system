@@ -274,6 +274,42 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         }
       });
 
+      // Handle incident:updated event (from assignment status changes)
+      newSocket.on("incident:updated", (data: any) => {
+        console.log("Socket.IO: Incident updated (from assignment):", data);
+        const subscribers = subscribersRef.current.get("incident:updated");
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in incident:updated subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      // Handle assignment:cancelled event
+      newSocket.on("assignment:cancelled", (data: any) => {
+        console.log("Socket.IO: Assignment cancelled:", data);
+        const subscribers = subscribersRef.current.get("assignment:cancelled");
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment:cancelled subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
       newSocket.on("connect_error", (error: Error) => {
         console.error("Socket.IO: Connection error", error);
         setIsConnected(false);

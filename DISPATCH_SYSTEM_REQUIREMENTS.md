@@ -1037,14 +1037,215 @@ pending → assigned → [accepted/declined] → en_route → on_scene → compl
 - **Benefits:** Historical context + immediate availability + complete audit trail
 - **Implementation:** Vehicle status "returning" after completion, manual "Arrived at Station" button
 
+**✅ Post-Completion Vehicle Lifecycle Implemented (October 4, 2025):**
+
+- Schema updated with `returningAt` and `returnedAt` timestamps
+- Completion workflow: Vehicle status → "returning", still assignable
+- Assignment cards show returning status with faded styling
+- "Arrived at Station" button in mobile app updates to "available"
+- Complete timeline display in assignment history
+
 ---
 
-_Last Updated: October 4, 2025 - Phase 4a Complete ✅ | Sprint 1 Mobile 100% ✅ | Implementing Post-Completion Workflow 🔨_
+**October 4, 2025 - Real-Time Update System FIXED! 🎉**
 
-1. Add `assignment_notification` WebSocket listener in mobile DashboardScreen (2-3h)
-2. Connect Accept/Decline buttons to backend API (2-3h)
-3. Test complete workflow: Web → Mobile → Web (1-2h)
-4. Implement GPS location sharing (4-6h)
-5. Implement incident navigation (3-4h)
+**🐛 Critical Issue Discovered:**
 
-**After Mobile Integration:** Sprint 2 (Vehicle Readiness + Communication)
+The system was experiencing a **complete failure of real-time updates** for two critical features:
+
+1. ❌ Assignment cancellations not reflecting in UI (manual refresh required)
+2. ❌ Incident status updates not propagating (manual refresh required)
+
+**🔍 Root Cause Analysis:**
+
+Investigation revealed the issue was NOT in the backend (emitting correctly) or component logic (subscription correct), but in the **WebSocketContext.tsx** - the central WebSocket event router was **missing event listeners** for two critical events:
+
+1. `incident:updated` - Emitted when assignment status changes affect incident
+2. `assignment:cancelled` - Emitted when dispatcher cancels an assignment
+
+**Backend was broadcasting these events, but frontend had no receivers!**
+
+**✅ Solution Implemented:**
+
+**1. WebSocketContext.tsx - Added Missing Event Listeners**
+
+Added two new socket.on() handlers in the WebSocket connection setup:
+
+```typescript
+// Handle incident:updated event (from assignment status changes)
+newSocket.on("incident:updated", (data: any) => {
+  console.log("Socket.IO: Incident updated (from assignment):", data);
+  const subscribers = subscribersRef.current.get("incident:updated");
+  if (subscribers) {
+    subscribers.forEach((callback) => {
+      try {
+        callback(data);
+      } catch (error) {
+        console.error("Socket.IO: Error in incident:updated subscriber", error);
+      }
+    });
+  }
+});
+
+// Handle assignment:cancelled event
+newSocket.on("assignment:cancelled", (data: any) => {
+  console.log("Socket.IO: Assignment cancelled:", data);
+  const subscribers = subscribersRef.current.get("assignment:cancelled");
+  if (subscribers) {
+    subscribers.forEach((callback) => {
+      try {
+        callback(data);
+      } catch (error) {
+        console.error(
+          "Socket.IO: Error in assignment:cancelled subscriber",
+          error
+        );
+      }
+    });
+  }
+});
+```
+
+**2. DispatchWorkspace.tsx - Enhanced Cancellation Handler**
+
+Updated assignment:cancelled listener to immediately refresh assignments:
+
+```typescript
+const unsubscribeCancelled = subscribe("assignment:cancelled", async (data) => {
+  // Show info toast
+  toast(
+    `Assignment cancelled${
+      data.cancelledBy ? ` by ${data.cancelledBy.name}` : ""
+    }`,
+    {
+      duration: 4000,
+      position: "top-right",
+      icon: "🚫",
+    }
+  );
+
+  // Refresh vehicles and assignments immediately
+  await fetchVehicles();
+  if (incident?._id && data.incidentId === incident._id) {
+    await fetchIncidentAssignments(incident._id);
+  }
+});
+```
+
+**3. Backend - Enhanced Cancellation Event**
+
+Updated assignmentController.js to emit incident:updated after cancellation with recalculated status:
+
+```javascript
+// Recalculate incident status based on remaining active assignments
+const activeAssignments = await Assignment.find({
+  "incident.incidentId": incident._id,
+  "response.status": { $nin: ["declined", "cancelled"] },
+});
+
+// Priority: on_scene > en_route > accepted/assigned > pending
+// Update incident status and assignedResources array
+await incident.save();
+
+// Emit incident:updated event
+io.emit("incident:updated", {
+  _id: incident._id,
+  incidentId: incident.incidentId,
+  status: incident.status,
+  assignedResources: incident.assignedResources,
+  timestamp: new Date().toISOString(),
+});
+```
+
+**4. ResourceSelectionBar.tsx - Removed Duplicate Alert**
+
+Removed alert() call from handleCancelConfirm to eliminate duplicate notifications:
+
+```typescript
+// Note: Success toast is shown by DispatchWorkspace via WebSocket event
+// The real-time update will handle UI refresh via assignment:cancelled event
+```
+
+**📊 Complete Event Flow Now Working:**
+
+```
+User Cancels Assignment
+  ↓
+Backend DELETE /api/assignments/:id
+  ↓
+Assignment status → "cancelled"
+Vehicle status → "available"
+  ↓
+Recalculate Incident Status
+  ↓
+Emit Two WebSocket Events:
+  1. assignment:cancelled → All dispatchers
+  2. incident:updated → All dispatchers
+  ↓
+WebSocketContext Receives Both Events
+  ↓
+DispatchWorkspace Handlers Execute:
+  1. assignment:cancelled → fetchIncidentAssignments()
+  2. incident:updated → update incident state, refresh assignments
+  ↓
+UI Updates Instantly:
+  - Cancel button disappears
+  - Card shows "CANCELLED" status (red)
+  - Incident status recalculated
+  - Vehicle appears in available list
+```
+
+**✅ Testing Results:**
+
+**Test 1: Assignment Cancellation**
+
+- ✅ Cancel button disappears immediately without refresh
+- ✅ Card turns red with "CANCELLED" status
+- ✅ Only one toast notification shown (no duplicate alert)
+- ✅ Vehicle immediately available for new assignments
+- ✅ Console shows both events received
+
+**Test 2: Incident Status Progression**
+
+- ✅ Accept assignment → Card turns blue, status updates instantly
+- ✅ En Route → Card turns purple, no refresh needed
+- ✅ On Scene → Card turns orange, status badge updates
+- ✅ Complete → Card turns green, incident status "resolved"
+
+**Test 3: Resolved Incident View-Only Mode**
+
+- ✅ Button changes to "View Assignments" with eye icon
+- ✅ Shows "📋 View Only - Incident Resolved" badge
+- ✅ Cannot select new vehicles (read-only)
+- ✅ Assignment buttons hidden
+
+**📝 Files Modified:**
+
+1. `apps/web/src/contexts/WebSocketContext.tsx` - Added incident:updated and assignment:cancelled listeners
+2. `apps/web/src/components/dispatch/DispatchWorkspace.tsx` - Enhanced cancellation handler
+3. `apps/backend/controllers/assignmentController.js` - Added incident:updated emission on cancellation
+4. `apps/web/src/components/dispatch/ResourceSelectionBar.tsx` - Removed duplicate alert
+
+**🎯 Impact:**
+
+**System now has TRUE real-time updates across all features:**
+
+- ✅ Assignment cancellations propagate instantly
+- ✅ Incident status updates without refresh
+- ✅ Required vehicle badges update dynamically
+- ✅ Resolved incidents show view-only mode
+- ✅ Complete audit trail with all status changes
+
+**The three-layer architecture now properly connected:**
+
+1. ✅ Backend emits events (assignmentController.js)
+2. ✅ WebSocketContext registers listeners (WebSocketContext.tsx)
+3. ✅ Components subscribe via useWebSocket hook (DispatchWorkspace.tsx)
+
+**🚀 System Status:** Phase 4a FULLY COMPLETE with real-time updates working perfectly!
+
+---
+
+_Last Updated: October 4, 2025 - Phase 4a Complete ✅ | Real-Time Updates Fixed ✅ | Post-Completion Workflow Implemented ✅ | Sprint 1 Mobile 100% ✅_
+
+**Next Priority:** Sprint 2 - Vehicle Readiness & Communication (3 days estimated)

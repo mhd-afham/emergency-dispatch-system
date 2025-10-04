@@ -10,6 +10,8 @@ import {
   Shield,
   Truck,
   CheckCircle,
+  X,
+  XCircle,
 } from "lucide-react";
 
 interface Assignment {
@@ -32,10 +34,15 @@ interface Assignment {
   };
   status: string;
   response?: {
+    status?: string; // Current status (more up-to-date than assignment.status)
     acceptedAt?: string;
     enRouteAt?: string;
     onSceneAt?: string;
     completedAt?: string;
+    returningAt?: string;
+    returnedAt?: string;
+    cancelledAt?: string;
+    cancellationReason?: string;
   };
   createdAt: string;
 }
@@ -47,6 +54,7 @@ interface ResourceSelectionBarProps {
     lng: number;
   };
   incidentId: string;
+  incidentStatus?: string; // Current incident status (for read-only mode)
   suggestions: ResourceSuggestion[];
   assignments: Assignment[]; // Current assignments for this incident
   onAssign: (selectedVehicles: Vehicle[]) => void;
@@ -70,6 +78,7 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
   isOpen,
   incidentLocation,
   incidentId,
+  incidentStatus,
   suggestions,
   assignments,
   onAssign,
@@ -98,6 +107,19 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
     type: "final-confirm",
     message: "",
   });
+
+  const [cancelModal, setCancelModal] = useState<{
+    isOpen: boolean;
+    assignmentId: string | null;
+    vehiclePlateNumber: string | null;
+  }>({
+    isOpen: false,
+    assignmentId: null,
+    vehiclePlateNumber: null,
+  });
+
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   const getVehicleIcon = (vehicleType: string) => {
     const type = vehicleType.toLowerCase();
@@ -176,9 +198,11 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
           );
 
           // Filter to available vehicles that don't have pending/active assignments
+          // Include "returning" vehicles since they're available for new assignments
           const availableVehicles = result.data.filter(
             (v: Vehicle) =>
-              v.status.currentStatus === "available" &&
+              (v.status.currentStatus === "available" ||
+                v.status.currentStatus === "returning") &&
               !assignedVehicleIds.has(v._id)
           );
 
@@ -239,12 +263,27 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
               vehiclesByType.get(suggestion.vehicleType) || [];
 
             if (suggestion.required) {
-              const requiredCount = 1;
-              typeVehicles.slice(0, requiredCount).forEach((vehicle, index) => {
-                vehicle.isRequired = true;
-                vehicle.requiredCount = requiredCount;
-                vehicle.requiredIndex = index;
-              });
+              // Check if this vehicle type is already assigned to the incident
+              const alreadyAssignedOfType = assignments.some(
+                (a) =>
+                  a.resource.vehicleId.registration.vehicleType ===
+                    suggestion.vehicleType &&
+                  !["cancelled", "declined"].includes(
+                    a.response?.status || a.status
+                  )
+              );
+
+              // Only mark as required if no active assignment of this type exists
+              if (!alreadyAssignedOfType) {
+                const requiredCount = 1;
+                typeVehicles
+                  .slice(0, requiredCount)
+                  .forEach((vehicle, index) => {
+                    vehicle.isRequired = true;
+                    vehicle.requiredCount = requiredCount;
+                    vehicle.requiredIndex = index;
+                  });
+              }
             } else {
               const recommendedCount = 1;
               typeVehicles.slice(0, recommendedCount).forEach((vehicle) => {
@@ -287,6 +326,11 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
   }, [isOpen, incidentLocation, suggestions, assignments]);
 
   const toggleVehicle = (vehicleId: string) => {
+    // Prevent selection if incident is resolved (read-only mode)
+    if (incidentStatus === "resolved") {
+      return;
+    }
+
     const newSelection = new Set(selectedVehicles);
     if (newSelection.has(vehicleId)) {
       newSelection.delete(vehicleId);
@@ -295,6 +339,75 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
     }
     setSelectedVehicles(newSelection);
     setShowWarning(null);
+  };
+
+  const handleCancelClick = (
+    assignmentId: string,
+    vehiclePlateNumber: string,
+    event: React.MouseEvent
+  ) => {
+    event.stopPropagation(); // Prevent any parent click handlers
+    setCancelModal({
+      isOpen: true,
+      assignmentId,
+      vehiclePlateNumber,
+    });
+    setCancelReason("");
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!cancelModal.assignmentId) return;
+
+    setCancelling(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `http://localhost:5000/api/assignments/${cancelModal.assignmentId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            reason: cancelReason || "Cancelled by dispatcher",
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || "Failed to cancel assignment");
+      }
+
+      console.log("✅ Assignment cancelled successfully:", result);
+
+      // Close modal
+      setCancelModal({
+        isOpen: false,
+        assignmentId: null,
+        vehiclePlateNumber: null,
+      });
+      setCancelReason("");
+
+      // Note: Success toast is shown by DispatchWorkspace via WebSocket event
+      // The real-time update will handle UI refresh via assignment:cancelled event
+    } catch (error: any) {
+      console.error("❌ Error cancelling assignment:", error);
+      alert(error.message || "Failed to cancel assignment");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleCancelModalClose = () => {
+    setCancelModal({
+      isOpen: false,
+      assignmentId: null,
+      vehiclePlateNumber: null,
+    });
+    setCancelReason("");
   };
 
   const getSelectionCounts = () => {
@@ -409,34 +522,41 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                   : "Available Resources";
               })()}
             </h3>
-            {selectedVehicles.size > 0 && (
+            {selectedVehicles.size > 0 && incidentStatus !== "resolved" && (
               <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded whitespace-nowrap">
                 {selectedVehicles.size} Selected
               </span>
             )}
+            {incidentStatus === "resolved" && (
+              <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded whitespace-nowrap">
+                📋 View Only - Incident Resolved
+              </span>
+            )}
           </div>
           {/* Button container fixed with flex ml-auto */}
-          <div className="flex items-center space-x-2 ml-auto">
-            {selectedVehicles.size > 0 && (
+          {incidentStatus !== "resolved" && (
+            <div className="flex items-center space-x-2 ml-auto">
+              {selectedVehicles.size > 0 && (
+                <button
+                  onClick={() => setSelectedVehicles(new Set())}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 font-medium whitespace-nowrap bg-white"
+                >
+                  Clear Selection
+                </button>
+              )}
               <button
-                onClick={() => setSelectedVehicles(new Set())}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 font-medium whitespace-nowrap bg-white"
+                onClick={validateAndProceed}
+                disabled={assignmentLoading || selectedVehicles.size === 0}
+                className={`px-4 py-1.5 rounded-md text-sm font-semibold text-white transition-all whitespace-nowrap ${
+                  assignmentLoading || selectedVehicles.size === 0
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
               >
-                Clear Selection
+                {assignmentLoading ? "Assigning..." : "Proceed with Assignment"}
               </button>
-            )}
-            <button
-              onClick={validateAndProceed}
-              disabled={assignmentLoading || selectedVehicles.size === 0}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold text-white transition-all whitespace-nowrap ${
-                assignmentLoading || selectedVehicles.size === 0
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
-            >
-              {assignmentLoading ? "Assigning..." : "Proceed with Assignment"}
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -478,6 +598,10 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                 const vehicle = assignment.resource.vehicleId;
                 const crewLeader = assignment.resource.primaryCrewId;
 
+                // Use response.status as primary source (more up-to-date), fallback to assignment.status
+                const currentStatus =
+                  assignment.response?.status || assignment.status;
+
                 const getStatusColor = (status: string) => {
                   switch (status) {
                     case "assigned":
@@ -491,6 +615,8 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                     case "completed":
                       return "bg-green-100 border-green-400";
                     case "declined":
+                      return "bg-red-100 border-red-400";
+                    case "cancelled":
                       return "bg-red-100 border-red-400";
                     default:
                       return "bg-gray-100 border-gray-400";
@@ -511,6 +637,8 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                       return "Completed";
                     case "declined":
                       return "Declined";
+                    case "cancelled":
+                      return "Cancelled";
                     default:
                       return status;
                   }
@@ -525,12 +653,16 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                   });
                 };
 
+                const isCompleted = currentStatus === "completed";
+                const isReturning =
+                  isCompleted && !assignment.response?.returnedAt;
+
                 return (
                   <div
                     key={assignment._id}
                     className={`flex-shrink-0 w-64 p-2 rounded-md border-2 ${getStatusColor(
-                      assignment.status
-                    )}`}
+                      currentStatus
+                    )} ${isCompleted ? "opacity-70 border-dashed" : ""}`}
                   >
                     {/* Header with icon and vehicle info */}
                     <div className="flex items-center justify-between mb-1.5">
@@ -552,8 +684,13 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                       </div>
                       <div className="flex flex-col gap-0.5">
                         <span className="px-1.5 py-0.5 bg-gray-700 text-white text-[10px] font-bold rounded uppercase">
-                          {getStatusLabel(assignment.status)}
+                          {getStatusLabel(currentStatus)}
                         </span>
+                        {isReturning && (
+                          <span className="px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded uppercase">
+                            Returning
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -601,6 +738,55 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                           </span>
                         </div>
                       )}
+                      {assignment.response?.completedAt && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                            <span className="text-gray-600">Completed:</span>
+                          </div>
+                          <span className="font-semibold text-gray-900">
+                            {formatTime(assignment.response.completedAt)}
+                          </span>
+                        </div>
+                      )}
+                      {assignment.response?.returningAt && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="text-gray-600">Returning:</span>
+                          </div>
+                          <span className="font-semibold text-gray-900">
+                            {formatTime(assignment.response.returningAt)}
+                          </span>
+                        </div>
+                      )}
+                      {assignment.response?.returnedAt && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                            <span className="text-gray-600">Returned:</span>
+                          </div>
+                          <span className="font-semibold text-gray-900">
+                            {formatTime(assignment.response.returnedAt)}
+                          </span>
+                        </div>
+                      )}
+                      {assignment.response?.cancelledAt && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <XCircle className="w-3.5 h-3.5 text-red-500" />
+                            <span className="text-gray-600">Cancelled:</span>
+                          </div>
+                          <span className="font-semibold text-gray-900">
+                            {formatTime(assignment.response.cancelledAt)}
+                          </span>
+                        </div>
+                      )}
+                      {assignment.response?.cancellationReason && (
+                        <div className="text-xs text-red-600 italic mt-1">
+                          Reason: {assignment.response.cancellationReason}
+                        </div>
+                      )}
                       {crewLeader && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1">
@@ -614,6 +800,26 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                         </div>
                       )}
                     </div>
+
+                    {/* Cancel Button - Only show for cancellable statuses */}
+                    {["assigned", "accepted", "en_route"].includes(
+                      currentStatus
+                    ) && (
+                      <button
+                        onClick={(e) =>
+                          handleCancelClick(
+                            assignment._id,
+                            vehicle.registration.plateNumber,
+                            e
+                          )
+                        }
+                        className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded transition-colors"
+                        disabled={assignmentLoading}
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        Cancel Assignment
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -934,6 +1140,85 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                 {confirmationModal.type === "final-confirm"
                   ? "Confirm Assignment"
                   : "Proceed Anyway"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Assignment Confirmation Modal */}
+      {cancelModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <XCircle className="w-5 h-5 text-red-500" />
+                  Cancel Assignment
+                </h3>
+                <button
+                  onClick={handleCancelModalClose}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-4">
+              <div className="mb-4">
+                <p className="text-sm text-gray-700 mb-2">
+                  Are you sure you want to cancel the assignment for vehicle{" "}
+                  <span className="font-bold text-gray-900">
+                    {cancelModal.vehiclePlateNumber}
+                  </span>
+                  ?
+                </p>
+                <p className="text-sm text-red-600">
+                  ⚠️ The vehicle will return to available status and the crew
+                  will be notified.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="cancelReason"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Cancellation Reason (Optional)
+                </label>
+                <textarea
+                  id="cancelReason"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  placeholder="e.g., Assignment sent to wrong vehicle, incident cancelled, closer unit available..."
+                  maxLength={200}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {cancelReason.length}/200 characters
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 flex gap-3 justify-end">
+              <button
+                onClick={handleCancelModalClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                disabled={cancelling}
+              >
+                Keep Assignment
+              </button>
+              <button
+                onClick={handleCancelConfirm}
+                disabled={cancelling}
+                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {cancelling ? "Cancelling..." : "Cancel Assignment"}
               </button>
             </div>
           </div>

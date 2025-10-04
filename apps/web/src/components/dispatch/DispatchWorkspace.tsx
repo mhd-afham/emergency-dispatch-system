@@ -3,6 +3,7 @@ import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import { useGoogleMaps } from "../../contexts/GoogleMapsContext";
 import { useWebSocket } from "../../contexts/WebSocketContext";
 import toast, { Toaster } from "react-hot-toast";
+import { Eye } from "lucide-react";
 import {
   getResourceSuggestions,
   ResourceSuggestion,
@@ -159,6 +160,30 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
       }
     });
 
+    // Subscribe to incident:updated from assignment status changes
+    const unsubscribeIncidentUpdated = subscribe(
+      "incident:updated",
+      async (data) => {
+        if (data._id === incident._id) {
+          // Update the incident with new status and resources
+          setIncident((prev) => ({
+            ...prev!,
+            status: data.status,
+            assignedResources: data.assignedResources,
+          }));
+          console.log(
+            "📱 [DispatchWorkspace] Incident status updated from assignment:",
+            data.incidentId,
+            "Status:",
+            data.status
+          );
+
+          // Refresh assignments to ensure UI is in sync
+          await fetchIncidentAssignments(incident._id);
+        }
+      }
+    );
+
     // Also subscribe to incident deletion (in case this incident gets deleted)
     const unsubscribeDelete = subscribe("incident_deleted", (data) => {
       if (data.incidentId === incident._id) {
@@ -169,6 +194,7 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
 
     return () => {
       unsubscribeUpdate();
+      unsubscribeIncidentUpdated();
       unsubscribeDelete();
     };
   }, [subscribe, incident]);
@@ -306,10 +332,39 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
       }
     );
 
+    const unsubscribeCancelled = subscribe(
+      "assignment:cancelled",
+      async (data) => {
+        console.log("📱 [DispatchWorkspace] Assignment cancelled:", data);
+
+        // Show info toast (not error) for cancellations
+        toast(
+          `Assignment cancelled${
+            data.cancelledBy ? ` by ${data.cancelledBy.name}` : ""
+          }`,
+          {
+            duration: 4000,
+            position: "top-right",
+            icon: "🚫",
+          }
+        );
+
+        // Refresh vehicles to show vehicle as available again
+        await fetchVehicles();
+
+        // Refresh assignments for current incident
+        // Note: Also triggered by incident:updated but we call it here for immediate UI update
+        if (incident?._id && data.incidentId === incident._id) {
+          await fetchIncidentAssignments(incident._id);
+        }
+      }
+    );
+
     return () => {
       unsubscribeCreated();
       unsubscribeStatusUpdate();
       unsubscribeDeclined();
+      unsubscribeCancelled();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subscribe, incident]);
@@ -717,9 +772,29 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                 </span>
               </div>
 
-              {/* Show resource bar button for all non-completed incidents */}
-              {incident.status !== "resolved" &&
-                incident.status !== "cancelled" && (
+              {/* Show resource bar button - different for resolved vs active incidents */}
+              {(() => {
+                console.log(
+                  "🔍 [Button Debug] Incident status:",
+                  incident.status,
+                  "| Is resolved?",
+                  incident.status === "resolved"
+                );
+                return incident.status === "resolved" ? (
+                  <button
+                    onClick={() => setShowResourceBar(!showResourceBar)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                      showResourceBar
+                        ? "bg-gray-600 hover:bg-gray-700 text-white"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
+                  >
+                    <Eye className="w-4 h-4" />
+                    {showResourceBar
+                      ? "Hide Assignments"
+                      : `View Assignments (${activeAssignments.length})`}
+                  </button>
+                ) : incident.status !== "cancelled" ? (
                   <button
                     onClick={() => setShowResourceBar(!showResourceBar)}
                     disabled={assignmentLoading}
@@ -741,7 +816,8 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
                       ? `Manage Resources (${activeAssignments.length})`
                       : "Assign Resources"}
                   </button>
-                )}
+                ) : null;
+              })()}
             </div>
           </div>
         </div>
@@ -760,6 +836,7 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
               DEFAULT_CENTER.lng,
           }}
           incidentId={incident.incidentId}
+          incidentStatus={incident.status}
           suggestions={resourceSuggestions}
           assignments={activeAssignments}
           onAssign={handleAssignVehicles}

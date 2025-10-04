@@ -404,6 +404,7 @@ class AssignmentController {
         "en_route",
         "on_scene",
         "completed",
+        "returned", // NEW - When vehicle arrives back at station
         "cancelled",
       ];
 
@@ -448,6 +449,11 @@ class AssignmentController {
           break;
         case "completed":
           assignment.response.completedAt = new Date();
+          assignment.response.returningAt = new Date(); // Set returning timestamp
+          break;
+        case "returned":
+          // Vehicle has arrived back at station
+          assignment.response.returnedAt = new Date();
           break;
         case "cancelled":
           assignment.response.cancelledAt = new Date();
@@ -474,6 +480,18 @@ class AssignmentController {
             vehicle.status.currentStatus = "on_scene";
             break;
           case "completed":
+            // Vehicle is returning to station after completion
+            vehicle.status.currentStatus = "returning";
+            // Clear incident assignment but keep crew assigned to vehicle
+            vehicle.assignment.currentIncidentId = null;
+            vehicle.assignment.assignedAt = null;
+            // Do NOT clear vehicle.assignment.crew - crew stays with vehicle
+            break;
+          case "returned":
+            // Vehicle has arrived back at station - now available
+            vehicle.status.currentStatus = "available";
+            // Incident already cleared when status was "completed"
+            break;
           case "declined":
           case "cancelled":
             vehicle.status.currentStatus = "available";
@@ -607,6 +625,15 @@ class AssignmentController {
           timestamp: new Date().toISOString(),
         });
 
+        // Emit incident update event for real-time incident queue updates
+        io.emit("incident:updated", {
+          _id: incident._id,
+          incidentId: incident.incidentId,
+          status: incident.status,
+          assignedResources: incident.assignedResources,
+          timestamp: new Date().toISOString(),
+        });
+
         // If declined or timeout, notify dispatcher for reassignment
         if (status === "declined") {
           io.emit("assignment_declined", {
@@ -617,10 +644,12 @@ class AssignmentController {
             timestamp: new Date().toISOString(),
           });
           console.log(
-            "📡 WebSocket event emitted: assignment_status_update, assignment_declined"
+            "📡 WebSocket event emitted: assignment_status_update, assignment_declined, incident:updated"
           );
         } else {
-          console.log("📡 WebSocket event emitted: assignment_status_update");
+          console.log(
+            "📡 WebSocket event emitted: assignment_status_update, incident:updated"
+          );
         }
       }
 
@@ -761,6 +790,226 @@ class AssignmentController {
       res.status(500).json({
         success: false,
         message: "Failed to fetch assignment",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Cancel/Recall an assignment
+   * DELETE /api/assignments/:id
+   * Business Rules:
+   * - Can only cancel if status is: assigned, accepted, or en_route
+   * - Cannot cancel if: on_scene, completed, or returned
+   * - Vehicle returns to available status
+   * - Incident assignment cleared from vehicle
+   * - Real-time notification sent to mobile crew
+   */
+  static async cancelAssignment(req, res) {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      console.log(
+        `🚫 Cancelling assignment: ${id} by ${req.user.firstName} ${req.user.lastName}`
+      );
+      console.log(`📝 Cancellation reason: ${reason || "No reason provided"}`);
+
+      // Find assignment with populated data
+      const assignment = await Assignment.findById(id)
+        .populate("resource.vehicleId")
+        .populate("resource.primaryCrewId")
+        .populate("incident.incidentId");
+
+      if (!assignment) {
+        return res.status(404).json({
+          success: false,
+          message: `Assignment not found: ${id}`,
+        });
+      }
+
+      // Check if assignment can be cancelled (business rule validation)
+      const currentStatus = assignment.response?.status || assignment.status;
+      const cancellableStatuses = ["assigned", "accepted", "en_route"];
+      const nonCancellableStatuses = [
+        "on_scene",
+        "completed",
+        "returned",
+        "cancelled",
+        "declined",
+      ];
+
+      if (!cancellableStatuses.includes(currentStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot cancel assignment with status: ${currentStatus}`,
+          details: nonCancellableStatuses.includes(currentStatus)
+            ? `Assignment is already ${currentStatus}. Only assignments that are assigned, accepted, or en_route can be cancelled.`
+            : `Invalid status for cancellation`,
+          currentStatus,
+          cancellableStatuses,
+        });
+      }
+
+      // Update assignment status to cancelled
+      assignment.response.status = "cancelled";
+      assignment.response.cancelledAt = new Date();
+      assignment.response.cancellationReason =
+        reason || `Cancelled by ${req.user.firstName} ${req.user.lastName}`;
+      assignment.status = "cancelled"; // Update top-level status too
+
+      await assignment.save();
+      console.log("✅ Assignment status updated to cancelled");
+
+      // Update vehicle status back to available
+      const vehicle = assignment.resource.vehicleId;
+      if (vehicle) {
+        vehicle.status.currentStatus = "available";
+        vehicle.assignment.currentIncidentId = null;
+        vehicle.assignment.assignedAt = null;
+        // Keep crew assigned to vehicle (they stay with vehicle)
+        await vehicle.save();
+        console.log("✅ Vehicle status updated to available:", vehicle._id);
+      }
+
+      // Update incident to recalculate status based on remaining assignments
+      const incident = assignment.incident.incidentId;
+      if (incident) {
+        const remainingActiveAssignments = await Assignment.countDocuments({
+          "incident.incidentId": incident._id,
+          "response.status": { $nin: ["declined", "cancelled"] },
+        });
+
+        console.log(
+          `📊 Incident ${incident.incidentId} has ${remainingActiveAssignments} remaining active assignments`
+        );
+
+        // If no active assignments remain, set incident back to pending
+        if (remainingActiveAssignments === 0) {
+          incident.status = "pending";
+          incident.assignedResources = [];
+          await incident.save();
+          console.log(
+            "✅ Incident status updated to pending (no active assignments)"
+          );
+        } else {
+          // Recalculate incident status based on remaining active assignments
+          const activeAssignments = await Assignment.find({
+            "incident.incidentId": incident._id,
+            "response.status": { $nin: ["declined", "cancelled"] },
+          });
+
+          const activeStatuses = activeAssignments.map(
+            (a) => a.response?.status || a.status
+          );
+
+          // Priority: on_scene > en_route > accepted/assigned > pending
+          if (activeStatuses.some((s) => s === "on_scene")) {
+            incident.status = "on_scene";
+          } else if (activeStatuses.some((s) => s === "en_route")) {
+            incident.status = "en_route";
+          } else if (
+            activeStatuses.some((s) => s === "assigned" || s === "accepted")
+          ) {
+            incident.status = "assigned";
+          } else {
+            incident.status = "pending";
+          }
+
+          // Update assignedResources array
+          incident.assignedResources = activeAssignments.map((a) => ({
+            vehicleId: a.resource.vehicleId._id,
+            assignmentId: a._id,
+            status: a.response?.status || a.status,
+          }));
+
+          await incident.save();
+          console.log(
+            "✅ Incident status recalculated after cancellation:",
+            incident.status
+          );
+        }
+      }
+
+      // Emit real-time events via WebSocket
+      const io = req.app.get("io");
+      if (io) {
+        // Notify all dispatchers about the cancellation
+        io.emit("assignment:cancelled", {
+          assignmentId: assignment._id,
+          incidentId: incident?._id,
+          vehicleId: vehicle?._id,
+          status: "cancelled",
+          cancelledAt: assignment.response.cancelledAt,
+          reason: assignment.response.cancellationReason,
+          cancelledBy: {
+            name: `${req.user.firstName} ${req.user.lastName}`,
+            role: req.user.auth.role,
+          },
+        });
+
+        // Emit incident update event for real-time incident status updates
+        if (incident) {
+          io.emit("incident:updated", {
+            _id: incident._id,
+            incidentId: incident.incidentId,
+            status: incident.status,
+            assignedResources: incident.assignedResources,
+            timestamp: new Date().toISOString(),
+          });
+          console.log(
+            "✅ incident:updated event emitted after cancellation:",
+            incident.incidentId
+          );
+        }
+
+        // Notify the specific crew member about cancellation
+        const crewId = assignment.resource.primaryCrewId?._id;
+        if (crewId) {
+          io.to(`crew-${crewId}`).emit("assignment:cancelled", {
+            assignmentId: assignment._id,
+            incidentId: incident?._id,
+            status: "cancelled",
+            cancelledAt: assignment.response.cancelledAt,
+            reason: assignment.response.cancellationReason,
+            message: "Your assignment has been cancelled by dispatch",
+          });
+          console.log(`📱 Cancellation notification sent to crew: ${crewId}`);
+        }
+
+        // Emit vehicle status update
+        io.emit("vehicle:statusUpdate", {
+          vehicleId: vehicle?._id,
+          status: "available",
+          updatedAt: new Date(),
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Assignment cancelled successfully",
+        data: {
+          assignmentId: assignment._id,
+          status: "cancelled",
+          cancelledAt: assignment.response.cancelledAt,
+          reason: assignment.response.cancellationReason,
+          vehicle: {
+            id: vehicle?._id,
+            status: "available",
+            plateNumber: vehicle?.registration?.plateNumber,
+          },
+          incident: {
+            id: incident?._id,
+            incidentId: incident?.incidentId,
+            status: incident?.status,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error cancelling assignment:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to cancel assignment",
         error: error.message,
       });
     }

@@ -176,6 +176,31 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
       }
     );
 
+    // Listen for incident:updated from assignment status changes
+    const unsubscribeIncidentUpdated = subscribe(
+      "incident:updated",
+      (data: any) => {
+        console.log(
+          "📱 [IncidentQueue] Incident status updated from assignment:",
+          data.incidentId,
+          "->",
+          data.status
+        );
+        // Fetch the complete incident data or update the status
+        setIncidents((prev) =>
+          prev.map((incident) =>
+            incident._id === data._id
+              ? {
+                  ...incident,
+                  status: data.status,
+                  assignedResources: data.assignedResources,
+                }
+              : incident
+          )
+        );
+      }
+    );
+
     const unsubscribeDelete = subscribe(
       "incident_deleted",
       (incidentId: string) => {
@@ -189,6 +214,7 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
     return () => {
       unsubscribeCreate();
       unsubscribeUpdate();
+      unsubscribeIncidentUpdated();
       unsubscribeDelete();
     };
   }, [subscribe]);
@@ -211,8 +237,10 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
 
     // Apply status filter
     if (filterStatus === "active") {
+      // Show pending, assigned, in-progress, and resolved incidents
+      // Only exclude cancelled incidents from active view
       filtered = incidents.filter((incident) =>
-        ["pending", "assigned", "en_route", "on_scene"].includes(
+        ["pending", "assigned", "en_route", "on_scene", "resolved"].includes(
           incident.status
         )
       );

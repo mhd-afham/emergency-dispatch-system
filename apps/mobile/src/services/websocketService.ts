@@ -118,6 +118,18 @@ class WebSocketService {
   }
 
   /**
+   * Listen for assignment cancellation
+   */
+  public onAssignmentCancelled(callback: (data: any) => void): void {
+    if (!this.socket) return;
+
+    this.socket.on("assignment:cancelled", (data) => {
+      console.log("🚫 [WebSocket] Assignment cancelled:", data);
+      callback(data);
+    });
+  }
+
+  /**
    * Listen for messages from dispatcher
    */
   public onMessageReceived(callback: (data: any) => void): void {

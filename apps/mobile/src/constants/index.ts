@@ -34,6 +34,7 @@ export const ASSIGNMENT_STATUS = {
   EN_ROUTE: "en_route",
   ON_SCENE: "on_scene",
   COMPLETED: "completed",
+  RETURNED: "returned",
   CANCELLED: "cancelled",
 } as const;
 

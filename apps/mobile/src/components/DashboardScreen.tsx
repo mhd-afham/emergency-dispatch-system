@@ -135,6 +135,31 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       }
     });
 
+    // Listen for assignment cancellation
+    websocketService.onAssignmentCancelled((data) => {
+      console.log("🚫 Assignment cancelled:", data);
+
+      // Check if it's the current assignment that was cancelled
+      if (currentAssignment && currentAssignment._id === data.assignmentId) {
+        Alert.alert(
+          "Assignment Cancelled",
+          `Your assignment has been cancelled by dispatch.\n\nReason: ${
+            data.reason || "No reason provided"
+          }`,
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                // Clear current assignment and reload dashboard
+                setCurrentAssignment(null);
+                loadDashboardData();
+              },
+            },
+          ]
+        );
+      }
+    });
+
     // Cleanup listeners on unmount
     return () => {
       console.log("🧹 Cleaning up WebSocket listeners");
@@ -309,6 +334,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         return colors.statusOnScene;
       case ASSIGNMENT_STATUS.COMPLETED:
         return colors.statusCompleted;
+      case ASSIGNMENT_STATUS.CANCELLED:
+        return colors.error; // Red for cancelled
       default:
         return colors.textMuted;
     }
@@ -414,6 +441,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             color={colors.textOnPrimary}
           />
           <Text style={styles.statusButtonText}>Complete Assignment</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    // After completion, show "Arrived at Station" button when vehicle is returning
+    if (
+      status === ASSIGNMENT_STATUS.COMPLETED &&
+      vehicle?.status?.currentStatus === "returning"
+    ) {
+      return (
+        <TouchableOpacity
+          style={[styles.statusButton, { backgroundColor: colors.success }]}
+          onPress={() => updateStatus(ASSIGNMENT_STATUS.RETURNED)}
+        >
+          <MaterialIcons name="home" size={20} color={colors.textOnPrimary} />
+          <Text style={styles.statusButtonText}>Arrived at Station</Text>
         </TouchableOpacity>
       );
     }

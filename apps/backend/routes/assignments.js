@@ -89,4 +89,26 @@ router.put("/:id/status", (req, res, next) => {
   AssignmentController.updateAssignmentStatus(req, res, next);
 });
 
+/**
+ * @route   DELETE /api/assignments/:id
+ * @desc    Cancel/Recall an assignment (sets status to cancelled)
+ * @access  Dispatchers, Supervisors, Admins
+ * @body    reason (optional) - Cancellation reason
+ */
+router.delete("/:id", (req, res, next) => {
+  // Only dispatchers, supervisors, and admins can cancel assignments
+  const allowedRoles = ["Dispatcher", "Admin", "Supervisor"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to cancel assignments",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  AssignmentController.cancelAssignment(req, res, next);
+});
+
 module.exports = router;
