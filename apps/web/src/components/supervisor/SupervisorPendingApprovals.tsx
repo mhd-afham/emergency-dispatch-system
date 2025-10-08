@@ -1,4 +1,28 @@
 import React, { useState, useEffect } from "react";
+import Notification from '../common/Notification';
+import ViewDetailsModal from '../common/ViewDetailsModal';
+import axios from 'axios';
+
+// Create axios instance with auth
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true,
+});
+
+// Add auth token to requests
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 interface VehiclePendingApproval {
   _id: string;
@@ -94,107 +118,92 @@ const SupervisorPendingApprovals: React.FC = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; type: "vehicle" | "crew" } | null>(null);
 
+  // View details modal state
+  const [viewDetailsModal, setViewDetailsModal] = useState<{
+    show: boolean;
+    type: 'vehicle' | 'crew';
+    data: any;
+  }>({ show: false, type: 'vehicle', data: null });
+
+  // Notification state
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
+
   // Debug logging
   console.log('SupervisorPendingApprovals - Mounted');
 
   // Fetch pending vehicle approvals
   const fetchVehicleApprovals = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
-      const token = localStorage.getItem("token");
-      
-      console.log("🔍 Fetching pending approvals from:", `${apiUrl}/api/vehicles/pending-approval`);
-      console.log("🔑 Token exists:", !!token);
+      console.log("🔍 Fetching pending vehicle approvals...");
 
-      const response = await fetch(
-        `${apiUrl}/api/vehicles/pending-approval`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      console.log("📡 Response status:", response.status, response.statusText);
-
-      const data = await response.json();
+      const response = await apiClient.get('/vehicles/pending-approval');
+      const data = response.data;
       console.log("📦 Response data:", data);
 
-      if (response.ok) {
-        // Handle different response formats
-        if (Array.isArray(data)) {
-          console.log("✅ Format: Direct array", data.length, "items");
-          setVehicleApprovals(data);
-        } else if (data.data && data.data.pendingVehicles && Array.isArray(data.data.pendingVehicles)) {
-          // Backend returns: { success: true, data: { pendingVehicles: [...] } }
-          console.log("✅ Format: data.pendingVehicles", data.data.pendingVehicles.length, "items");
-          setVehicleApprovals(data.data.pendingVehicles);
-        } else if (data.data && Array.isArray(data.data)) {
-          console.log("✅ Format: data.data array", data.data.length, "items");
-          setVehicleApprovals(data.data);
-        } else {
-          console.warn("⚠️ Unexpected response format:", data);
-          setVehicleApprovals([]);
-        }
+      // Validate and extract vehicles
+      let vehicles: VehiclePendingApproval[] = [];
+      
+      if (Array.isArray(data)) {
+        console.log("✅ Format: Direct array",data.length, "items");
+        vehicles = data;
+      } else if (data.data?.pendingVehicles && Array.isArray(data.data.pendingVehicles)) {
+        console.log("✅ Format: data.pendingVehicles", data.data.pendingVehicles.length, "items");
+        vehicles = data.data.pendingVehicles;
+      } else if (data.data && Array.isArray(data.data)) {
+        console.log("✅ Format: data.data array", data.data.length, "items");
+        vehicles = data.data;
       } else {
-        console.error("❌ Response not OK:", response.status, data);
-        throw new Error(data.message || "Failed to fetch vehicle approvals");
+        console.warn("⚠️ Unexpected response format:", data);
+        vehicles = [];
       }
-    } catch (error) {
+
+      setVehicleApprovals(vehicles);
+    } catch (error: any) {
       console.error("❌ Error fetching vehicle approvals:", error);
-      setError(error instanceof Error ? error.message : "Failed to load vehicle approvals");
-      setVehicleApprovals([]); // Ensure it's always an array even on error
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          "Failed to load vehicle approvals";
+      setError(errorMessage);
+      setVehicleApprovals([]);
     }
   };
 
   // Fetch pending crew approvals
   const fetchCrewApprovals = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
-      const token = localStorage.getItem("token");
+      console.log("🔍 Fetching pending crew approvals...");
+
+      const response = await apiClient.get('/crew/pending-approval');
+      const data = response.data;
+      console.log("� Crew response data:", data);
+
+      // Validate and extract crew
+      let crew: CrewPendingApproval[] = [];
       
-      console.log("🔍 Fetching pending crew approvals from:", `${apiUrl}/api/crew/pending-approval`);
-      console.log("🔑 Token exists:", !!token);
-
-      const response = await fetch(
-        `${apiUrl}/api/crew/pending-approval`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      console.log("📡 Crew response status:", response.status, response.statusText);
-
-      const data = await response.json();
-      console.log("📦 Crew response data:", data);
-
-      if (response.ok) {
-        // Handle different response formats
-        if (Array.isArray(data)) {
-          console.log("✅ Format: Direct array", data.length, "crew");
-          setCrewApprovals(data);
-        } else if (data.data && data.data.pendingCrew && Array.isArray(data.data.pendingCrew)) {
-          // Backend returns: { success: true, data: { pendingCrew: [...] } }
-          console.log("✅ Format: data.pendingCrew", data.data.pendingCrew.length, "crew");
-          setCrewApprovals(data.data.pendingCrew);
-        } else if (data.data && Array.isArray(data.data)) {
-          console.log("✅ Format: data.data array", data.data.length, "crew");
-          setCrewApprovals(data.data);
-        } else {
-          console.warn("⚠️ Unexpected crew response format:", data);
-          setCrewApprovals([]);
-        }
+      if (Array.isArray(data)) {
+        console.log("✅ Format: Direct array", data.length, "crew");
+        crew = data;
+      } else if (data.data?.pendingCrew && Array.isArray(data.data.pendingCrew)) {
+        console.log("✅ Format: data.pendingCrew", data.data.pendingCrew.length, "crew");
+        crew = data.data.pendingCrew;
+      } else if (data.data && Array.isArray(data.data)) {
+        console.log("✅ Format: data.data array", data.data.length, "crew");
+        crew = data.data;
       } else {
-        console.error("❌ Crew response not OK:", response.status, data);
-        throw new Error(data.message || "Failed to fetch crew approvals");
+        console.warn("⚠️ Unexpected crew response format:", data);
+        crew = [];
       }
-    } catch (error) {
+
+      setCrewApprovals(crew);
+    } catch (error: any) {
       console.error("❌ Error fetching crew approvals:", error);
-      // Don't set main error, just log it and set empty array
       console.warn("Crew approval fetch failed, setting empty array");
       setCrewApprovals([]);
     }
@@ -203,34 +212,22 @@ const SupervisorPendingApprovals: React.FC = () => {
   // Fetch rejected vehicles
   const fetchRejectedVehicles = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
-      const token = localStorage.getItem("token");
+      console.log("🔍 Fetching rejected vehicles...");
       
-      const response = await fetch(
-        `${apiUrl}/api/vehicles/rejected`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await apiClient.get('/vehicles/rejected');
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok) {
-        if (data.data && data.data.rejectedVehicles && Array.isArray(data.data.rejectedVehicles)) {
-          setRejectedVehicles(data.data.rejectedVehicles);
-        } else if (data.data && Array.isArray(data.data)) {
-          setRejectedVehicles(data.data);
-        } else {
-          setRejectedVehicles([]);
-        }
-      } else {
-        throw new Error(data.message || "Failed to fetch rejected vehicles");
+      let vehicles: any[] = [];
+      if (data.data?.rejectedVehicles && Array.isArray(data.data.rejectedVehicles)) {
+        vehicles = data.data.rejectedVehicles;
+      } else if (data.data && Array.isArray(data.data)) {
+        vehicles = data.data;
       }
-    } catch (error) {
-      console.error("Error fetching rejected vehicles:", error);
+
+      console.log(`✅ Fetched ${vehicles.length} rejected vehicles`);
+      setRejectedVehicles(vehicles);
+    } catch (error: any) {
+      console.error("❌ Error fetching rejected vehicles:", error);
       setRejectedVehicles([]);
     }
   };
@@ -238,34 +235,22 @@ const SupervisorPendingApprovals: React.FC = () => {
   // Fetch rejected crew
   const fetchRejectedCrew = async () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
-      const token = localStorage.getItem("token");
+      console.log("🔍 Fetching rejected crew...");
       
-      const response = await fetch(
-        `${apiUrl}/api/crew/rejected`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await apiClient.get('/crew/rejected');
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok) {
-        if (data.data && data.data.rejectedCrew && Array.isArray(data.data.rejectedCrew)) {
-          setRejectedCrew(data.data.rejectedCrew);
-        } else if (data.data && Array.isArray(data.data)) {
-          setRejectedCrew(data.data);
-        } else {
-          setRejectedCrew([]);
-        }
-      } else {
-        throw new Error(data.message || "Failed to fetch rejected crew");
+      let crew: any[] = [];
+      if (data.data?.rejectedCrew && Array.isArray(data.data.rejectedCrew)) {
+        crew = data.data.rejectedCrew;
+      } else if (data.data && Array.isArray(data.data)) {
+        crew = data.data;
       }
-    } catch (error) {
-      console.error("Error fetching rejected crew:", error);
+
+      console.log(`✅ Fetched ${crew.length} rejected crew members`);
+      setRejectedCrew(crew);
+    } catch (error: any) {
+      console.error("❌ Error fetching rejected crew:", error);
       setRejectedCrew([]);
     }
   };
@@ -295,39 +280,31 @@ const SupervisorPendingApprovals: React.FC = () => {
     try {
       const endpoint = type === "vehicle" ? `/vehicles/${id}/approve` : `/crew/${id}/approve`;
       
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}${endpoint}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
+      console.log(`✅ Approving ${type} with ID: ${id}`);
+      
+      await apiClient.post(endpoint);
+
+      console.log(`✅ ${type} approved successfully`);
+      
+      setSuccessMessage(
+        `${type === "vehicle" ? "Vehicle" : "Crew member"} approved successfully! It is now available for dispatch.`
       );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccessMessage(
-          `${type === "vehicle" ? "Vehicle" : "Crew member"} approved successfully! It is now available for dispatch.`
-        );
-        
-        // Refresh the lists
-        if (type === "vehicle") {
-          await fetchVehicleApprovals();
-        } else {
-          await fetchCrewApprovals();
-        }
-
-        // Clear success message after 5 seconds
-        setTimeout(() => setSuccessMessage(""), 5000);
+      
+      // Refresh the lists
+      if (type === "vehicle") {
+        await fetchVehicleApprovals();
       } else {
-        throw new Error(data.message || "Failed to approve");
+        await fetchCrewApprovals();
       }
-    } catch (error) {
-      console.error(`Error approving ${type}:`, error);
-      setError(error instanceof Error ? error.message : `Failed to approve ${type}`);
+
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccessMessage(""), 5000);
+    } catch (error: any) {
+      console.error(`❌ Error approving ${type}:`, error);
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          `Failed to approve ${type}`;
+      setError(errorMessage);
     } finally {
       setProcessingId(null);
     }
@@ -360,97 +337,89 @@ const SupervisorPendingApprovals: React.FC = () => {
         ? `/vehicles/${rejectTarget.id}/reject` 
         : `/crew/${rejectTarget.id}/reject`;
       
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}${endpoint}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({ reason: rejectReason }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccessMessage(
-          `${rejectTarget.type === "vehicle" ? "Vehicle" : "Crew"} registration rejected. Admin has been notified.`
-        );
-        
-        // Refresh the lists
-        if (rejectTarget.type === "vehicle") {
-          await fetchVehicleApprovals();
-        } else {
-          await fetchCrewApprovals();
-        }
-
-        closeRejectModal();
-
-        // Clear success message after 5 seconds
-        setTimeout(() => setSuccessMessage(""), 5000);
-      } else {
-        throw new Error(data.message || "Failed to reject");
-      }
-    } catch (error) {
-      console.error(`Error rejecting ${rejectTarget.type}:`, error);
-      setError(error instanceof Error ? error.message : `Failed to reject ${rejectTarget.type}`);
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  // Handle delete for rejected requests
-  const handleDeleteRejected = async (id: string, type: "vehicle" | "crew") => {
-    if (!window.confirm(`Are you sure you want to permanently delete this rejected ${type} registration?`)) {
-      return;
-    }
-
-    setProcessingId(id);
-    setError("");
-    setSuccessMessage("");
-
-    try {
-      const endpoint = type === "vehicle" ? `/vehicles/${id}` : `/crew/${id}`;
+      console.log(`❌ Rejecting ${rejectTarget.type} with ID: ${rejectTarget.id}`);
       
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}${endpoint}`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
+      await apiClient.post(endpoint, { reason: rejectReason });
+
+      console.log(`✅ ${rejectTarget.type} rejected successfully`);
+      
+      setSuccessMessage(
+        `${rejectTarget.type === "vehicle" ? "Vehicle" : "Crew"} registration rejected. Admin has been notified.`
       );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccessMessage(
-          `Rejected ${type === "vehicle" ? "vehicle" : "crew member"} registration deleted successfully.`
-        );
-        
-        // Refresh the lists
-        if (type === "vehicle") {
-          await fetchRejectedVehicles();
-        } else {
-          await fetchRejectedCrew();
-        }
-
-        // Clear success message after 5 seconds
-        setTimeout(() => setSuccessMessage(""), 5000);
+      
+      // Refresh the lists
+      if (rejectTarget.type === "vehicle") {
+        await fetchVehicleApprovals();
       } else {
-        throw new Error(data.message || "Failed to delete");
+        await fetchCrewApprovals();
       }
-    } catch (error) {
-      console.error(`Error deleting rejected ${type}:`, error);
-      setError(error instanceof Error ? error.message : `Failed to delete rejected ${type}`);
+
+      closeRejectModal();
+
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccessMessage(""), 5000);
+    } catch (error: any) {
+      console.error(`❌ Error rejecting ${rejectTarget.type}:`, error);
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          `Failed to reject ${rejectTarget.type}`;
+      setError(errorMessage);
     } finally {
       setProcessingId(null);
     }
   };
+
+  // REMOVED: Delete functionality for rejected requests (per requirement)
+  /* const handleDeleteRejected = async (id: string, type: "vehicle" | "crew") => {
+    // Show confirmation dialog
+    setNotification({
+      show: true,
+      type: 'warning',
+      title: 'Confirm Permanent Delete',
+      message: `Are you sure you want to permanently delete this rejected ${type} registration? This action cannot be undone.`,
+      onConfirm: async () => {
+        setNotification(null);
+        setProcessingId(id);
+        setError("");
+        setSuccessMessage("");
+
+        try {
+          const endpoint = type === "vehicle" ? `/vehicles/${id}` : `/crew/${id}`;
+          await apiClient.delete(endpoint);
+
+          // Show success notification
+          setNotification({
+            show: true,
+            type: 'success',
+            title: 'Success',
+            message: `Rejected ${type === "vehicle" ? "vehicle" : "crew member"} registration deleted successfully.`,
+            onConfirm: () => setNotification(null)
+          });
+          
+          // Refresh the lists
+          if (type === "vehicle") {
+            await fetchRejectedVehicles();
+          } else {
+            await fetchRejectedCrew();
+          }
+        } catch (error: any) {
+          console.error(`Error deleting rejected ${type}:`, error);
+          // Show error notification
+          setNotification({
+            show: true,
+            type: 'error',
+            title: 'Delete Failed',
+            message: error.response?.data?.message || `Failed to delete rejected ${type}`,
+            onConfirm: () => setNotification(null)
+          });
+          setError(error instanceof Error ? error.message : `Failed to delete rejected ${type}`);
+        } finally {
+          setProcessingId(null);
+        }
+      },
+      onCancel: () => setNotification(null)
+    });
+  }; */
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("en-US", {
@@ -719,6 +688,12 @@ const SupervisorPendingApprovals: React.FC = () => {
                       >
                         ✗ Reject
                       </button>
+                      <button
+                        onClick={() => setViewDetailsModal({ show: true, type: 'vehicle', data: vehicle })}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 min-w-[100px]"
+                      >
+                        👁️ View
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -838,6 +813,12 @@ const SupervisorPendingApprovals: React.FC = () => {
                       >
                         ✗ Reject
                       </button>
+                      <button
+                        onClick={() => setViewDetailsModal({ show: true, type: 'crew', data: crew })}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 min-w-[100px]"
+                      >
+                        👁️ View
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -954,17 +935,10 @@ const SupervisorPendingApprovals: React.FC = () => {
                     {/* Action Buttons */}
                     <div className="ml-4 flex flex-col gap-2">
                       <button
-                        onClick={() => alert(`View details for vehicle ${vehicle.registration.plateNumber}`)}
+                        onClick={() => setViewDetailsModal({ show: true, type: 'vehicle', data: vehicle })}
                         className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 min-w-[100px]"
                       >
                         👁️ View
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRejected(vehicle._id, "vehicle")}
-                        disabled={processingId === vehicle._id}
-                        className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
-                      >
-                        🗑️ Delete
                       </button>
                     </div>
                   </div>
@@ -1089,17 +1063,10 @@ const SupervisorPendingApprovals: React.FC = () => {
                     {/* Action Buttons */}
                     <div className="ml-4 flex flex-col gap-2">
                       <button
-                        onClick={() => alert(`View details for ${crew.personal.firstName} ${crew.personal.lastName}`)}
+                        onClick={() => setViewDetailsModal({ show: true, type: 'crew', data: crew })}
                         className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 min-w-[100px]"
                       >
                         👁️ View
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRejected(crew._id, "crew")}
-                        disabled={processingId === crew._id}
-                        className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
-                      >
-                        🗑️ Delete
                       </button>
                     </div>
                   </div>
@@ -1150,6 +1117,25 @@ const SupervisorPendingApprovals: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Notification Modal */}
+      {notification && (
+        <Notification
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={notification.onCancel || notification.onConfirm}
+          onConfirm={notification.onConfirm}
+        />
+      )}
+
+      {/* View Details Modal */}
+      <ViewDetailsModal
+        show={viewDetailsModal.show}
+        onClose={() => setViewDetailsModal({ show: false, type: 'vehicle', data: null })}
+        type={viewDetailsModal.type}
+        data={viewDetailsModal.data}
+      />
     </div>
   );
 };

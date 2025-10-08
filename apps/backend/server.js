@@ -23,6 +23,12 @@ app.use(cookieParser());
 const { connectDB } = require("./config/database");
 connectDB();
 
+// Register all models (ensures they're available for populate)
+require("./models/Station");
+require("./models/Vehicle");
+require("./models/Crew");
+require("./models/User");
+
 // Routes
 app.get("/", (req, res) => {
   res.json({

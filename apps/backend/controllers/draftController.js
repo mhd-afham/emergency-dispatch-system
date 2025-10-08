@@ -53,18 +53,33 @@ exports.saveDraft = async (req, res) => {
 
     await draft.save();
 
-    // Log action
-    await AuditLog.create({
-      userId: req.user._id,
-      action: "CREATE_DRAFT",
-      target: "RegistrationDraft",
-      targetId: draft._id,
-      details: {
-        registrationType,
-        draftTitle,
-        currentStep,
-      },
-    });
+    // Log action (optional - don't fail if audit log fails)
+    try {
+      await AuditLog.create({
+        action: {
+          type: "create",
+          description: `Created draft for ${registrationType} registration: ${draftTitle}`,
+          outcome: "success",
+        },
+        actor: {
+          userId: req.user._id,
+          userRole: req.user.auth.role,
+          userName: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+        },
+        target: {
+          entityType: "RegistrationDraft",
+          entityId: draft._id,
+          entityName: draftTitle,
+        },
+        context: {
+          module: registrationType === "vehicle" ? "vehicle_management" : "crew_management",
+          feature: "draft_registration",
+        },
+      });
+    } catch (auditError) {
+      console.error("Failed to create audit log:", auditError.message);
+      // Continue anyway - audit log failure should not block the operation
+    }
 
     res.status(201).json({
       success: true,
@@ -121,18 +136,33 @@ exports.updateDraft = async (req, res) => {
 
     await draft.save();
 
-    // Log action
-    await AuditLog.create({
-      userId: req.user._id,
-      action: "UPDATE_DRAFT",
-      target: "RegistrationDraft",
-      targetId: draft._id,
-      details: {
-        draftTitle: draft.draftTitle,
-        currentStep: draft.currentStep,
-        completionPercentage: draft.completionPercentage,
-      },
-    });
+    // Log action (optional - don't fail if audit log fails)
+    try {
+      await AuditLog.create({
+        action: {
+          type: "update",
+          description: `Updated draft for ${draft.registrationType} registration: ${draft.draftTitle}`,
+          outcome: "success",
+        },
+        actor: {
+          userId: req.user._id,
+          userRole: req.user.auth.role,
+          userName: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+        },
+        target: {
+          entityType: "RegistrationDraft",
+          entityId: draft._id,
+          entityName: draft.draftTitle,
+        },
+        context: {
+          module: draft.registrationType === "vehicle" ? "vehicle_management" : "crew_management",
+          feature: "draft_registration",
+        },
+      });
+    } catch (auditError) {
+      console.error("Failed to create audit log:", auditError.message);
+      // Continue anyway - audit log failure should not block the operation
+    }
 
     res.json({
       success: true,
@@ -263,17 +293,33 @@ exports.deleteDraft = async (req, res) => {
 
     await draft.deleteOne();
 
-    // Log action
-    await AuditLog.create({
-      userId: req.user._id,
-      action: "DELETE_DRAFT",
-      target: "RegistrationDraft",
-      targetId: draft._id,
-      details: {
-        registrationType: draft.registrationType,
-        draftTitle: draft.draftTitle,
-      },
-    });
+    // Log action (optional - don't fail if audit log fails)
+    try {
+      await AuditLog.create({
+        action: {
+          type: "delete",
+          description: `Deleted draft for ${draft.registrationType} registration: ${draft.draftTitle}`,
+          outcome: "success",
+        },
+        actor: {
+          userId: req.user._id,
+          userRole: req.user.auth.role,
+          userName: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+        },
+        target: {
+          entityType: "RegistrationDraft",
+          entityId: draft._id,
+          entityName: draft.draftTitle,
+        },
+        context: {
+          module: draft.registrationType === "vehicle" ? "vehicle_management" : "crew_management",
+          feature: "draft_registration",
+        },
+      });
+    } catch (auditError) {
+      console.error("Failed to create audit log:", auditError.message);
+      // Continue anyway - audit log failure should not block the operation
+    }
 
     res.json({
       success: true,
@@ -306,16 +352,32 @@ exports.cleanupOldDrafts = async (req, res) => {
     const daysOld = parseInt(req.query.days) || 30;
     const result = await RegistrationDraft.cleanupOldDrafts(daysOld);
 
-    // Log action
-    await AuditLog.create({
-      userId: req.user._id,
-      action: "CLEANUP_DRAFTS",
-      target: "RegistrationDraft",
-      details: {
-        daysOld,
-        deletedCount: result.deletedCount,
-      },
-    });
+    // Log action (optional - don't fail if audit log fails)
+    try {
+      await AuditLog.create({
+        action: {
+          type: "delete",
+          description: `Cleaned up ${result.deletedCount} old drafts (older than ${daysOld} days)`,
+          outcome: "success",
+        },
+        actor: {
+          userId: req.user._id,
+          userRole: req.user.auth.role,
+          userName: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+        },
+        target: {
+          entityType: "RegistrationDraft",
+          entityName: "Multiple Drafts",
+        },
+        context: {
+          module: "system_configuration",
+          feature: "draft_cleanup",
+        },
+      });
+    } catch (auditError) {
+      console.error("Failed to create audit log:", auditError.message);
+      // Continue anyway - audit log failure should not block the operation
+    }
 
     res.json({
       success: true,

@@ -223,6 +223,25 @@ router.post('/:id/reject', (req, res, next) => {
 });
 
 /**
+ * @route   PATCH /api/vehicles/:id/clear-rejection
+ * @desc    Clear rejection status and allow resubmission
+ * @access  Admins only
+ */
+router.patch('/:id/clear-rejection', (req, res, next) => {
+  const allowedRoles = ['Admin'];
+  
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to clear rejection status',
+      requiredRoles: allowedRoles
+    });
+  }
+
+  VehicleController.clearRejection(req, res, next);
+});
+
+/**
  * @route   PUT /api/vehicles/:id/status
  * @desc    Update vehicle operational status
  * @access  Dispatchers, Field Crew (assigned vehicles), Supervisors, Admins
@@ -271,13 +290,13 @@ router.delete('/:id', (req, res, next) => {
   if (!allowedRoles.includes(req.user.auth.role)) {
     return res.status(403).json({
       success: false,
-      message: 'Insufficient permissions to deactivate vehicles',
+      message: 'Insufficient permissions to delete vehicles',
       requiredRoles: allowedRoles,
       currentRole: req.user.auth.role
     });
   }
 
-  VehicleController.deactivateVehicle(req, res, next);
+  VehicleController.deleteVehiclePermanently(req, res, next);
 });
 
 /**

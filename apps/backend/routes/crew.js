@@ -277,6 +277,25 @@ router.post('/:id/reject', (req, res, next) => {
 });
 
 /**
+ * @route   PATCH /api/crew/:id/clear-rejection
+ * @desc    Clear rejection status and allow resubmission
+ * @access  Admins only
+ */
+router.patch('/:id/clear-rejection', (req, res, next) => {
+  const allowedRoles = ['Admin'];
+  
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Insufficient permissions to clear rejection status',
+      requiredRoles: allowedRoles
+    });
+  }
+
+  CrewController.clearRejection(req, res, next);
+});
+
+/**
  * @route   PUT /api/crew/:id/status
  * @desc    Update crew member availability status
  * @access  Self, Dispatchers, Supervisors, Admins
@@ -386,13 +405,13 @@ router.delete('/:id', (req, res, next) => {
   if (!allowedRoles.includes(req.user.auth.role)) {
     return res.status(403).json({
       success: false,
-      message: 'Insufficient permissions to deactivate crew members',
+      message: 'Insufficient permissions to delete crew members',
       requiredRoles: allowedRoles,
       currentRole: req.user.auth.role
     });
   }
 
-  CrewController.deactivateCrewMember(req, res, next);
+  CrewController.deleteCrewPermanently(req, res, next);
 });
 
 /**

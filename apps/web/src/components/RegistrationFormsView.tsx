@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import Notification from './common/Notification';
 
 // Create axios instance
 const apiClient = axios.create({
@@ -114,6 +115,13 @@ const RegistrationFormsView: React.FC<RegistrationFormsViewProps> = ({ onClose }
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  } | null>(null);
 
   // Fetch data based on active tab and selected type
   useEffect(() => {
@@ -154,34 +162,70 @@ const RegistrationFormsView: React.FC<RegistrationFormsViewProps> = ({ onClose }
   };
 
   const handleDeleteDraft = async (draftId: string) => {
-    if (!window.confirm('Are you sure you want to delete this draft?')) {
-      return;
-    }
-
-    try {
-      await apiClient.delete(`/drafts/${draftId}`);
-      alert('Draft deleted successfully');
-      fetchData(); // Refresh the list
-    } catch (err: any) {
-      console.error('Error deleting draft:', err);
-      alert(err.response?.data?.message || 'Failed to delete draft');
-    }
+    // Show confirmation dialog
+    setNotification({
+      show: true,
+      type: 'warning',
+      title: 'Confirm Delete',
+      message: 'Are you sure you want to delete this draft? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await apiClient.delete(`/drafts/${draftId}`);
+          setNotification({
+            show: true,
+            type: 'success',
+            title: 'Draft Deleted',
+            message: 'The draft has been successfully deleted.',
+            onConfirm: () => {
+              setNotification(null);
+              fetchData(); // Refresh the list
+            },
+          });
+        } catch (err: any) {
+          console.error('Error deleting draft:', err);
+          setNotification({
+            show: true,
+            type: 'error',
+            title: 'Delete Failed',
+            message: err.response?.data?.message || 'Failed to delete draft. Please try again.',
+          });
+        }
+      },
+    });
   };
 
   const handleDeleteRejected = async (id: string, type: 'vehicle' | 'crew') => {
-    if (!window.confirm('Are you sure you want to permanently delete this rejected registration?')) {
-      return;
-    }
-
-    try {
-      const endpoint = type === 'vehicle' ? `/vehicles/${id}` : `/crew/${id}`;
-      await apiClient.delete(endpoint);
-      alert('Rejected registration deleted successfully');
-      fetchData(); // Refresh the list
-    } catch (err: any) {
-      console.error('Error deleting rejected registration:', err);
-      alert(err.response?.data?.message || 'Failed to delete rejected registration');
-    }
+    // Show confirmation dialog
+    setNotification({
+      show: true,
+      type: 'warning',
+      title: 'Confirm Delete',
+      message: `Are you sure you want to permanently delete this rejected ${type} registration? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          const endpoint = type === 'vehicle' ? `/vehicles/${id}` : `/crew/${id}`;
+          await apiClient.delete(endpoint);
+          setNotification({
+            show: true,
+            type: 'success',
+            title: 'Registration Deleted',
+            message: `The rejected ${type} registration has been successfully deleted.`,
+            onConfirm: () => {
+              setNotification(null);
+              fetchData(); // Refresh the list
+            },
+          });
+        } catch (err: any) {
+          console.error('Error deleting rejected registration:', err);
+          setNotification({
+            show: true,
+            type: 'error',
+            title: 'Delete Failed',
+            message: err.response?.data?.message || 'Failed to delete rejected registration. Please try again.',
+          });
+        }
+      },
+    });
   };
 
   const formatDate = (date: Date | undefined) => {
@@ -194,9 +238,29 @@ const RegistrationFormsView: React.FC<RegistrationFormsViewProps> = ({ onClose }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
+    <>
+      {/* Notification Modal */}
+      {notification && notification.show && (
+        <Notification
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={() => {
+            if (notification.onConfirm) {
+              notification.onConfirm();
+            } else {
+              setNotification(null);
+            }
+          }}
+          onConfirm={notification.onConfirm}
+          confirmText={notification.onConfirm ? "Confirm" : "OK"}
+          cancelText="Cancel"
+        />
+      )}
+
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
+          {/* Header */}
         <div className="bg-red-600 text-white px-6 py-4 flex justify-between items-center">
           <h2 className="text-2xl font-bold">Registration Forms</h2>
           <button
@@ -538,6 +602,7 @@ const RegistrationFormsView: React.FC<RegistrationFormsViewProps> = ({ onClose }
         </div>
       </div>
     </div>
+    </>
   );
 };
 

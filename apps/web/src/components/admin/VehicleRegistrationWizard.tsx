@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Notification from "../common/Notification";
 
 // Define interfaces matching backend Vehicle schema exactly
 interface VehicleBasicInfo {
@@ -34,6 +35,9 @@ interface VehicleFormData {
 interface VehicleRegistrationWizardProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  draftId?: string;
+  initialData?: VehicleFormData;
+  currentStep?: number;
 }
 
 interface ValidationErrors {
@@ -43,15 +47,25 @@ interface ValidationErrors {
 const VehicleRegistrationWizard: React.FC<VehicleRegistrationWizardProps> = ({
   onSuccess,
   onCancel,
+  draftId,
+  initialData,
+  currentStep: initialStep,
 }) => {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(initialStep || 1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [generalError, setGeneralError] = useState("");
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  } | null>(null);
 
   // Form data state matching backend schema
-  const [formData, setFormData] = useState<VehicleFormData>({
+  const [formData, setFormData] = useState<VehicleFormData>(initialData || {
     basic: {
       plateNumber: "",
       vehicleType: "Ambulance",
@@ -75,18 +89,20 @@ const VehicleRegistrationWizard: React.FC<VehicleRegistrationWizardProps> = ({
     },
   });
 
-  // Save to localStorage for persistence
+  // Save to localStorage for persistence (only if not editing a draft)
   useEffect(() => {
-    const savedData = localStorage.getItem("vehicleRegistrationData");
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        setFormData(parsed);
-      } catch (error) {
-        console.warn("Failed to parse saved vehicle registration data");
+    if (!draftId) {
+      const savedData = localStorage.getItem("vehicleRegistrationData");
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          setFormData(parsed);
+        } catch (error) {
+          console.warn("Failed to parse saved vehicle registration data");
+        }
       }
     }
-  }, []);
+  }, [draftId]);
 
   useEffect(() => {
     localStorage.setItem("vehicleRegistrationData", JSON.stringify(formData));
@@ -254,6 +270,109 @@ const VehicleRegistrationWizard: React.FC<VehicleRegistrationWizardProps> = ({
     }
   };
 
+  // Save as draft handler
+  const handleSaveAsDraft = async () => {
+    setIsLoading(true);
+    setGeneralError("");
+
+    try {
+      // Generate a descriptive draft title
+      const draftTitle = formData.basic.plateNumber
+        ? `Vehicle ${formData.basic.plateNumber} - Draft`
+        : `Vehicle Draft - ${new Date().toLocaleDateString()}`;
+
+      const draftData = {
+        registrationType: "vehicle",
+        draftTitle: draftTitle,
+        formData: {
+          basic: formData.basic,
+          station: formData.station,
+          equipment: formData.equipment,
+        },
+        currentStep: currentStep,
+      };
+
+      // If editing existing draft, update it; otherwise create new
+      const apiUrl = draftId
+        ? `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/drafts/${draftId}`
+        : `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/drafts`;
+      
+      console.log("=== DRAFT SAVE DEBUG ===");
+      console.log(draftId ? "Updating existing draft" : "Creating new draft");
+      console.log("API URL:", apiUrl);
+      console.log("Draft data:", JSON.stringify(draftData, null, 2));
+      console.log("Token:", localStorage.getItem("token") ? "Present" : "Missing");
+
+      const response = await fetch(apiUrl, {
+        method: draftId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(draftData),
+      });
+
+      console.log("Response status:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+
+      // Try to parse response
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+        console.log("Response data:", data);
+      } else {
+        const text = await response.text();
+        console.log("Response text:", text);
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(data.message || `Failed to save draft (${response.status})`);
+      }
+
+      // Success - show notification
+      console.log("✅ Draft saved successfully!");
+      localStorage.removeItem("vehicleRegistrationData");
+      setNotification({
+        show: true,
+        type: 'success',
+        title: 'Draft Saved Successfully!',
+        message: 'Your vehicle registration has been saved as a draft. You can continue editing later from the "Save and Drafted" section.',
+        onConfirm: () => {
+          setNotification(null);
+          if (onSuccess) onSuccess();
+        },
+      });
+    } catch (error) {
+      console.error("❌ Save draft error:", error);
+      console.error("Error details:", {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      let errorMessage = "Failed to save draft";
+      if (error instanceof Error) {
+        if (error.message.includes("Failed to fetch")) {
+          errorMessage = "Network error: Cannot connect to server. Is the backend running?";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setGeneralError(errorMessage);
+      setNotification({
+        show: true,
+        type: 'error',
+        title: 'Failed to Save Draft',
+        message: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Submit form - matches backend expectations exactly
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -273,60 +392,90 @@ const VehicleRegistrationWizard: React.FC<VehicleRegistrationWizardProps> = ({
         ),
       };
 
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/vehicles`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify(submitData),
-        }
-      );
+      console.log("🚀 Submitting vehicle registration:", submitData);
+      const apiUrl = `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/vehicles`;
+      console.log("🌐 API URL:", apiUrl);
 
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(submitData),
+      });
+
+      console.log("📡 Response status:", response.status, response.statusText);
       const data = await response.json();
+      console.log("📦 Response data:", data);
 
       if (!response.ok) {
         throw new Error(data.message || "Failed to register vehicle");
       }
 
       // Success
-      setIsSuccess(true);
+      console.log("✅ Vehicle registration successful, clearing form data...");
       localStorage.removeItem("vehicleRegistrationData");
-
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-      }, 2000);
+      
+      // If this was from a draft, delete the draft
+      if (draftId) {
+        try {
+          console.log(`🗑️ Deleting draft ${draftId} after successful submission...`);
+          await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/drafts/${draftId}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+          console.log("✅ Draft deleted successfully");
+        } catch (draftError) {
+          console.error("⚠️ Failed to delete draft (non-critical):", draftError);
+        }
+      }
+      
+      // Keep isLoading true until user closes the modal and form closes
+      setNotification({
+        show: true,
+        type: 'success',
+        title: 'Vehicle Registered Successfully!',
+        message: `Vehicle ${formData.basic.plateNumber} has been submitted for approval and is now pending supervisor review.`,
+      });
+      
+      // Don't set isLoading to false on success - keep button showing "Registering..." until form closes
     } catch (error) {
       console.error("Vehicle registration error:", error);
-      setGeneralError(error instanceof Error ? error.message : "Failed to register vehicle");
-    } finally {
-      setIsLoading(false);
+      const errorMessage = error instanceof Error ? error.message : "Failed to register vehicle";
+      setGeneralError(errorMessage);
+      setIsLoading(false); // Only reset loading on error
+      setNotification({
+        show: true,
+        type: 'error',
+        title: 'Registration Failed',
+        message: errorMessage,
+      });
     }
   };
 
-  // Success screen
-  if (isSuccess) {
-    return (
-      <div className="max-w-2xl mx-auto text-center py-12">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-8">
-          <svg className="mx-auto h-16 w-16 text-green-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <h2 className="text-2xl font-bold text-green-900 mb-2">Vehicle Registered Successfully!</h2>
-          <p className="text-green-700 mb-4">
-            Vehicle {formData.basic.plateNumber} has been submitted for approval.
-          </p>
-          <p className="text-sm text-green-600">
-            You will be redirected to the overview page shortly...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
+    <>
+      {/* Notification Modal */}
+      {notification && notification.show && (
+        <Notification
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={() => {
+            setNotification(null);
+            // If it's a success notification, close the form
+            if (notification.type === 'success' && onSuccess) {
+              onSuccess();
+            }
+          }}
+          onConfirm={notification.onConfirm}
+        />
+      )}
+
+      {/* Main Form */}
     <div className="max-w-4xl mx-auto">
       <div className="bg-white shadow rounded-lg">
         {/* Header */}
@@ -679,7 +828,7 @@ const VehicleRegistrationWizard: React.FC<VehicleRegistrationWizardProps> = ({
         </div>
 
         {/* Navigation */}
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-between">
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
           <button
             type="button"
             onClick={currentStep === 1 ? onCancel : handlePrevious}
@@ -688,27 +837,44 @@ const VehicleRegistrationWizard: React.FC<VehicleRegistrationWizardProps> = ({
             {currentStep === 1 ? "Cancel" : "Previous"}
           </button>
 
-          {currentStep < 3 ? (
+          <div className="flex gap-3">
+            {/* Save as Draft Button - Available on all steps */}
             <button
               type="button"
-              onClick={handleNext}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
+              onClick={handleSaveAsDraft}
               disabled={isLoading}
-              className="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              className="px-6 py-2 border border-blue-600 text-blue-600 rounded-md text-sm font-medium hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              title="Save current progress as draft"
             >
-              {isLoading ? "Registering..." : "Register Vehicle"}
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              {isLoading ? "Saving..." : "Save as Draft"}
             </button>
-          )}
+
+            {currentStep < 3 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isLoading}
+                className="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                {isLoading ? "Registering..." : "Register Vehicle"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
+    </>
   );
 };
 

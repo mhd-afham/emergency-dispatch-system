@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Notification from "../common/Notification";
 
 // Define interfaces matching backend Crew schema exactly
 interface CrewPersonalInfo {
@@ -40,6 +41,9 @@ interface CrewFormData {
 interface CrewRegistrationWizardProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  draftId?: string;
+  initialData?: CrewFormData;
+  currentStep?: number;
 }
 
 interface ValidationErrors {
@@ -49,15 +53,25 @@ interface ValidationErrors {
 const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
   onSuccess,
   onCancel,
+  draftId,
+  initialData,
+  currentStep: initialStep,
 }) => {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(initialStep || 1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [generalError, setGeneralError] = useState("");
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  } | null>(null);
 
   // Form data state matching backend schema exactly
-  const [formData, setFormData] = useState<CrewFormData>({
+  const [formData, setFormData] = useState<CrewFormData>(initialData || {
     personal: {
       employeeId: "",
       firstName: "",
@@ -87,18 +101,20 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
     },
   });
 
-  // Save to localStorage for persistence
+  // Save to localStorage for persistence (only if not editing a draft)
   useEffect(() => {
-    const savedData = localStorage.getItem("crewRegistrationData");
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        setFormData(parsed);
-      } catch (error) {
-        console.warn("Failed to parse saved crew registration data");
+    if (!draftId) {
+      const savedData = localStorage.getItem("crewRegistrationData");
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          setFormData(parsed);
+        } catch (error) {
+          console.warn("Failed to parse saved crew registration data");
+        }
       }
     }
-  }, []);
+  }, [draftId]);
 
   useEffect(() => {
     localStorage.setItem("crewRegistrationData", JSON.stringify(formData));
@@ -112,7 +128,7 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
     if (!personal.employeeId.trim()) {
       newErrors.employeeId = "Employee ID is required";
     } else if (!/^EMP[0-9]{6}$/.test(personal.employeeId.trim())) {
-      newErrors.employeeId = "Invalid format. Use format EMP123456";
+      newErrors.employeeId = "Must be EMP followed by exactly 6 digits (e.g., EMP123456)";
     }
 
     if (!personal.firstName.trim()) {
@@ -125,14 +141,14 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
 
     if (!personal.email.trim()) {
       newErrors.email = "Email is required";
-    } else if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(personal.email)) {
-      newErrors.email = "Invalid email format";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email)) {
+      newErrors.email = "Please enter a valid email address (e.g., john.doe@example.com)";
     }
 
     if (!personal.phone.trim()) {
       newErrors.phone = "Phone number is required";
-    } else if (!/^\\+94[0-9]{9}$/.test(personal.phone.trim())) {
-      newErrors.phone = "Invalid format. Use +94xxxxxxxxx";
+    } else if (!/^\+94[0-9]{9}$/.test(personal.phone.trim())) {
+      newErrors.phone = "Must be +94 followed by exactly 9 digits (e.g., +94771234567)";
     }
 
     setErrors(newErrors);
@@ -195,8 +211,8 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
 
     if (!emergencyContact.phone.trim()) {
       newErrors.emergencyContactPhone = "Emergency contact phone is required";
-    } else if (!/^\\+94[0-9]{9}$/.test(emergencyContact.phone.trim())) {
-      newErrors.emergencyContactPhone = "Invalid format. Use +94xxxxxxxxx";
+    } else if (!/^\+94[0-9]{9}$/.test(emergencyContact.phone.trim())) {
+      newErrors.emergencyContactPhone = "Must be +94 followed by exactly 9 digits (e.g., +94771234567)";
     }
 
     setErrors(newErrors);
@@ -320,8 +336,126 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
     }
   };
 
+  // Save as draft handler
+  const handleSaveAsDraft = async () => {
+    setIsLoading(true);
+    setGeneralError("");
+
+    try {
+      // Generate a descriptive draft title
+      const draftTitle = formData.personal.firstName && formData.personal.lastName
+        ? `${formData.personal.firstName} ${formData.personal.lastName} - Crew Draft`
+        : `Crew Draft - ${new Date().toLocaleDateString()}`;
+
+      const draftData = {
+        registrationType: "crew",
+        draftTitle: draftTitle,
+        formData: {
+          personal: formData.personal,
+          professional: formData.professional,
+          emergencyContact: formData.emergencyContact,
+        },
+        currentStep: currentStep,
+      };
+
+      // If editing existing draft, update it; otherwise create new
+      const apiUrl = draftId
+        ? `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/drafts/${draftId}`
+        : `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/drafts`;
+      
+      console.log("=== DRAFT SAVE DEBUG ===");
+      console.log(draftId ? "Updating existing draft" : "Creating new draft");
+      console.log("API URL:", apiUrl);
+      console.log("Draft data:", JSON.stringify(draftData, null, 2));
+      console.log("Token:", localStorage.getItem("token") ? "Present" : "Missing");
+
+      const response = await fetch(apiUrl, {
+        method: draftId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(draftData),
+      });
+
+      console.log("Response status:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+
+      // Try to parse response
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+        console.log("Response data:", data);
+      } else {
+        const text = await response.text();
+        console.log("Response text:", text);
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(data.message || `Failed to save draft (${response.status})`);
+      }
+
+      // Success - show notification
+      console.log("✅ Draft saved successfully!");
+      localStorage.removeItem("crewRegistrationData");
+      setNotification({
+        show: true,
+        type: 'success',
+        title: 'Draft Saved Successfully!',
+        message: 'Your crew registration has been saved as a draft. You can continue editing later from the "Save and Drafted" section.',
+        onConfirm: () => {
+          setNotification(null);
+          if (onSuccess) onSuccess();
+        },
+      });
+    } catch (error) {
+      console.error("❌ Save draft error:", error);
+      console.error("Error details:", {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      let errorMessage = "Failed to save draft";
+      if (error instanceof Error) {
+        if (error.message.includes("Failed to fetch")) {
+          errorMessage = "Network error: Cannot connect to server. Is the backend running?";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setGeneralError(errorMessage);
+      setNotification({
+        show: true,
+        type: 'error',
+        title: 'Failed to Save Draft',
+        message: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Available specializations
+  const availableSpecializations = [
+    "cardiac_care",
+    "trauma", 
+    "pediatric",
+    "respiratory",
+    "hazmat",
+    "rescue_operations",
+    "fire_suppression",
+    "medical_transport",
+    "emergency_medicine",
+    "other"
+  ];
+
   // Submit form - matches backend expectations exactly
   const handleSubmit = async () => {
+    console.log("🎯 handleSubmit called for crew registration");
     setIsLoading(true);
     setGeneralError("");
 
@@ -343,74 +477,128 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
         emergencyContact: formData.emergencyContact,
       };
 
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/crew`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify(submitData),
-        }
-      );
+      console.log("� Crew registration form data:");
+      console.log("  - Employee ID:", submitData.employeeId);
+      console.log("  - Name:", submitData.firstName, submitData.lastName);
+      console.log("  - Email:", submitData.email);
+      console.log("  - Phone:", submitData.phone);
+      console.log("  - Role:", submitData.role);
+      console.log("  - Certification Level:", submitData.certificationLevel);
+      console.log("  - Hire Date:", submitData.hireDate);
+      console.log("  - Certifications:", submitData.certifications.length);
+      console.log("  - Specializations:", submitData.specializations);
+      console.log("  - Emergency Contact:", submitData.emergencyContact);
+      console.log("🚀 Full submission data:", JSON.stringify(submitData, null, 2));
+      
+      const apiUrl = `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/crew`;
+      console.log("🌐 API URL:", apiUrl);
+      console.log("🔑 Token present:", !!localStorage.getItem("token"));
 
-      const data = await response.json();
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(submitData),
+      });
+
+      console.log("📡 Response status:", response.status, response.statusText);
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log("📦 Response data:", JSON.stringify(data, null, 2));
+      } catch (parseError) {
+        console.error("❌ Failed to parse response as JSON:", parseError);
+        throw new Error(`Server returned invalid JSON response (Status: ${response.status})`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to register crew member");
+        console.error("❌ Server returned error response:");
+        console.error("  - Status:", response.status);
+        console.error("  - Message:", data.message);
+        console.error("  - Full response:", data);
+        throw new Error(data.message || `Failed to register crew member (Status: ${response.status})`);
       }
 
       // Success
-      setIsSuccess(true);
+      console.log("✅ Crew registration successful, clearing form data...");
       localStorage.removeItem("crewRegistrationData");
-
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-      }, 2000);
+      
+      // If this was from a draft, delete the draft
+      if (draftId) {
+        try {
+          console.log(`🗑️ Deleting draft ${draftId} after successful submission...`);
+          await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/drafts/${draftId}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+          console.log("✅ Draft deleted successfully");
+        } catch (draftError) {
+          console.error("⚠️ Failed to delete draft (non-critical):", draftError);
+        }
+      }
+      
+      // Keep isLoading true until user closes the modal and form closes
+      setNotification({
+        show: true,
+        type: 'success',
+        title: 'Crew Member Registered Successfully!',
+        message: `${formData.personal.firstName} ${formData.personal.lastName} (${formData.personal.employeeId}) has been submitted for approval and is now pending supervisor review.`,
+      });
+      
+      // Don't set isLoading to false on success - keep button showing "Registering..." until form closes
     } catch (error) {
-      console.error("Crew registration error:", error);
-      setGeneralError(error instanceof Error ? error.message : "Failed to register crew member");
-    } finally {
-      setIsLoading(false);
+      console.error("❌ Crew registration error caught:", error);
+      console.error("❌ Error type:", error instanceof Error ? error.constructor.name : typeof error);
+      console.error("❌ Error message:", error instanceof Error ? error.message : String(error));
+      console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack trace");
+      
+      let errorMessage = "Failed to register crew member";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        console.error("❌ Using error message:", errorMessage);
+      } else {
+        errorMessage = String(error);
+        console.error("❌ Using string representation:", errorMessage);
+      }
+      
+      setGeneralError(errorMessage);
+      setIsLoading(false); // Only reset loading on error
+      setNotification({
+        show: true,
+        type: 'error',
+        title: 'Registration Failed',
+        message: errorMessage,
+      });
     }
   };
 
-  // Success screen
-  if (isSuccess) {
-    return (
-      <div className="max-w-2xl mx-auto text-center py-12">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-8">
-          <svg className="mx-auto h-16 w-16 text-green-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <h2 className="text-2xl font-bold text-green-900 mb-2">Crew Member Registered Successfully!</h2>
-          <p className="text-green-700 mb-4">
-            {formData.personal.firstName} {formData.personal.lastName} has been registered as a crew member.
-          </p>
-          <p className="text-sm text-green-600">
-            You will be redirected to the overview page shortly...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const availableSpecializations = [
-    "cardiac_care",
-    "trauma", 
-    "pediatric",
-    "respiratory",
-    "hazmat",
-    "rescue_operations",
-    "fire_suppression",
-    "medical_transport",
-    "emergency_medicine",
-    "other"
-  ];
-
   return (
-    <div className="max-w-4xl mx-auto">
+    <>
+      {/* Notification Modal */}
+      {notification && notification.show && (
+        <Notification
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={() => {
+            setNotification(null);
+            // If it's a success notification, close the form
+            if (notification.type === 'success' && onSuccess) {
+              onSuccess();
+            }
+          }}
+          onConfirm={notification.onConfirm}
+        />
+      )}
+
+      {/* Main Form */}
+      <div className="max-w-4xl mx-auto">
       <div className="bg-white shadow rounded-lg">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 relative">
@@ -481,10 +669,14 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
                       errors.employeeId ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="EMP123456"
+                    maxLength={9}
                   />
                   {errors.employeeId && (
                     <p className="mt-1 text-sm text-red-600">{errors.employeeId}</p>
                   )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    <span className="font-medium">Format:</span> EMP followed by 6 digits (e.g., EMP123456)
+                  </p>
                 </div>
 
                 <div>
@@ -539,6 +731,9 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
                   {errors.email && (
                     <p className="mt-1 text-sm text-red-600">{errors.email}</p>
                   )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    <span className="font-medium">Format:</span> Valid email address (e.g., john.doe@example.com)
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -553,11 +748,14 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
                       errors.phone ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="+94771234567"
+                    maxLength={12}
                   />
                   {errors.phone && (
                     <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
                   )}
-                  <p className="mt-1 text-sm text-gray-500">Sri Lankan phone number format</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    <span className="font-medium">Format:</span> +94 followed by 9 digits (e.g., +94771234567)
+                  </p>
                 </div>
               </div>
             </div>
@@ -843,10 +1041,14 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
                       errors.emergencyContactPhone ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="+94771234567"
+                    maxLength={12}
                   />
                   {errors.emergencyContactPhone && (
                     <p className="mt-1 text-sm text-red-600">{errors.emergencyContactPhone}</p>
                   )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    <span className="font-medium">Format:</span> +94 followed by 9 digits (e.g., +94771234567)
+                  </p>
                 </div>
               </div>
 
@@ -889,7 +1091,7 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
         </div>
 
         {/* Navigation */}
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-between">
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
           <button
             type="button"
             onClick={currentStep === 1 ? onCancel : handlePrevious}
@@ -898,27 +1100,44 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
             {currentStep === 1 ? "Cancel" : "Previous"}
           </button>
 
-          {currentStep < 3 ? (
+          <div className="flex gap-3">
+            {/* Save as Draft Button - Available on all steps */}
             <button
               type="button"
-              onClick={handleNext}
-              className="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
+              onClick={handleSaveAsDraft}
               disabled={isLoading}
-              className="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              className="px-6 py-2 border border-blue-600 text-blue-600 rounded-md text-sm font-medium hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              title="Save current progress as draft"
             >
-              {isLoading ? "Registering..." : "Register Crew Member"}
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              {isLoading ? "Saving..." : "Save as Draft"}
             </button>
-          )}
+
+            {currentStep < 3 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isLoading}
+                className="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                {isLoading ? "Registering..." : "Register Crew Member"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
+    </>
   );
 };
 

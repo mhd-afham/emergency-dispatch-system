@@ -207,7 +207,11 @@ class CrewController {
         currentStatus: {
           availability: 'off_duty',
           shiftId: null,
-          assignedVehicleId: null
+          assignedVehicleId: null,
+          location: {
+            type: 'Point',
+            coordinates: [79.8612, 6.9271] // Default to Colombo, Sri Lanka (will be updated via mobile app)
+          }
         },
         settings: {
           isActive: false, // Changed to false - requires supervisor approval
@@ -278,23 +282,27 @@ class CrewController {
 
       // Log the failed action
       if (req.user) {
-        await AuditLog.logAction({
-          actionType: 'create',
-          description: `Failed crew member registration attempt`,
-          outcome: 'failure',
-          userId: req.user._id,
-          username: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
-          userRole: req.user.auth.role.toLowerCase().replace(' ', '_'),
-          entityType: 'Crew',
-          module: 'crew_management',
-          feature: 'crew_registration',
-          error: {
-            code: error.code || 'REGISTRATION_ERROR',
-            message: error.message,
-            category: 'system'
-          },
-          riskLevel: 'low'
-        });
+        try {
+          await AuditLog.logAction({
+            actionType: 'create',
+            description: `Failed crew member registration attempt`,
+            outcome: 'failure',
+            userId: req.user._id,
+            username: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+            userRole: req.user.auth.role.toLowerCase().replace(' ', '_'),
+            entityType: 'Crew',
+            module: 'crew_management',
+            feature: 'crew_registration',
+            error: {
+              code: error.code || 'REGISTRATION_ERROR',
+              message: error.message,
+              category: 'system'
+            },
+            riskLevel: 'low'
+          });
+        } catch (auditError) {
+          console.error('⚠️ Failed to log audit (non-critical):', auditError.message);
+        }
       }
 
       if (error.name === 'ValidationError') {
@@ -1073,9 +1081,10 @@ class CrewController {
       console.log('📋 Fetching crew members pending approval for:', req.user.personal.firstName);
       console.log('🔍 User role:', req.user.auth.role);
 
-      // Query for pending crew members (settings.isActive: false)
+      // Query for pending crew members (exclude rejected ones)
       const query = {
-        'settings.isActive': false
+        'settings.isActive': false,
+        rejectionDetails: { $exists: false }
       };
       
       console.log('🔎 Query:', JSON.stringify(query, null, 2));
@@ -1306,6 +1315,194 @@ class CrewController {
   }
 
   /**
+   * Clear rejection status and allow resubmission
+   * PATCH /api/crew/:id/clear-rejection
+   */
+  static async clearRejection(req, res) {
+    try {
+      const { id } = req.params;
+
+      console.log(`🔄 Clearing rejection status for crew member ${id} by:`, req.user.personal.firstName, req.user.personal.lastName);
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid crew member ID format'
+        });
+      }
+
+      const crewMember = await Crew.findById(id);
+
+      if (!crewMember) {
+        return res.status(404).json({
+          success: false,
+          message: 'Crew member not found'
+        });
+      }
+
+      if (!crewMember.rejectionDetails) {
+        return res.status(400).json({
+          success: false,
+          message: 'Crew member is not rejected'
+        });
+      }
+
+      const crewInfo = {
+        employeeId: crewMember.personal.employeeId,
+        fullName: `${crewMember.personal.firstName} ${crewMember.personal.lastName}`,
+        role: crewMember.professional.role
+      };
+
+      // Store rejection info for audit log before clearing
+      const previousRejection = {
+        reason: crewMember.rejectionDetails.reason,
+        rejectedAt: crewMember.rejectionDetails.rejectedAt,
+        rejectedBy: crewMember.rejectionDetails.rejectedBy
+      };
+
+      // Clear rejection details
+      crewMember.rejectionDetails = undefined;
+      crewMember.settings.isActive = false;
+      
+      await crewMember.save();
+
+      // Log the clear rejection action
+      await AuditLog.logAction({
+        actionType: 'update',
+        description: `Rejection cleared for crew member: ${crewInfo.role} ${crewInfo.fullName}`,
+        outcome: 'success',
+        userId: req.user._id,
+        username: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+        userRole: req.user.auth.role.toLowerCase().replace(' ', '_'),
+        entityType: 'Crew',
+        entityId: crewMember._id,
+        entityName: crewInfo.fullName,
+        module: 'crew_management',
+        feature: 'crew_resubmission',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        riskLevel: 'medium',
+        isPrivileged: true,
+        metadata: {
+          previousRejection,
+          clearedBy: {
+            firstName: req.user.personal.firstName,
+            lastName: req.user.personal.lastName,
+            role: req.user.auth.role
+          },
+          clearedAt: new Date()
+        }
+      });
+
+      console.log(`✅ Rejection cleared for crew member:`, crewInfo.employeeId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Rejection status cleared successfully',
+        data: crewMember
+      });
+
+    } catch (error) {
+      console.error('❌ Clear rejection error:', error);
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to clear rejection status',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Permanently delete a crew member (only for rejected registrations)
+   * DELETE /api/crew/:id/permanent
+   */
+  static async deleteCrewPermanently(req, res) {
+    try {
+      const { id } = req.params;
+
+      console.log(`🗑️ Permanently deleting crew member ${id} by:`, req.user.personal.firstName, req.user.personal.lastName);
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid crew member ID format'
+        });
+      }
+
+      const crewMember = await Crew.findById(id);
+
+      if (!crewMember) {
+        return res.status(404).json({
+          success: false,
+          message: 'Crew member not found'
+        });
+      }
+
+      // Only allow permanent deletion of rejected crew members
+      if (!crewMember.rejectionDetails) {
+        return res.status(400).json({
+          success: false,
+          message: 'Only rejected crew members can be permanently deleted. Use deactivate for active crew.'
+        });
+      }
+
+      const crewInfo = {
+        employeeId: crewMember.personal.employeeId,
+        fullName: `${crewMember.personal.firstName} ${crewMember.personal.lastName}`,
+        role: crewMember.professional.role
+      };
+
+      // Log the permanent deletion before removing
+      await AuditLog.logAction({
+        actionType: 'delete',
+        description: `Crew member permanently deleted: ${crewInfo.role} ${crewInfo.fullName}`,
+        outcome: 'success',
+        userId: req.user._id,
+        username: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+        userRole: req.user.auth.role.toLowerCase().replace(' ', '_'),
+        entityType: 'Crew',
+        entityId: crewMember._id,
+        entityName: crewInfo.fullName,
+        module: 'crew_management',
+        feature: 'crew_permanent_deletion',
+        metadata: {
+          wasRejected: true,
+          rejectionReason: crewMember.rejectionDetails.reason,
+          originalRegistration: crewInfo
+        },
+        riskLevel: 'critical',
+        isPrivileged: true,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      // Permanently delete from database
+      await Crew.findByIdAndDelete(id);
+
+      console.log('✅ Crew member permanently deleted:', crewInfo.employeeId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Crew member permanently deleted from database',
+        data: {
+          deletedCrew: crewInfo,
+          deletedAt: new Date()
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Permanent delete crew member error:', error);
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to permanently delete crew member',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
    * Get all approved crew members
    * GET /api/crew/approved
    */
@@ -1317,8 +1514,7 @@ class CrewController {
         'settings.isActive': true,
         rejectionDetails: { $exists: false }
       })
-        .populate('professional.homeStation', 'name location')
-        .populate('professional.currentStation', 'name location')
+        .populate('audit.createdBy', 'personal.firstName personal.lastName')
         .sort({ 'audit.createdAt': -1 });
 
       res.status(200).json({
@@ -1351,7 +1547,7 @@ class CrewController {
         'rejectionDetails.status': 'rejected'
       })
         .populate('rejectionDetails.rejectedBy', 'personal.firstName personal.lastName auth.role')
-        .populate('professional.homeStation', 'name location')
+        .populate('audit.createdBy', 'personal.firstName personal.lastName')
         .sort({ 'rejectionDetails.rejectedAt': -1 });
 
       res.status(200).json({

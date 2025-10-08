@@ -211,6 +211,25 @@ const crewSchema = new mongoose.Schema(
         default: Date.now,
       },
     },
+
+    // Rejection Details (for tracking rejected registrations)
+    rejectionDetails: {
+      rejectedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      rejectedAt: {
+        type: Date,
+      },
+      reason: {
+        type: String,
+        trim: true,
+      },
+      status: {
+        type: String,
+        enum: ["rejected"],
+      },
+    },
   },
   {
     timestamps: true,

@@ -179,25 +179,29 @@ class VehicleController {
     } catch (error) {
       console.error('❌ Vehicle registration error:', error);
 
-      // Log the failed action
+      // Log the failed action (wrapped in try-catch to prevent secondary failures)
       if (req.user) {
-        await AuditLog.logAction({
-          actionType: 'create',
-          description: `Failed vehicle registration attempt`,
-          outcome: 'failure',
-          userId: req.user._id,
-          username: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
-          userRole: req.user.auth.role.toLowerCase().replace(' ', '_'),
-          entityType: 'Vehicle',
-          module: 'vehicle_management',
-          feature: 'vehicle_registration',
-          error: {
-            code: error.code || 'REGISTRATION_ERROR',
-            message: error.message,
-            category: 'system'
-          },
-          riskLevel: 'low'
-        });
+        try {
+          await AuditLog.logAction({
+            actionType: 'create',
+            description: `Failed vehicle registration attempt`,
+            outcome: 'failure',
+            userId: req.user._id,
+            username: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+            userRole: req.user.auth.role.toLowerCase().replace(' ', '_'),
+            entityType: 'Vehicle',
+            module: 'vehicle_management',
+            feature: 'vehicle_registration',
+            error: {
+              code: error.code || 'REGISTRATION_ERROR',
+              message: error.message,
+              category: 'system'
+            },
+            riskLevel: 'low'
+          });
+        } catch (auditError) {
+          console.error('⚠️ Failed to log audit (non-critical):', auditError.message);
+        }
       }
 
       if (error.name === 'ValidationError') {
@@ -341,10 +345,11 @@ class VehicleController {
       console.log('📋 Fetching vehicles pending approval for:', req.user.personal.firstName);
       console.log('🔍 User role:', req.user.auth.role);
 
-      // Query for pending vehicles
+      // Query for pending vehicles (exclude rejected ones)
       const query = {
         isActive: false,
-        'status.operational': 'maintenance'
+        'status.operational': 'maintenance',
+        rejectionDetails: { $exists: false }
       };
       
       console.log('🔎 Query:', JSON.stringify(query, null, 2));
@@ -600,7 +605,7 @@ class VehicleController {
   static async approveVehicle(req, res) {
     try {
       const { id } = req.params;
-      const { comments } = req.body;
+      const { comments } = req.body || {};
 
       console.log(`✅ Approving vehicle ${id} by:`, req.user.personal.firstName, req.user.personal.lastName);
 
@@ -787,6 +792,92 @@ class VehicleController {
       res.status(500).json({
         success: false,
         message: 'Failed to reject vehicle',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Clear rejection status and allow resubmission
+   * PATCH /api/vehicles/:id/clear-rejection
+   */
+  static async clearRejection(req, res) {
+    try {
+      const { id } = req.params;
+
+      console.log(`🔄 Clearing rejection status for vehicle ${id} by:`, req.user.personal.firstName, req.user.personal.lastName);
+
+      const vehicle = await Vehicle.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vehicle not found'
+        });
+      }
+
+      if (!vehicle.rejectionDetails) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vehicle is not rejected'
+        });
+      }
+
+      // Store rejection info for audit log before clearing
+      const previousRejection = {
+        reason: vehicle.rejectionDetails.reason,
+        rejectedAt: vehicle.rejectionDetails.rejectedAt,
+        rejectedBy: vehicle.rejectionDetails.rejectedBy
+      };
+
+      // Clear rejection details
+      vehicle.rejectionDetails = undefined;
+      vehicle.isActive = false;
+      vehicle.status.operational = 'maintenance';
+      
+      await vehicle.save();
+
+      // Log the clear rejection action
+      await AuditLog.logAction({
+        actionType: 'update',
+        description: `Rejection cleared for vehicle: ${vehicle.registration.vehicleType} ${vehicle.registration.plateNumber}`,
+        outcome: 'success',
+        userId: req.user._id,
+        username: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+        userRole: req.user.auth.role.toLowerCase().replace(' ', '_'),
+        entityType: 'Vehicle',
+        entityId: vehicle._id,
+        entityName: `${vehicle.registration.vehicleType} - ${vehicle.registration.plateNumber}`,
+        module: 'vehicle_management',
+        feature: 'vehicle_resubmission',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        riskLevel: 'medium',
+        isPrivileged: true,
+        metadata: {
+          previousRejection,
+          clearedBy: {
+            firstName: req.user.personal.firstName,
+            lastName: req.user.personal.lastName,
+            role: req.user.auth.role
+          },
+          clearedAt: new Date()
+        }
+      });
+
+      console.log(`✅ Rejection cleared for vehicle:`, vehicle.registration.plateNumber);
+
+      res.status(200).json({
+        success: true,
+        message: 'Rejection status cleared successfully',
+        data: vehicle
+      });
+
+    } catch (error) {
+      console.error('❌ Clear rejection error:', error);
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to clear rejection status',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
@@ -1113,6 +1204,88 @@ class VehicleController {
       res.status(500).json({
         success: false,
         message: 'Failed to deactivate vehicle',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Permanently delete a vehicle (only for rejected registrations)
+   * DELETE /api/vehicles/:id/permanent
+   */
+  static async deleteVehiclePermanently(req, res) {
+    try {
+      const { id } = req.params;
+
+      console.log(`🗑️ Permanently deleting vehicle ${id} by:`, req.user.personal.firstName, req.user.personal.lastName);
+
+      const vehicle = await Vehicle.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vehicle not found'
+        });
+      }
+
+      // Only allow permanent deletion of rejected vehicles
+      if (!vehicle.rejectionDetails) {
+        return res.status(400).json({
+          success: false,
+          message: 'Only rejected vehicles can be permanently deleted. Use deactivate for active vehicles.'
+        });
+      }
+
+      const vehicleInfo = {
+        plateNumber: vehicle.registration.plateNumber,
+        vehicleType: vehicle.registration.vehicleType,
+        make: vehicle.registration.make,
+        model: vehicle.registration.model
+      };
+
+      // Log the permanent deletion before removing
+      await AuditLog.logAction({
+        actionType: 'delete',
+        description: `Vehicle permanently deleted: ${vehicleInfo.vehicleType} ${vehicleInfo.plateNumber}`,
+        outcome: 'success',
+        userId: req.user._id,
+        username: `${req.user.personal.firstName} ${req.user.personal.lastName}`,
+        userRole: req.user.auth.role.toLowerCase().replace(' ', '_'),
+        entityType: 'Vehicle',
+        entityId: vehicle._id,
+        entityName: `${vehicleInfo.vehicleType} - ${vehicleInfo.plateNumber}`,
+        module: 'vehicle_management',
+        feature: 'vehicle_permanent_deletion',
+        metadata: {
+          wasRejected: true,
+          rejectionReason: vehicle.rejectionDetails.reason,
+          originalRegistration: vehicleInfo
+        },
+        riskLevel: 'critical',
+        isPrivileged: true,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      // Permanently delete from database
+      await Vehicle.findByIdAndDelete(id);
+
+      console.log('✅ Vehicle permanently deleted:', vehicleInfo.plateNumber);
+
+      res.status(200).json({
+        success: true,
+        message: 'Vehicle permanently deleted from database',
+        data: {
+          deletedVehicle: vehicleInfo,
+          deletedAt: new Date()
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Permanent delete vehicle error:', error);
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to permanently delete vehicle',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
