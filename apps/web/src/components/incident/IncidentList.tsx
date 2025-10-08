@@ -415,23 +415,11 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {editingIncident === incident._id ? (
-                      <select
-                        value={editForm.status || incident.status}
-                        onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                        className="text-xs border border-gray-300 rounded px-2 py-1"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="assigned">Assigned</option>
-                        <option value="en_route">En Route</option>
-                        <option value="on_scene">On Scene</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                    ) : (
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusColors[incident.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'}`}>
-                        {incident.status.replace('_', ' ')}
-                      </span>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusColors[incident.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'}`}>
+                      {incident.status.replace('_', ' ')}
+                    </span>
+                    {editingIncident === incident._id && (
+                      <p className="text-xs text-gray-500 mt-1">Status cannot be edited here. Use Cancel button to cancel incident.</p>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

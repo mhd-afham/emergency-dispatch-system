@@ -73,6 +73,7 @@ app.use("/api/assignments", require("./routes/assignments"));
 app.use("/api/crews", require("./routes/crews"));
 app.use("/api/shifts", require("./routes/shifts")); // Julien's shift management
 app.use("/api/crew", require("./routes/crew")); // Julien's crew routes
+app.use("/api/analytics", require("./routes/analytics")); // Chirath's analytics
 
 // Error handling middleware
 app.use((err, req, res, next) => {
