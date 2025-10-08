@@ -14,6 +14,7 @@ app.use(
   cors({
     origin: [
       process.env.CLIENT_URL || "http://localhost:3000",
+      "http://localhost:3001", // Frontend dev server (Julien's addition)
       "http://192.168.1.101:8081", // Expo Dev Server (old)
       "http://172.20.10.3:8081", // Expo Dev Server (WiFi/Hotspot)
       /^http:\/\/192\.168\.\d+\.\d+:8081$/, // Allow any device on local network (Expo)
@@ -70,7 +71,8 @@ app.use("/api/equipment", require("./routes/equipment"));
 app.use("/api/vehicles", require("./routes/vehicles"));
 app.use("/api/assignments", require("./routes/assignments"));
 app.use("/api/crews", require("./routes/crews"));
-// app.use('/api/shifts', require('./routes/shifts'));
+app.use("/api/shifts", require("./routes/shifts")); // Julien's shift management
+app.use("/api/crew", require("./routes/crew")); // Julien's crew routes
 
 // Error handling middleware
 app.use((err, req, res, next) => {
