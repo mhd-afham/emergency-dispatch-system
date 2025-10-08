@@ -55,6 +55,12 @@ const io = new Server(httpServer, {
 // Socket.io configuration
 require("./config/websocket")(io);
 
+// Register all models (ensures they're available for populate)
+require("./models/Station");
+require("./models/Vehicle");
+require("./models/Crew");
+require("./models/User");
+
 // Routes
 app.get("/", (req, res) => {
   res.json({
@@ -72,7 +78,8 @@ app.use("/api/vehicles", require("./routes/vehicles"));
 app.use("/api/assignments", require("./routes/assignments"));
 app.use("/api/crews", require("./routes/crews"));
 app.use("/api/shifts", require("./routes/shifts")); // Julien's shift management
-app.use("/api/crew", require("./routes/crew")); // Julien's crew routes
+app.use("/api/crew", require("./routes/crew")); // Crew routes (merged Julien + Inusha)
+app.use("/api/drafts", require("./routes/drafts")); // Inusha's drafts
 app.use("/api/analytics", require("./routes/analytics")); // Chirath's analytics
 
 // Error handling middleware

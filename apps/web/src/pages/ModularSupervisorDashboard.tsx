@@ -6,13 +6,13 @@ import { analyticsService, AnalyticsSummary } from "../services/analytics";
 
 /**
  * Modular Supervisor Dashboard
- * 
+ *
  * This dashboard uses a component-based architecture to prevent merge conflicts
  * between team members working on different functional areas:
- * 
+ *
  * - Udayanga: Equipment Management (SupervisorEquipmentSection)
  * - Spencer: Shift Management (SupervisorShiftSection)
- * 
+ *
  * Each team member owns their section component and can develop independently.
  */
 
@@ -25,11 +25,37 @@ interface AnalyticsCard {
 
 const ModularSupervisorDashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const [activeSection, setActiveSection] = useState<'overview' | 'equipment' | 'shifts'>('overview');
+  const [activeSection, setActiveSection] = useState<
+    "overview" | "equipment" | "shifts" | "approvals"
+  >("overview");
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsCard[]>([]);
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsSummary | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsSummary | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Core supervisor data (owned by main dashboard) - MUST be before any conditional returns
+  const [pendingApprovals] = useState([
+    {
+      id: "APPR-001",
+      type: "Vehicle Registration",
+      item: "AMB-05 - New Ambulance",
+      requestedBy: "John Smith",
+      department: "Medical Services",
+      requestedAt: "2024-01-15 09:30",
+      priority: "Medium",
+    },
+    {
+      id: "APPR-002",
+      type: "Crew Assignment",
+      item: "Night Shift - Station 2",
+      requestedBy: "Sarah Johnson",
+      department: "Operations",
+      requestedAt: "2024-01-15 11:45",
+      priority: "High",
+    },
+  ]);
 
   // Fetch real-time analytics data
   useEffect(() => {
@@ -38,10 +64,10 @@ const ModularSupervisorDashboard: React.FC = () => {
         setLoading(true);
         setError(null);
         const data: AnalyticsSummary = await analyticsService.getSummary();
-        
+
         // Store full analytics data
         setAnalyticsData(data);
-        
+
         // Determine status based on values
         const getIncidentStatus = (count: number) => {
           if (count > 50) return "warning";
@@ -64,7 +90,7 @@ const ModularSupervisorDashboard: React.FC = () => {
         };
 
         const getActiveUnitsStatus = (units: string) => {
-          const [active, total] = units.split('/').map(Number);
+          const [active, total] = units.split("/").map(Number);
           const percentage = (active / total) * 100;
           if (percentage > 80) return "warning";
           if (percentage > 50) return "normal";
@@ -98,8 +124,8 @@ const ModularSupervisorDashboard: React.FC = () => {
           },
         ]);
       } catch (err) {
-        console.error('Failed to fetch analytics:', err);
-        setError('Failed to load analytics data. Using cached data.');
+        console.error("Failed to fetch analytics:", err);
+        setError("Failed to load analytics data. Using cached data.");
         // Fallback to default values
         setAnalyticsSummary([
           {
@@ -133,14 +159,12 @@ const ModularSupervisorDashboard: React.FC = () => {
     };
 
     fetchAnalytics();
-    
+
     // Refresh analytics every 30 seconds
     const interval = setInterval(fetchAnalytics, 30000);
-    
+
     return () => clearInterval(interval);
   }, []);
-
-
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -154,6 +178,22 @@ const ModularSupervisorDashboard: React.FC = () => {
         return "text-gray-600 bg-gray-50";
     }
   };
+
+  // Debug logging
+  console.log("ModularSupervisorDashboard - User:", user);
+  console.log("ModularSupervisorDashboard - Active Section:", activeSection);
+
+  // Safety check - if no user, show loading (AFTER all hooks)
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading supervisor dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -191,34 +231,44 @@ const ModularSupervisorDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8" aria-label="Sections">
             <button
-              onClick={() => setActiveSection('overview')}
+              onClick={() => setActiveSection("overview")}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeSection === 'overview'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeSection === "overview"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               📊 Overview
             </button>
             <button
-              onClick={() => setActiveSection('equipment')}
+              onClick={() => setActiveSection("equipment")}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeSection === 'equipment'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeSection === "equipment"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               🔧 Equipment Management
             </button>
             <button
-              onClick={() => setActiveSection('shifts')}
+              onClick={() => setActiveSection("shifts")}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeSection === 'shifts'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeSection === "shifts"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               📅 Shift Management
+            </button>
+            <button
+              onClick={() => setActiveSection("approvals")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeSection === "approvals"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              ✓ Pending Approvals
             </button>
           </nav>
         </div>
@@ -226,9 +276,8 @@ const ModularSupervisorDashboard: React.FC = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
         {/* Overview Section */}
-        {activeSection === 'overview' && (
+        {activeSection === "overview" && (
           <>
             {/* Analytics Summary */}
             <div className="bg-white shadow rounded-lg mb-6">
@@ -272,7 +321,9 @@ const ModularSupervisorDashboard: React.FC = () => {
                     {analyticsSummary.map((item, index) => (
                       <div
                         key={index}
-                        className={`p-6 rounded-xl border-2 ${getStatusColor(item.status)} hover:shadow-lg transition-shadow`}
+                        className={`p-6 rounded-xl border-2 ${getStatusColor(
+                          item.status
+                        )} hover:shadow-lg transition-shadow`}
                       >
                         <div className="text-center">
                           <div className="text-4xl mb-3">{item.icon}</div>
@@ -296,69 +347,117 @@ const ModularSupervisorDashboard: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                   {/* Incident Status Breakdown */}
                   <div className="bg-white shadow rounded-lg p-6">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">📊 Incident Status</h4>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                      📊 Incident Status
+                    </h4>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">🟡 Pending</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.incidentStatus.pending}</span>
+                        <span className="text-sm text-gray-600">
+                          🟡 Pending
+                        </span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.incidentStatus.pending}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">🔵 Assigned</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.incidentStatus.assigned}</span>
+                        <span className="text-sm text-gray-600">
+                          🔵 Assigned
+                        </span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.incidentStatus.assigned}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">🟠 En Route</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.incidentStatus.en_route}</span>
+                        <span className="text-sm text-gray-600">
+                          🟠 En Route
+                        </span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.incidentStatus.en_route}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">🔴 On Scene</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.incidentStatus.on_scene}</span>
+                        <span className="text-sm text-gray-600">
+                          🔴 On Scene
+                        </span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.incidentStatus.on_scene}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center border-t pt-2">
-                        <span className="text-sm text-gray-600">✅ Resolved</span>
-                        <span className="text-lg font-bold text-green-600">{analyticsData.incidentStatus.resolved}</span>
+                        <span className="text-sm text-gray-600">
+                          ✅ Resolved
+                        </span>
+                        <span className="text-lg font-bold text-green-600">
+                          {analyticsData.incidentStatus.resolved}
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Incident Type Distribution */}
                   <div className="bg-white shadow rounded-lg p-6">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">📋 Incident Types</h4>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                      📋 Incident Types
+                    </h4>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">🚑 Medical</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.incidentTypes.medical}</span>
+                        <span className="text-sm text-gray-600">
+                          🚑 Medical
+                        </span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.incidentTypes.medical}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">🔥 Fire</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.incidentTypes.fire}</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.incidentTypes.fire}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">🚨 Rescue</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.incidentTypes.rescue}</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.incidentTypes.rescue}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">📦 Other</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.incidentTypes.other}</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.incidentTypes.other}
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Crew Availability Status */}
                   <div className="bg-white shadow rounded-lg p-6">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">👥 Crew Status</h4>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                      👥 Crew Status
+                    </h4>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">✅ Available</span>
-                        <span className="text-lg font-bold text-green-600">{analyticsData.crewStatus.available}</span>
+                        <span className="text-sm text-gray-600">
+                          ✅ Available
+                        </span>
+                        <span className="text-lg font-bold text-green-600">
+                          {analyticsData.crewStatus.available}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">🔵 On Duty</span>
-                        <span className="text-lg font-bold text-blue-600">{analyticsData.crewStatus.onDuty}</span>
+                        <span className="text-sm text-gray-600">
+                          🔵 On Duty
+                        </span>
+                        <span className="text-lg font-bold text-blue-600">
+                          {analyticsData.crewStatus.onDuty}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center border-t pt-2">
-                        <span className="text-sm text-gray-600 font-medium">Total Crews</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.crewStatus.total}</span>
+                        <span className="text-sm text-gray-600 font-medium">
+                          Total Crews
+                        </span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.crewStatus.total}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -368,50 +467,81 @@ const ModularSupervisorDashboard: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Vehicle Status Overview */}
                   <div className="bg-white shadow rounded-lg p-6">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">🚗 Vehicle Status</h4>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                      🚗 Vehicle Status
+                    </h4>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">✅ Ready</span>
-                        <span className="text-lg font-bold text-green-600">{analyticsData.vehicleStatus.ready}</span>
+                        <span className="text-lg font-bold text-green-600">
+                          {analyticsData.vehicleStatus.ready}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">🔧 Maintenance</span>
-                        <span className="text-lg font-bold text-yellow-600">{analyticsData.vehicleStatus.maintenance}</span>
+                        <span className="text-sm text-gray-600">
+                          🔧 Maintenance
+                        </span>
+                        <span className="text-lg font-bold text-yellow-600">
+                          {analyticsData.vehicleStatus.maintenance}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">❌ Out of Service</span>
-                        <span className="text-lg font-bold text-red-600">{analyticsData.vehicleStatus.outOfService}</span>
+                        <span className="text-sm text-gray-600">
+                          ❌ Out of Service
+                        </span>
+                        <span className="text-lg font-bold text-red-600">
+                          {analyticsData.vehicleStatus.outOfService}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center border-t pt-2">
-                        <span className="text-sm text-gray-600 font-medium">Total Vehicles</span>
-                        <span className="text-lg font-bold text-gray-900">{analyticsData.vehicleStatus.total}</span>
+                        <span className="text-sm text-gray-600 font-medium">
+                          Total Vehicles
+                        </span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {analyticsData.vehicleStatus.total}
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Geographic Hotspots */}
                   <div className="bg-white shadow rounded-lg p-6">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">🗺️ Top Locations (Today)</h4>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                      🗺️ Top Locations (Today)
+                    </h4>
                     <div className="space-y-3">
                       {analyticsData.topLocations.length > 0 ? (
                         analyticsData.topLocations.map((location, index) => (
-                          <div key={index} className="flex justify-between items-center">
+                          <div
+                            key={index}
+                            className="flex justify-between items-center"
+                          >
                             <span className="text-sm text-gray-600">
-                              {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'} {location.district}
+                              {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}{" "}
+                              {location.district}
                             </span>
-                            <span className="text-lg font-bold text-gray-900">{location.count}</span>
+                            <span className="text-lg font-bold text-gray-900">
+                              {location.count}
+                            </span>
                           </div>
                         ))
                       ) : (
                         <div className="text-center py-4">
-                          <span className="text-sm text-gray-500">No incidents today</span>
+                          <span className="text-sm text-gray-500">
+                            No incidents today
+                          </span>
                         </div>
                       )}
                       {analyticsData.topLocations.length > 0 && (
                         <div className="flex justify-between items-center border-t pt-2">
-                          <span className="text-sm text-gray-600 font-medium">Total Incidents</span>
+                          <span className="text-sm text-gray-600 font-medium">
+                            Total Incidents
+                          </span>
                           <span className="text-lg font-bold text-gray-900">
-                            {analyticsData.topLocations.reduce((sum, loc) => sum + loc.count, 0)}
+                            {analyticsData.topLocations.reduce(
+                              (sum, loc) => sum + loc.count,
+                              0
+                            )}
                           </span>
                         </div>
                       )}
@@ -424,13 +554,64 @@ const ModularSupervisorDashboard: React.FC = () => {
         )}
 
         {/* Equipment Management Section */}
-        {activeSection === 'equipment' && (
-          <SupervisorEquipmentSection />
-        )}
+        {activeSection === "equipment" && <SupervisorEquipmentSection />}
 
         {/* Shift Management Section */}
-        {activeSection === 'shifts' && (
-          <SupervisorShiftSection />
+        {activeSection === "shifts" && <SupervisorShiftSection />}
+
+        {/* Pending Approvals Section */}
+        {activeSection === "approvals" && (
+          <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">
+              Pending Approvals
+            </h3>
+            <div className="space-y-4">
+              {pendingApprovals.map((approval) => (
+                <div
+                  key={approval.id}
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-lg">{approval.type}</h4>
+                      <p className="text-gray-600">{approval.item}</p>
+                      <p className="text-sm text-gray-500">
+                        Requested by: {approval.requestedBy} (
+                        {approval.department})
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {approval.requestedAt}
+                      </p>
+                    </div>
+                    <div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          approval.priority === "High"
+                            ? "bg-red-100 text-red-800"
+                            : approval.priority === "Medium"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-green-100 text-green-800"
+                        }`}
+                      >
+                        {approval.priority}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex space-x-3">
+                    <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                      Approve
+                    </button>
+                    <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                      Reject
+                    </button>
+                    <button className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

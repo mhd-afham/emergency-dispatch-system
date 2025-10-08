@@ -144,8 +144,7 @@ const userSchema = new mongoose.Schema(
 );
 
 // Indexes for performance
-userSchema.index({ "personal.email": 1 });
-userSchema.index({ "auth.employeeId": 1 });
+// Note: email and employeeId already have unique indexes from schema definition
 userSchema.index({ "auth.role": 1 });
 userSchema.index({ "settings.isActive": 1 });
 

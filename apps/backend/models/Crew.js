@@ -252,6 +252,22 @@ const crewSchema = new mongoose.Schema(
         default: Date.now,
       },
     },
+
+    // Registration Status (for tracking approval/rejection workflow)
+    registrationStatus: {
+      status: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+        default: "pending", // ← Safe for your system!
+      },
+      // Separate fields (clear audit trail)
+      approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      approvedAt: { type: Date },
+      rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      rejectedAt: { type: Date },
+      rejectionReason: { type: String, maxlength: 500 },
+      notes: { type: String, maxlength: 1000 },
+    },
   },
   {
     timestamps: true,
@@ -260,8 +276,7 @@ const crewSchema = new mongoose.Schema(
 );
 
 // Indexes for performance
-crewSchema.index({ "personal.employeeId": 1 });
-crewSchema.index({ "personal.email": 1 });
+// Note: employeeId and email already have unique indexes from schema definition
 crewSchema.index({ "professional.role": 1 });
 crewSchema.index({ "professional.certificationLevel": 1 });
 crewSchema.index({ "currentStatus.availability": 1 });
