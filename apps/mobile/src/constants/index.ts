@@ -3,8 +3,9 @@
 // API Configuration
 // Use your computer's local IP address instead of localhost for physical devices
 // Change this to your computer's IP address (find with: ipconfig on Windows, ifconfig on Mac/Linux)
-export const API_BASE_URL = "http://192.168.1.101:5000/api";
-export const WEBSOCKET_URL = "http://192.168.1.101:5000";
+// Current IPs available: 192.168.56.1 (VirtualBox), 172.20.10.3 (WiFi/Hotspot)
+export const API_BASE_URL = "http://172.20.10.3:5000/api";
+export const WEBSOCKET_URL = "http://172.20.10.3:5000";
 
 export const API_ENDPOINTS = {
   AUTH: "/auth",

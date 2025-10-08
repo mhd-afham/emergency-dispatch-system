@@ -478,22 +478,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.avatarContainer}>
-            <MaterialIcons
-              name="person"
-              size={24}
-              color={colors.textOnPrimary}
-            />
-          </View>
           <View>
             <Text style={styles.welcomeText}>
-              Welcome back, {crew.personal.firstName}!
+              {crew.personal.firstName} {crew.personal.lastName}
             </Text>
             <View style={styles.roleContainer}>
               <MaterialCommunityIcons
                 name="shield-star"
                 size={14}
-                color={colors.secondary}
+                color={colors.secondary100}
               />
               <Text style={styles.roleText}>
                 Crew Leader • {crew.professional.specialization}
@@ -502,7 +495,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </View>
         </View>
         <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-          <MaterialIcons name="logout" size={20} color={colors.textOnPrimary} />
+          <MaterialIcons name="logout" size={22} color={colors.textOnPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -540,8 +533,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <View style={styles.card}>
             <View style={styles.cardTitleContainer}>
               <MaterialCommunityIcons
-                name="ambulance"
-                size={20}
+                name="car-emergency"
+                size={22}
                 color={colors.primary}
               />
               <Text style={styles.cardTitle}>Assigned Vehicle</Text>
@@ -594,9 +587,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {currentAssignment ? (
           <View style={styles.card}>
             <View style={styles.cardTitleContainer}>
-              <MaterialIcons
-                name="emergency"
-                size={20}
+              <MaterialCommunityIcons
+                name="clipboard-alert"
+                size={22}
                 color={colors.primary}
               />
               <Text style={styles.cardTitle}>Current Assignment</Text>
@@ -693,9 +686,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </View>
         ) : (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>📋 Assignment Status</Text>
+            <View style={styles.cardTitleContainer}>
+              <MaterialCommunityIcons
+                name="clipboard-text-outline"
+                size={22}
+                color={colors.primary}
+              />
+              <Text style={styles.cardTitle}>Assignment Status</Text>
+            </View>
             <View style={styles.noAssignment}>
-              <Text style={styles.noAssignmentIcon}>⏳</Text>
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={64}
+                color={colors.textMuted}
+              />
               <Text style={styles.noAssignmentText}>No Active Assignment</Text>
               <Text style={styles.noAssignmentSubtext}>
                 Waiting for dispatcher assignment...
@@ -706,7 +710,14 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
         {/* Assignment History Placeholder */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>📜 Recent Activity</Text>
+          <View style={styles.cardTitleContainer}>
+            <MaterialCommunityIcons
+              name="history"
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={styles.cardTitle}>Recent Activity</Text>
+          </View>
           <Text style={styles.placeholderText}>
             Assignment history will appear here
           </Text>
@@ -749,26 +760,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingBottom: spacing.lg,
     paddingTop: spacing.xxl + spacing.md,
     ...shadows.md,
   },
   headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary700,
-    justifyContent: "center",
-    alignItems: "center",
+    flex: 1,
   },
   welcomeText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
     color: colors.textOnPrimary,
   },
   roleContainer: {
@@ -783,12 +784,14 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
   },
   logoutButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary700,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   connectionStatus: {
     backgroundColor: colors.surface,
@@ -822,11 +825,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.md,
     gap: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   cardTitle: {
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
+    flex: 1,
   },
   vehicleInfo: {
     gap: spacing.sm,
@@ -921,15 +928,13 @@ const styles = StyleSheet.create({
   noAssignment: {
     alignItems: "center",
     paddingVertical: spacing.xl,
-  },
-  noAssignmentIcon: {
-    fontSize: typography.fontSize.xxxl + 18,
-    marginBottom: spacing.md,
+    gap: spacing.md,
   },
   noAssignmentText: {
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.semibold,
-    color: colors.textSecondary,
+    color: colors.text,
+    marginTop: spacing.sm,
   },
   noAssignmentSubtext: {
     fontSize: typography.fontSize.sm,

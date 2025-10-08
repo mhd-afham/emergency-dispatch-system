@@ -123,6 +123,12 @@ class DatabaseSeeder {
           ...vehicle.registration,
           approvedBy: createdUsers[0]._id, // Admin approves all vehicles
         },
+        registrationStatus: {
+          status: "approved",
+          approvedBy: createdUsers[0]._id,
+          approvedAt: new Date(),
+          notes: "Auto-approved during database seeding",
+        },
         station: {
           homeStationId: createdStations[index % createdStations.length]._id,
           currentStationId: createdStations[index % createdStations.length]._id,
@@ -155,6 +161,12 @@ class DatabaseSeeder {
       // Assign crew to stations and populate required fields
       const crewWithStations = crew.map((member, index) => ({
         ...member,
+        registrationStatus: {
+          status: "approved",
+          approvedBy: createdUsers[0]._id,
+          approvedAt: new Date(),
+          notes: "Auto-approved during database seeding",
+        },
         audit: {
           createdBy: createdUsers[0]._id, // Admin user creates all crew
           createdAt: new Date(),

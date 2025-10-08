@@ -10,6 +10,7 @@ import {
   Animated,
   TextInput,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ASSIGNMENT_STATUS, DECLINE_REASONS } from "../constants";
 import { apiClient } from "../services/apiClient";
 
@@ -228,7 +229,14 @@ export default function AssignmentNotificationModal({
           {!showDeclineReason ? (
             <ScrollView style={styles.contentContainer}>
               <View style={styles.header}>
-                <Text style={styles.title}>🚨 New Emergency Assignment</Text>
+                <View style={styles.titleContainer}>
+                  <MaterialCommunityIcons
+                    name="alert-circle"
+                    size={24}
+                    color="#dc2626"
+                  />
+                  <Text style={styles.title}>New Emergency Assignment</Text>
+                </View>
                 <View
                   style={[
                     styles.severityBadge,
@@ -294,9 +302,16 @@ export default function AssignmentNotificationModal({
                   onPress={handleAccept}
                   disabled={isProcessing}
                 >
-                  <Text style={styles.buttonText}>
-                    {isProcessing ? "Accepting..." : "✓ Accept Assignment"}
-                  </Text>
+                  <View style={styles.buttonContent}>
+                    <MaterialCommunityIcons
+                      name="check-circle"
+                      size={20}
+                      color="white"
+                    />
+                    <Text style={styles.buttonText}>
+                      {isProcessing ? "Accepting..." : "Accept Assignment"}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -308,7 +323,14 @@ export default function AssignmentNotificationModal({
                   onPress={handleDeclinePress}
                   disabled={isProcessing}
                 >
-                  <Text style={styles.buttonText}>✗ Decline</Text>
+                  <View style={styles.buttonContent}>
+                    <MaterialCommunityIcons
+                      name="close-circle"
+                      size={20}
+                      color="white"
+                    />
+                    <Text style={styles.buttonText}>Decline</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -434,11 +456,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
   },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
   title: {
     fontSize: 20,
     fontWeight: "bold",
     color: "#111827",
-    marginBottom: 8,
   },
   severityBadge: {
     alignSelf: "flex-start",
@@ -478,6 +505,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   acceptButton: {
     backgroundColor: "#10b981",

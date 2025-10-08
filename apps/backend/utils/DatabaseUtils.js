@@ -79,6 +79,7 @@ class DatabaseUtils {
 
       return await Vehicle.find({
         "status.operational": "Available",
+        "registrationStatus.status": "approved", // Only approved vehicles
         "status.currentLocation.coordinates": {
           $near: {
             $geometry: {
@@ -126,6 +127,7 @@ class DatabaseUtils {
       const query = {
         "currentStatus.availability": "available",
         "assignment.currentStation": stationId,
+        "registrationStatus.status": "approved", // Only approved crew
       };
 
       // Add certification filter if specified

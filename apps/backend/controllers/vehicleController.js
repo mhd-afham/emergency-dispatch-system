@@ -32,7 +32,10 @@ class VehicleController {
       } = req.query;
 
       // Build filter object
-      const filter = {};
+      const filter = {
+        // Only show approved vehicles by default (unless explicitly requested)
+        "registrationStatus.status": "approved",
+      };
 
       if (status) {
         filter["status.operational"] = status;
@@ -48,6 +51,11 @@ class VehicleController {
 
       if (assignedIncident) {
         filter["assignment.currentIncidentId"] = assignedIncident;
+      }
+
+      // Allow admin to view all registration statuses if specified
+      if (req.query.registrationStatus) {
+        filter["registrationStatus.status"] = req.query.registrationStatus;
       }
 
       console.log("🔍 Applied filters:", filter);
@@ -695,6 +703,160 @@ class VehicleController {
       res.status(500).json({
         success: false,
         message: "Failed to unassign crew from vehicle",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Get all pending vehicle registrations
+   * GET /api/vehicles/registrations/pending
+   * @access Private (Admin/Supervisor)
+   */
+  static async getPendingVehicleRegistrations(req, res) {
+    try {
+      console.log(
+        `📋 Fetching pending vehicle registrations - Requested by: ${req.user.firstName} ${req.user.lastName}`
+      );
+
+      const pendingVehicles = await Vehicle.findPendingRegistrations();
+
+      console.log(
+        `✅ Found ${pendingVehicles.length} pending vehicle registrations`
+      );
+
+      res.status(200).json({
+        success: true,
+        count: pendingVehicles.length,
+        data: pendingVehicles,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching pending vehicle registrations:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error fetching pending vehicle registrations",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Approve vehicle registration
+   * PUT /api/vehicles/:id/approve
+   * @access Private (Admin/Supervisor)
+   */
+  static async approveVehicleRegistration(req, res) {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      console.log(
+        `✅ Approving vehicle registration ${id} by ${req.user.firstName} ${req.user.lastName}`
+      );
+
+      const vehicle = await Vehicle.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          message: "Vehicle not found",
+        });
+      }
+
+      if (vehicle.registrationStatus.status === "approved") {
+        return res.status(400).json({
+          success: false,
+          message: "Vehicle registration is already approved",
+        });
+      }
+
+      vehicle.registrationStatus = {
+        status: "approved",
+        approvedBy: req.user._id,
+        approvedAt: new Date(),
+        notes: notes || "Approved by supervisor",
+      };
+
+      await vehicle.save();
+
+      console.log(
+        `✅ Vehicle ${vehicle.registration.plateNumber} approved successfully`
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Vehicle registration approved successfully",
+        data: vehicle,
+      });
+    } catch (error) {
+      console.error("❌ Error approving vehicle registration:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error approving vehicle registration",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Reject vehicle registration
+   * PUT /api/vehicles/:id/reject
+   * @access Private (Admin/Supervisor)
+   */
+  static async rejectVehicleRegistration(req, res) {
+    try {
+      const { id } = req.params;
+      const { reason, notes } = req.body;
+
+      console.log(
+        `❌ Rejecting vehicle registration ${id} by ${req.user.firstName} ${req.user.lastName}`
+      );
+
+      if (!reason || reason.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Rejection reason is required",
+        });
+      }
+
+      const vehicle = await Vehicle.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          message: "Vehicle not found",
+        });
+      }
+
+      if (vehicle.registrationStatus.status === "rejected") {
+        return res.status(400).json({
+          success: false,
+          message: "Vehicle registration is already rejected",
+        });
+      }
+
+      vehicle.registrationStatus = {
+        status: "rejected",
+        rejectedBy: req.user._id,
+        rejectedAt: new Date(),
+        rejectionReason: reason,
+        notes: notes || "",
+      };
+
+      await vehicle.save();
+
+      console.log(
+        `❌ Vehicle ${vehicle.registration.plateNumber} rejected: ${reason}`
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Vehicle registration rejected",
+        data: vehicle,
+      });
+    } catch (error) {
+      console.error("❌ Error rejecting vehicle registration:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error rejecting vehicle registration",
         error: error.message,
       });
     }

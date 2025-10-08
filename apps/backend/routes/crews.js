@@ -6,6 +6,9 @@ const {
   getCrewVehicle,
   updateCrewLocation,
   getAvailableLeaders,
+  getPendingCrewRegistrations,
+  approveCrewRegistration,
+  rejectCrewRegistration,
 } = require("../controllers/crewController");
 
 // Import authentication middleware
@@ -65,6 +68,38 @@ router.put(
   authenticate,
   authorize("Field Crew", "Admin"),
   updateCrewLocation
+);
+
+// ===== REGISTRATION MANAGEMENT ROUTES =====
+
+// @route   GET /api/crews/registrations/pending
+// @desc    Get all pending crew registrations
+// @access  Private (Admin, Supervisor)
+router.get(
+  "/registrations/pending",
+  authenticate,
+  authorize("Admin", "Supervisor"),
+  getPendingCrewRegistrations
+);
+
+// @route   PUT /api/crews/:id/approve
+// @desc    Approve a crew registration
+// @access  Private (Admin, Supervisor)
+router.put(
+  "/:id/approve",
+  authenticate,
+  authorize("Admin", "Supervisor"),
+  approveCrewRegistration
+);
+
+// @route   PUT /api/crews/:id/reject
+// @desc    Reject a crew registration
+// @access  Private (Admin, Supervisor)
+router.put(
+  "/:id/reject",
+  authenticate,
+  authorize("Admin", "Supervisor"),
+  rejectCrewRegistration
 );
 
 module.exports = router;

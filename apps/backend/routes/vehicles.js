@@ -163,4 +163,66 @@ router.put("/:vehicleId/unassign-crew", (req, res, next) => {
   VehicleController.unassignCrewFromVehicle(req, res, next);
 });
 
+// ===== REGISTRATION MANAGEMENT ROUTES =====
+
+/**
+ * @route   GET /api/vehicles/registrations/pending
+ * @desc    Get all pending vehicle registrations
+ * @access  Admins, Supervisors
+ */
+router.get("/registrations/pending", (req, res, next) => {
+  const allowedRoles = ["Admin", "Supervisor"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to view pending registrations",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  VehicleController.getPendingVehicleRegistrations(req, res, next);
+});
+
+/**
+ * @route   PUT /api/vehicles/:id/approve
+ * @desc    Approve a vehicle registration
+ * @access  Admins, Supervisors
+ */
+router.put("/:id/approve", (req, res, next) => {
+  const allowedRoles = ["Admin", "Supervisor"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to approve vehicle registrations",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  VehicleController.approveVehicleRegistration(req, res, next);
+});
+
+/**
+ * @route   PUT /api/vehicles/:id/reject
+ * @desc    Reject a vehicle registration
+ * @access  Admins, Supervisors
+ */
+router.put("/:id/reject", (req, res, next) => {
+  const allowedRoles = ["Admin", "Supervisor"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to reject vehicle registrations",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  VehicleController.rejectVehicleRegistration(req, res, next);
+});
+
 module.exports = router;

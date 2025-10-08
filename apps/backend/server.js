@@ -14,9 +14,12 @@ app.use(
   cors({
     origin: [
       process.env.CLIENT_URL || "http://localhost:3000",
-      "http://192.168.1.101:8081", // Expo Dev Server
-      /^http:\/\/192\.168\.1\.\d+:8081$/, // Allow any device on local network (Expo)
-      /^http:\/\/192\.168\.1\.\d+:19000$/, // Expo Metro bundler
+      "http://192.168.1.101:8081", // Expo Dev Server (old)
+      "http://172.20.10.3:8081", // Expo Dev Server (WiFi/Hotspot)
+      /^http:\/\/192\.168\.\d+\.\d+:8081$/, // Allow any device on local network (Expo)
+      /^http:\/\/192\.168\.\d+\.\d+:19000$/, // Expo Metro bundler
+      /^http:\/\/172\.20\.\d+\.\d+:8081$/, // Hotspot network (Expo)
+      /^http:\/\/172\.20\.\d+\.\d+:19000$/, // Hotspot network (Metro)
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -36,9 +39,12 @@ const io = new Server(httpServer, {
   cors: {
     origin: [
       process.env.CLIENT_URL || "http://localhost:3000",
-      "http://192.168.1.101:8081", // Expo Dev Server
-      /^http:\/\/192\.168\.1\.\d+:8081$/, // Allow any device on local network (Expo)
-      /^http:\/\/192\.168\.1\.\d+:19000$/, // Expo Metro bundler
+      "http://192.168.1.101:8081", // Expo Dev Server (old)
+      "http://172.20.10.3:8081", // Expo Dev Server (WiFi/Hotspot)
+      /^http:\/\/192\.168\.\d+\.\d+:8081$/, // Allow any device on local network (Expo)
+      /^http:\/\/192\.168\.\d+\.\d+:19000$/, // Expo Metro bundler
+      /^http:\/\/172\.20\.\d+\.\d+:8081$/, // Hotspot network (Expo)
+      /^http:\/\/172\.20\.\d+\.\d+:19000$/, // Hotspot network (Metro)
     ],
     methods: ["GET", "POST"],
     credentials: true,

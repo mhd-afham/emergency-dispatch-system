@@ -308,6 +308,7 @@ const getAvailableLeaders = async (req, res) => {
       "professional.isLeader": true,
       "currentStatus.assignedVehicleId": null,
       "settings.isActive": true,
+      "registrationStatus.status": "approved", // Only approved crew
     })
       .select(
         "personal professional.role professional.certificationLevel professional.specializations currentStatus.availability"
@@ -336,10 +337,176 @@ const getAvailableLeaders = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get all pending crew registrations
+ * @route   GET /api/crews/registrations/pending
+ * @access  Private (Admin/Supervisor)
+ */
+const getPendingCrewRegistrations = async (req, res) => {
+  try {
+    console.log(
+      `📋 [CrewController] Fetching pending crew registrations - Requested by: ${req.user.firstName} ${req.user.lastName}`
+    );
+
+    const pendingCrew = await Crew.findPendingRegistrations();
+
+    console.log(
+      `✅ [CrewController] Found ${pendingCrew.length} pending crew registrations`
+    );
+
+    res.status(200).json({
+      success: true,
+      count: pendingCrew.length,
+      data: pendingCrew,
+    });
+  } catch (error) {
+    console.error(
+      "❌ [CrewController] Error fetching pending registrations:",
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: "Error fetching pending crew registrations",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Approve crew registration
+ * @route   PUT /api/crews/:id/approve
+ * @access  Private (Admin/Supervisor)
+ */
+const approveCrewRegistration = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    console.log(
+      `✅ [CrewController] Approving crew registration ${id} by ${req.user.firstName} ${req.user.lastName}`
+    );
+
+    const crew = await Crew.findById(id);
+    if (!crew) {
+      return res.status(404).json({
+        success: false,
+        message: "Crew member not found",
+      });
+    }
+
+    if (crew.registrationStatus.status === "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Crew registration is already approved",
+      });
+    }
+
+    crew.registrationStatus = {
+      status: "approved",
+      approvedBy: req.user._id,
+      approvedAt: new Date(),
+      notes: notes || "Approved by supervisor",
+    };
+
+    await crew.save();
+
+    console.log(
+      `✅ [CrewController] Crew ${crew.personal.firstName} ${crew.personal.lastName} approved successfully`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Crew registration approved successfully",
+      data: crew,
+    });
+  } catch (error) {
+    console.error(
+      "❌ [CrewController] Error approving crew registration:",
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: "Error approving crew registration",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Reject crew registration
+ * @route   PUT /api/crews/:id/reject
+ * @access  Private (Admin/Supervisor)
+ */
+const rejectCrewRegistration = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, notes } = req.body;
+
+    console.log(
+      `❌ [CrewController] Rejecting crew registration ${id} by ${req.user.firstName} ${req.user.lastName}`
+    );
+
+    if (!reason || reason.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required",
+      });
+    }
+
+    const crew = await Crew.findById(id);
+    if (!crew) {
+      return res.status(404).json({
+        success: false,
+        message: "Crew member not found",
+      });
+    }
+
+    if (crew.registrationStatus.status === "rejected") {
+      return res.status(400).json({
+        success: false,
+        message: "Crew registration is already rejected",
+      });
+    }
+
+    crew.registrationStatus = {
+      status: "rejected",
+      rejectedBy: req.user._id,
+      rejectedAt: new Date(),
+      rejectionReason: reason,
+      notes: notes || "",
+    };
+
+    await crew.save();
+
+    console.log(
+      `❌ [CrewController] Crew ${crew.personal.firstName} ${crew.personal.lastName} rejected: ${reason}`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Crew registration rejected",
+      data: crew,
+    });
+  } catch (error) {
+    console.error(
+      "❌ [CrewController] Error rejecting crew registration:",
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: "Error rejecting crew registration",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getCrewByEmployeeId,
   getCrewAssignments,
   getCrewVehicle,
   updateCrewLocation,
   getAvailableLeaders,
+  getPendingCrewRegistrations,
+  approveCrewRegistration,
+  rejectCrewRegistration,
 };
