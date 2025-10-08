@@ -3,7 +3,17 @@ import { useAuth } from "../contexts/AuthContext";
 import SupervisorEquipmentSection from "../components/supervisor/SupervisorEquipmentSection";
 import SupervisorShiftSection from "../components/supervisor/SupervisorShiftSection";
 
-
+/**
+ * Modular Supervisor Dashboard
+ * 
+ * This dashboard uses a component-based architecture to prevent merge conflicts
+ * between team members working on different functional areas:
+ * 
+ * - Udayanga: Equipment Management (SupervisorEquipmentSection)
+ * - Spencer: Shift Management (SupervisorShiftSection)
+ * 
+ * Each team member owns their section component and can develop independently.
+ */
 
 const ModularSupervisorDashboard: React.FC = () => {
   const { user, logout } = useAuth();
