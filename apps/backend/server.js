@@ -9,19 +9,45 @@ require("dotenv").config();
 const app = express();
 const httpServer = createServer(app);
 
+// Helper function to build CORS origins
+const buildCorsOrigins = () => {
+  const origins = [
+    process.env.CLIENT_URL || "http://localhost:3000",
+    "http://localhost:3001", // Frontend dev server
+    // Universal regex patterns for common network ranges
+    /^http:\/\/192\.168\.\d+\.\d+:(8081|19000|19001|19002)$/, // Local network (192.168.x.x)
+    /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:(8081|19000|19001|19002)$/, // Private network (172.16-31.x.x)
+    /^http:\/\/10\.\d+\.\d+\.\d+:(8081|19000|19001|19002)$/, // Private network (10.x.x.x)
+    /^http:\/\/localhost:(8081|19000|19001|19002)$/, // Localhost with different ports
+  ];
+
+  // Add specific IPs from environment variable
+  if (process.env.MOBILE_IPS) {
+    const mobileIps = process.env.MOBILE_IPS.split(",").map((ip) => ip.trim());
+    mobileIps.forEach((ip) => {
+      origins.push(`http://${ip}:8081`); // Expo Dev Server
+      origins.push(`http://${ip}:19000`); // Expo Metro bundler
+      origins.push(`http://${ip}:19001`); // Expo Metro bundler (alternative)
+      origins.push(`http://${ip}:19002`); // Expo Dev Tools
+    });
+  }
+
+  return origins;
+};
+
+const corsOrigins = buildCorsOrigins();
+
+// Log allowed origins on startup
+console.log("🌐 CORS Configuration:");
+console.log("   Allowed origins:", corsOrigins.length, "patterns");
+if (process.env.MOBILE_IPS) {
+  console.log("   📱 Mobile IPs:", process.env.MOBILE_IPS);
+}
+
 // Middleware
 app.use(
   cors({
-    origin: [
-      process.env.CLIENT_URL || "http://localhost:3000",
-      "http://localhost:3001", // Frontend dev server (Julien's addition)
-      "http://192.168.1.101:8081", // Expo Dev Server (old)
-      "http://172.20.10.3:8081", // Expo Dev Server (WiFi/Hotspot)
-      /^http:\/\/192\.168\.\d+\.\d+:8081$/, // Allow any device on local network (Expo)
-      /^http:\/\/192\.168\.\d+\.\d+:19000$/, // Expo Metro bundler
-      /^http:\/\/172\.20\.\d+\.\d+:8081$/, // Hotspot network (Expo)
-      /^http:\/\/172\.20\.\d+\.\d+:19000$/, // Hotspot network (Metro)
-    ],
+    origin: corsOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
@@ -35,18 +61,10 @@ app.use(cookieParser());
 const { connectDB } = require("./config/database");
 connectDB();
 
-// Socket.io setup
+// Socket.io setup (reuse the same CORS origins)
 const io = new Server(httpServer, {
   cors: {
-    origin: [
-      process.env.CLIENT_URL || "http://localhost:3000",
-      "http://192.168.1.101:8081", // Expo Dev Server (old)
-      "http://172.20.10.3:8081", // Expo Dev Server (WiFi/Hotspot)
-      /^http:\/\/192\.168\.\d+\.\d+:8081$/, // Allow any device on local network (Expo)
-      /^http:\/\/192\.168\.\d+\.\d+:19000$/, // Expo Metro bundler
-      /^http:\/\/172\.20\.\d+\.\d+:8081$/, // Hotspot network (Expo)
-      /^http:\/\/172\.20\.\d+\.\d+:19000$/, // Hotspot network (Metro)
-    ],
+    origin: corsOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },

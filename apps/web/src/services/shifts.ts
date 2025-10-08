@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Create axios instance with base configuration matching auth service
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -39,23 +39,23 @@ export interface Shift {
   _id: string;
   shift: {
     name: string;
-    type: 'regular' | 'overtime' | 'emergency';
+    type: "regular" | "overtime" | "emergency";
   };
   schedule: {
     date: string;
     startTime: string;
     endTime: string;
     duration: number;
-    recurrence: 'none' | 'daily' | 'weekly' | 'custom';
+    recurrence: "none" | "daily" | "weekly" | "custom";
   };
   staffing: {
     requiredCrewCount: number;
     requiredRoles: string[];
-    minimumCertificationLevel: 'Basic' | 'Intermediate' | 'Advanced' | 'Expert';
+    minimumCertificationLevel: "Basic" | "Intermediate" | "Advanced" | "Expert";
     assignedCrew: CrewAssignment[];
   };
   status: {
-    current: 'planned' | 'active' | 'completed' | 'cancelled';
+    current: "planned" | "active" | "completed" | "cancelled";
   };
   stationId: {
     _id: string;
@@ -85,7 +85,7 @@ export interface CrewAssignment {
     };
   };
   role: string;
-  status: 'assigned' | 'confirmed' | 'completed' | 'absent' | 'cancelled';
+  status: "assigned" | "confirmed" | "completed" | "absent" | "cancelled";
   assignedAt: string;
 }
 
@@ -98,49 +98,58 @@ export interface CrewMember {
     email: string;
   };
   professional: {
-    role: 'EMT' | 'Paramedic' | 'Firefighter' | 'Driver' | 'Supervisor';
-    certificationLevel: 'Basic' | 'Intermediate' | 'Advanced' | 'Expert';
+    role: "EMT" | "Paramedic" | "Firefighter" | "Driver" | "Supervisor";
+    certificationLevel: "Basic" | "Intermediate" | "Advanced" | "Expert";
   };
   currentStatus: {
-    availability: 'available' | 'on_duty' | 'off_duty' | 'on_leave' | 'training';
+    availability:
+      | "available"
+      | "on_duty"
+      | "off_duty"
+      | "on_leave"
+      | "training";
   };
 }
 
 export interface CreateShiftForm {
   name: string;
-  type: 'regular' | 'overtime' | 'emergency';
+  type: "regular" | "overtime" | "emergency";
   date: string;
   startTime: string;
   endTime: string;
   requiredCrewCount: number;
   requiredRoles: string[];
-  minimumCertificationLevel: 'Basic' | 'Intermediate' | 'Advanced' | 'Expert';
+  minimumCertificationLevel: "Basic" | "Intermediate" | "Advanced" | "Expert";
   stationId: string;
   supervisorNotes?: string;
-  recurrence: 'none' | 'daily' | 'weekly' | 'custom';
+  recurrence: "none" | "daily" | "weekly" | "custom";
 }
 
 // Update format that matches backend's nested structure
 export interface UpdateShiftData {
   shift?: {
     name?: string;
-    type?: 'regular' | 'overtime' | 'emergency';
+    type?: "regular" | "overtime" | "emergency";
   };
   schedule?: {
     startTime?: string;
     endTime?: string;
-    recurrence?: 'none' | 'daily' | 'weekly' | 'custom';
+    recurrence?: "none" | "daily" | "weekly" | "custom";
   };
   staffing?: {
     requiredCrewCount?: number;
     requiredRoles?: string[];
-    minimumCertificationLevel?: 'Basic' | 'Intermediate' | 'Advanced' | 'Expert';
+    minimumCertificationLevel?:
+      | "Basic"
+      | "Intermediate"
+      | "Advanced"
+      | "Expert";
   };
   supervision?: {
     supervisorNotes?: string;
   };
   status?: {
-    current?: 'planned' | 'active' | 'completed' | 'cancelled';
+    current?: "planned" | "active" | "completed" | "cancelled";
   };
 }
 
@@ -190,7 +199,7 @@ export const shiftService = {
     page?: number;
     limit?: number;
   }): Promise<ShiftsResponse> => {
-    const response = await api.get('/api/shifts', { params });
+    const response = await api.get("/api/shifts", { params });
     return response.data;
   },
 
@@ -202,18 +211,23 @@ export const shiftService = {
 
   // Create new shift
   createShift: async (shiftData: CreateShiftForm): Promise<ShiftResponse> => {
-    const response = await api.post('/api/shifts', shiftData);
+    const response = await api.post("/api/shifts", shiftData);
     return response.data;
   },
 
   // Update shift
-  updateShift: async (id: string, updates: UpdateShiftData | Partial<CreateShiftForm>): Promise<ShiftResponse> => {
+  updateShift: async (
+    id: string,
+    updates: UpdateShiftData | Partial<CreateShiftForm>
+  ): Promise<ShiftResponse> => {
     const response = await api.put(`/api/shifts/${id}`, updates);
     return response.data;
   },
 
   // Delete shift
-  deleteShift: async (id: string): Promise<{ success: boolean; message: string }> => {
+  deleteShift: async (
+    id: string
+  ): Promise<{ success: boolean; message: string }> => {
     const response = await api.delete(`/api/shifts/${id}`);
     return response.data;
   },
@@ -225,21 +239,35 @@ export const shiftService = {
   },
 
   // Assign crew to shift
-  assignCrew: async (shiftId: string, crewAssignments: { crewId: string; role: string }[]): Promise<ShiftResponse> => {
-    const response = await api.post(`/api/shifts/${shiftId}/assign-crew`, { crewAssignments });
+  assignCrew: async (
+    shiftId: string,
+    crewAssignments: { crewId: string; role: string }[]
+  ): Promise<ShiftResponse> => {
+    const response = await api.post(`/api/shifts/${shiftId}/assign-crew`, {
+      crewAssignments,
+    });
     return response.data;
   },
 
   // Remove crew from shift
-  removeCrew: async (shiftId: string, crewId: string): Promise<{ success: boolean; message: string }> => {
-    const response = await api.delete(`/api/shifts/${shiftId}/remove-crew/${crewId}`);
+  removeCrew: async (
+    shiftId: string,
+    crewId: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const response = await api.delete(
+      `/api/shifts/${shiftId}/remove-crew/${crewId}`
+    );
     return response.data;
   },
 
   // Get calendar view
-  getCalendarShifts: async (year: number, month: number, stationId?: string) => {
+  getCalendarShifts: async (
+    year: number,
+    month: number,
+    stationId?: string
+  ) => {
     const response = await api.get(`/api/shifts/calendar/${year}/${month}`, {
-      params: { stationId }
+      params: { stationId },
     });
     return response.data;
   },
@@ -257,7 +285,7 @@ export const crewService = {
     page?: number;
     limit?: number;
   }) => {
-    const response = await api.get('/api/crew', { params });
+    const response = await api.get("/api/crew", { params });
     return response.data;
   },
 
@@ -269,7 +297,7 @@ export const crewService = {
     role?: string;
     certificationLevel?: string;
   }) => {
-    const response = await api.get('/api/crew/available', { params });
+    const response = await api.get("/api/crew/available", { params });
     return response.data;
   },
 
@@ -281,13 +309,15 @@ export const crewService = {
 
   // Update crew availability
   updateAvailability: async (id: string, availability: string) => {
-    const response = await api.put(`/api/crew/${id}/availability`, { availability });
+    const response = await api.put(`/api/crew/${id}/availability`, {
+      availability,
+    });
     return response.data;
   },
 
   // Get crew statistics
   getStatistics: async () => {
-    const response = await api.get('/api/crew/statistics/overview');
+    const response = await api.get("/api/crew/statistics/overview");
     return response.data;
   },
 };

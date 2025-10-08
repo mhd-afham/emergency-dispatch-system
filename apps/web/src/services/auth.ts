@@ -10,12 +10,12 @@ import {
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",     
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
   headers: {
     "Content-Type": "application/json",
   },
   withCredentials: true, // Important: This enables cookies for JWT
-});// Request interceptor to add auth token
+}); // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -56,7 +56,7 @@ export const authAPI = {
         password: credentials.password,
       };
 
-      const response = await api.post<AuthResponse>("/api/auth/login", loginData);
+      const response = await api.post<AuthResponse>("/auth/login", loginData);
       const { token, user } = response.data;
 
       // Store token and user in localStorage
@@ -77,7 +77,7 @@ export const authAPI = {
   // Register user
   register: async (data: RegisterData): Promise<AuthResponse> => {
     try {
-      const response = await api.post<AuthResponse>("/api/auth/register", data);
+      const response = await api.post<AuthResponse>("/auth/register", data);
       const { token, user } = response.data;
 
       // Store token and user in localStorage
@@ -98,7 +98,7 @@ export const authAPI = {
   // Logout user
   logout: async (): Promise<void> => {
     try {
-      await api.post("/api/auth/logout");
+      await api.post("/auth/logout");
     } catch (error) {
       // Even if logout fails on server, clear local storage
       console.error("Logout error:", error);
@@ -111,7 +111,7 @@ export const authAPI = {
   // Get current user profile
   getProfile: async (): Promise<User> => {
     try {
-      const response = await api.get<{ user: User }>("/api/auth/profile");
+      const response = await api.get<{ user: User }>("/auth/profile");
       return response.data.user;
     } catch (error: any) {
       const apiError: ApiError = {
@@ -128,7 +128,7 @@ export const authAPI = {
   ): Promise<AuthenticatedUser> => {
     try {
       const response = await api.put<{ user: AuthenticatedUser }>(
-        "/api/auth/profile",
+        "/auth/profile",
         data
       );
 
@@ -149,7 +149,7 @@ export const authAPI = {
   // Verify token (useful for protected routes)
   verifyToken: async (): Promise<boolean> => {
     try {
-      await api.get("/api/auth/me");
+      await api.get("/auth/me");
       return true;
     } catch (error) {
       return false;
@@ -162,7 +162,7 @@ export const authAPI = {
     newPassword: string
   ): Promise<void> => {
     try {
-      await api.put("/api/auth/change-password", {
+      await api.put("/auth/change-password", {
         currentPassword,
         newPassword,
       });

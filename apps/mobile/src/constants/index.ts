@@ -1,11 +1,20 @@
 // Local constants for mobile app
 
-// API Configuration
-// Use your computer's local IP address instead of localhost for physical devices
-// Change this to your computer's IP address (find with: ipconfig on Windows, ifconfig on Mac/Linux)
-// Current IPs available: 192.168.56.1 (VirtualBox), 172.20.10.3 (WiFi/Hotspot)
-export const API_BASE_URL = "http://172.20.10.3:5000/api";
-export const WEBSOCKET_URL = "http://172.20.10.3:5000";
+// ========================================
+// 📱 MOBILE APP API CONFIGURATION
+// ========================================
+// ⚠️ IMPORTANT: Update this IP when you change networks!
+//
+// HOW TO FIND YOUR IP:
+// 1. Open terminal/PowerShell in project root
+// 2. Run: .\check-ip.ps1
+// 3. Look for your WiFi/Ethernet IP (usually 192.168.x.x)
+// 4. Update the IP below
+//
+// CURRENT IP: 192.168.1.103 (Updated: October 9, 2025)
+// ========================================
+export const API_BASE_URL = "http://192.168.1.103:5000/api";
+export const WEBSOCKET_URL = "http://192.168.1.103:5000";
 
 export const API_ENDPOINTS = {
   AUTH: "/auth",

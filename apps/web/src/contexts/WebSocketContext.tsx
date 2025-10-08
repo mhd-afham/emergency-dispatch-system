@@ -78,8 +78,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 
   // Connect to Socket.IO server
   const connect = useCallback(() => {
+    // Don't attempt connection if user is not authenticated
     if (!user || !token) {
-      console.log("Socket.IO: No user or token available, skipping connection");
+      console.log(
+        "Socket.IO: No user or token available, connection will be attempted after login"
+      );
       return;
     }
 

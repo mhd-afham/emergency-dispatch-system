@@ -1,15 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const {
-  getCrewByEmployeeId,
-  getCrewAssignments,
-  getCrewVehicle,
-  updateCrewLocation,
-  getAvailableLeaders,
-  getPendingCrewRegistrations,
-  approveCrewRegistration,
-  rejectCrewRegistration,
-} = require("../controllers/crewController");
+const CrewController = require("../controllers/crewController");
 
 // Import authentication middleware
 const { authenticate, authorize } = require("../middleware/auth");
@@ -27,7 +18,7 @@ router.get(
   "/by-employee/:employeeId",
   authenticate,
   authorize("Field Crew", "Admin"),
-  getCrewByEmployeeId
+  CrewController.getCrewByEmployeeId
 );
 
 // @route   GET /api/crews/leaders/available
@@ -37,7 +28,7 @@ router.get(
   "/leaders/available",
   authenticate,
   authorize("Supervisor", "Admin"),
-  getAvailableLeaders
+  CrewController.getAvailableLeaders
 );
 
 // @route   GET /api/crews/:crewId/assignments
@@ -47,7 +38,7 @@ router.get(
   "/:crewId/assignments",
   authenticate,
   authorize("Field Crew", "Dispatcher", "Admin"),
-  getCrewAssignments
+  CrewController.getCrewAssignments
 );
 
 // @route   GET /api/crews/:crewId/vehicle
@@ -57,7 +48,7 @@ router.get(
   "/:crewId/vehicle",
   authenticate,
   authorize("Field Crew", "Dispatcher", "Admin"),
-  getCrewVehicle
+  CrewController.getCrewVehicle
 );
 
 // @route   PUT /api/crews/:crewId/location
@@ -67,7 +58,7 @@ router.put(
   "/:crewId/location",
   authenticate,
   authorize("Field Crew", "Admin"),
-  updateCrewLocation
+  CrewController.updateCrewLocationLegacy
 );
 
 // ===== REGISTRATION MANAGEMENT ROUTES =====
@@ -79,7 +70,7 @@ router.get(
   "/registrations/pending",
   authenticate,
   authorize("Admin", "Supervisor"),
-  getPendingCrewRegistrations
+  CrewController.getPendingCrewRegistrationsLegacy
 );
 
 // @route   PUT /api/crews/:id/approve
@@ -89,7 +80,7 @@ router.put(
   "/:id/approve",
   authenticate,
   authorize("Admin", "Supervisor"),
-  approveCrewRegistration
+  CrewController.approveCrewRegistrationLegacy
 );
 
 // @route   PUT /api/crews/:id/reject
@@ -99,7 +90,7 @@ router.put(
   "/:id/reject",
   authenticate,
   authorize("Admin", "Supervisor"),
-  rejectCrewRegistration
+  CrewController.rejectCrewRegistrationLegacy
 );
 
 module.exports = router;
