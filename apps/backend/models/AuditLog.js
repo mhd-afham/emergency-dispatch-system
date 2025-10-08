@@ -339,7 +339,6 @@ auditLogSchema.index({ "target.entityType": 1, "target.entityId": 1 });
 auditLogSchema.index({ "action.type": 1, timestamp: -1 });
 auditLogSchema.index({ "context.module": 1, timestamp: -1 });
 auditLogSchema.index({ "security.riskLevel": 1, timestamp: -1 });
-auditLogSchema.index({ "retention.expiresAt": 1 }); // For TTL cleanup
 
 // Compound indexes
 auditLogSchema.index({ "actor.userId": 1, "action.type": 1, timestamp: -1 });
@@ -354,7 +353,7 @@ auditLogSchema.index({
   timestamp: -1,
 });
 
-// TTL index for automatic cleanup
+// TTL index for automatic cleanup (also serves as single field index)
 auditLogSchema.index({ "retention.expiresAt": 1 }, { expireAfterSeconds: 0 });
 
 // Static method to log an action

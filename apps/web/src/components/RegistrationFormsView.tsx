@@ -43,15 +43,24 @@ interface Vehicle {
     };
     approvalDate?: Date;
   };
-  rejectionDetails?: {
-    rejectedBy: {
+  registrationStatus?: {
+    status: 'pending' | 'approved' | 'rejected';
+    approvedBy?: {
       personal: {
         firstName: string;
         lastName: string;
       };
     };
-    rejectedAt: Date;
-    reason: string;
+    approvedAt?: Date;
+    rejectedBy?: {
+      personal: {
+        firstName: string;
+        lastName: string;
+      };
+    };
+    rejectedAt?: Date;
+    rejectionReason?: string;
+    notes?: string;
   };
   station: {
     homeStationId: {
@@ -74,15 +83,24 @@ interface CrewMember {
       name: string;
     };
   };
-  rejectionDetails?: {
-    rejectedBy: {
+  registrationStatus?: {
+    status: 'pending' | 'approved' | 'rejected';
+    approvedBy?: {
       personal: {
         firstName: string;
         lastName: string;
       };
     };
-    rejectedAt: Date;
-    reason: string;
+    approvedAt?: Date;
+    rejectedBy?: {
+      personal: {
+        firstName: string;
+        lastName: string;
+      };
+    };
+    rejectedAt?: Date;
+    rejectionReason?: string;
+    notes?: string;
   };
   audit: {
     createdAt: Date;
@@ -460,16 +478,16 @@ const RegistrationFormsView: React.FC<RegistrationFormsViewProps> = ({ onClose }
                                     {vehicle.registration.vehicleType} - {vehicle.registration.make}{' '}
                                     {vehicle.registration.model} ({vehicle.registration.year})
                                   </p>
-                                  {vehicle.rejectionDetails && (
+                                  {vehicle.registrationStatus?.status === 'rejected' && vehicle.registrationStatus?.rejectedBy && (
                                     <>
                                       <p className="text-sm text-red-700 mt-2 font-medium">
                                         ❌ Rejected by{' '}
-                                        {vehicle.rejectionDetails.rejectedBy.personal.firstName}{' '}
-                                        {vehicle.rejectionDetails.rejectedBy.personal.lastName} on{' '}
-                                        {formatDate(vehicle.rejectionDetails.rejectedAt)}
+                                        {vehicle.registrationStatus.rejectedBy.personal.firstName}{' '}
+                                        {vehicle.registrationStatus.rejectedBy.personal.lastName} on{' '}
+                                        {formatDate(vehicle.registrationStatus.rejectedAt)}
                                       </p>
                                       <p className="text-sm text-gray-700 mt-1">
-                                        <strong>Reason:</strong> {vehicle.rejectionDetails.reason}
+                                        <strong>Reason:</strong> {vehicle.registrationStatus.rejectionReason}
                                       </p>
                                     </>
                                   )}
@@ -513,16 +531,16 @@ const RegistrationFormsView: React.FC<RegistrationFormsViewProps> = ({ onClose }
                                   <p className="text-gray-700">
                                     {crew.professional.role} - ID: {crew.personal.employeeId}
                                   </p>
-                                  {crew.rejectionDetails && (
+                                  {crew.registrationStatus?.status === 'rejected' && crew.registrationStatus?.rejectedBy && (
                                     <>
                                       <p className="text-sm text-red-700 mt-2 font-medium">
                                         ❌ Rejected by{' '}
-                                        {crew.rejectionDetails.rejectedBy.personal.firstName}{' '}
-                                        {crew.rejectionDetails.rejectedBy.personal.lastName} on{' '}
-                                        {formatDate(crew.rejectionDetails.rejectedAt)}
+                                        {crew.registrationStatus.rejectedBy.personal.firstName}{' '}
+                                        {crew.registrationStatus.rejectedBy.personal.lastName} on{' '}
+                                        {formatDate(crew.registrationStatus.rejectedAt)}
                                       </p>
                                       <p className="text-sm text-gray-700 mt-1">
-                                        <strong>Reason:</strong> {crew.rejectionDetails.reason}
+                                        <strong>Reason:</strong> {crew.registrationStatus.rejectionReason}
                                       </p>
                                     </>
                                   )}

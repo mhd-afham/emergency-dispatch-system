@@ -173,29 +173,72 @@ const ViewDetailsModal: React.FC<ViewDetailsModalProps> = ({ show, onClose, type
                   </div>
                 )}
 
-                {/* Rejection Information */}
-                {data.rejectionDetails && (
+                {/* Registration Status Information */}
+                {data.registrationStatus && (
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                      <svg className="h-5 w-5 mr-2 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Rejection Details
+                      Registration Status
                     </h4>
-                    <div className="bg-red-50 p-4 rounded-lg">
+                    <div className={`p-4 rounded-lg ${
+                      data.registrationStatus.status === 'approved' ? 'bg-green-50' : 
+                      data.registrationStatus.status === 'rejected' ? 'bg-red-50' : 
+                      'bg-yellow-50'
+                    }`}>
                       <div className="space-y-3">
                         <div>
-                          <p className="text-sm text-gray-500">Rejected By</p>
-                          <p className="font-medium text-gray-900">{data.rejectionDetails.rejectedBy?.personal?.firstName || 'Unknown'}</p>
+                          <p className="text-sm text-gray-500">Status</p>
+                          <p className={`font-medium ${
+                            data.registrationStatus.status === 'approved' ? 'text-green-700' : 
+                            data.registrationStatus.status === 'rejected' ? 'text-red-700' : 
+                            'text-yellow-700'
+                          }`}>
+                            {data.registrationStatus.status?.toUpperCase() || 'PENDING'}
+                          </p>
                         </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Rejection Date</p>
-                          <p className="font-medium text-gray-900">{formatDate(data.rejectionDetails.rejectedAt)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Reason</p>
-                          <p className="font-medium text-gray-900">{data.rejectionDetails.reason || 'No reason provided'}</p>
-                        </div>
+                        
+                        {data.registrationStatus.status === 'approved' && data.registrationStatus.approvedBy && (
+                          <>
+                            <div>
+                              <p className="text-sm text-gray-500">Approved By</p>
+                              <p className="font-medium text-gray-900">
+                                {data.registrationStatus.approvedBy?.personal?.firstName} {data.registrationStatus.approvedBy?.personal?.lastName}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Approval Date</p>
+                              <p className="font-medium text-gray-900">{formatDate(data.registrationStatus.approvedAt)}</p>
+                            </div>
+                          </>
+                        )}
+                        
+                        {data.registrationStatus.status === 'rejected' && data.registrationStatus.rejectedBy && (
+                          <>
+                            <div>
+                              <p className="text-sm text-gray-500">Rejected By</p>
+                              <p className="font-medium text-gray-900">
+                                {data.registrationStatus.rejectedBy?.personal?.firstName} {data.registrationStatus.rejectedBy?.personal?.lastName}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Rejection Date</p>
+                              <p className="font-medium text-gray-900">{formatDate(data.registrationStatus.rejectedAt)}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Reason</p>
+                              <p className="font-medium text-gray-900">{data.registrationStatus.rejectionReason || 'No reason provided'}</p>
+                            </div>
+                          </>
+                        )}
+                        
+                        {data.registrationStatus.notes && (
+                          <div>
+                            <p className="text-sm text-gray-500">Notes</p>
+                            <p className="font-medium text-gray-900">{data.registrationStatus.notes}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -337,29 +380,72 @@ const ViewDetailsModal: React.FC<ViewDetailsModalProps> = ({ show, onClose, type
                   </div>
                 </div>
 
-                {/* Rejection Information */}
-                {data.rejectionDetails && (
+                {/* Registration Status Information */}
+                {data.registrationStatus && (
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                      <svg className="h-5 w-5 mr-2 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Rejection Details
+                      Registration Status
                     </h4>
-                    <div className="bg-red-50 p-4 rounded-lg">
+                    <div className={`p-4 rounded-lg ${
+                      data.registrationStatus.status === 'approved' ? 'bg-green-50' : 
+                      data.registrationStatus.status === 'rejected' ? 'bg-red-50' : 
+                      'bg-yellow-50'
+                    }`}>
                       <div className="space-y-3">
                         <div>
-                          <p className="text-sm text-gray-500">Rejected By</p>
-                          <p className="font-medium text-gray-900">{data.rejectionDetails.rejectedBy?.personal?.firstName || 'Unknown'}</p>
+                          <p className="text-sm text-gray-500">Status</p>
+                          <p className={`font-medium ${
+                            data.registrationStatus.status === 'approved' ? 'text-green-700' : 
+                            data.registrationStatus.status === 'rejected' ? 'text-red-700' : 
+                            'text-yellow-700'
+                          }`}>
+                            {data.registrationStatus.status?.toUpperCase() || 'PENDING'}
+                          </p>
                         </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Rejection Date</p>
-                          <p className="font-medium text-gray-900">{formatDate(data.rejectionDetails.rejectedAt)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Reason</p>
-                          <p className="font-medium text-gray-900">{data.rejectionDetails.reason || 'No reason provided'}</p>
-                        </div>
+                        
+                        {data.registrationStatus.status === 'approved' && data.registrationStatus.approvedBy && (
+                          <>
+                            <div>
+                              <p className="text-sm text-gray-500">Approved By</p>
+                              <p className="font-medium text-gray-900">
+                                {data.registrationStatus.approvedBy?.personal?.firstName} {data.registrationStatus.approvedBy?.personal?.lastName}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Approval Date</p>
+                              <p className="font-medium text-gray-900">{formatDate(data.registrationStatus.approvedAt)}</p>
+                            </div>
+                          </>
+                        )}
+                        
+                        {data.registrationStatus.status === 'rejected' && data.registrationStatus.rejectedBy && (
+                          <>
+                            <div>
+                              <p className="text-sm text-gray-500">Rejected By</p>
+                              <p className="font-medium text-gray-900">
+                                {data.registrationStatus.rejectedBy?.personal?.firstName} {data.registrationStatus.rejectedBy?.personal?.lastName}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Rejection Date</p>
+                              <p className="font-medium text-gray-900">{formatDate(data.registrationStatus.rejectedAt)}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Reason</p>
+                              <p className="font-medium text-gray-900">{data.registrationStatus.rejectionReason || 'No reason provided'}</p>
+                            </div>
+                          </>
+                        )}
+                        
+                        {data.registrationStatus.notes && (
+                          <div>
+                            <p className="text-sm text-gray-500">Notes</p>
+                            <p className="font-medium text-gray-900">{data.registrationStatus.notes}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

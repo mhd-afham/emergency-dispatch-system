@@ -1081,10 +1081,10 @@ class CrewController {
       console.log('📋 Fetching crew members pending approval for:', req.user.personal.firstName);
       console.log('🔍 User role:', req.user.auth.role);
 
-      // Query for pending crew members (exclude rejected ones)
+      // Query for pending crew members
       const query = {
         'settings.isActive': false,
-        rejectionDetails: { $exists: false }
+        'registrationStatus.status': 'pending'
       };
       
       console.log('🔎 Query:', JSON.stringify(query, null, 2));
@@ -1165,8 +1165,11 @@ class CrewController {
         });
       }
 
-      // Activate the crew member
+      // Activate the crew member and update registration status
       crewMember.settings.isActive = true;
+      crewMember.registrationStatus.status = 'approved';
+      crewMember.registrationStatus.approvedBy = req.user._id;
+      crewMember.registrationStatus.approvedAt = new Date();
       crewMember.audit.updatedAt = new Date();
       await crewMember.save();
 
@@ -1260,12 +1263,10 @@ class CrewController {
 
       // Mark crew member as rejected instead of deleting (for history tracking)
       crewMember.settings.isActive = false;
-      crewMember.rejectionDetails = {
-        rejectedBy: req.user._id,
-        rejectedAt: new Date(),
-        reason: reason,
-        status: 'rejected'
-      };
+      crewMember.registrationStatus.status = 'rejected';
+      crewMember.registrationStatus.rejectedBy = req.user._id;
+      crewMember.registrationStatus.rejectedAt = new Date();
+      crewMember.registrationStatus.rejectionReason = reason;
       
       await crewMember.save();
 
@@ -1340,7 +1341,7 @@ class CrewController {
         });
       }
 
-      if (!crewMember.rejectionDetails) {
+      if (crewMember.registrationStatus.status !== 'rejected') {
         return res.status(400).json({
           success: false,
           message: 'Crew member is not rejected'
@@ -1355,13 +1356,16 @@ class CrewController {
 
       // Store rejection info for audit log before clearing
       const previousRejection = {
-        reason: crewMember.rejectionDetails.reason,
-        rejectedAt: crewMember.rejectionDetails.rejectedAt,
-        rejectedBy: crewMember.rejectionDetails.rejectedBy
+        reason: crewMember.registrationStatus.rejectionReason,
+        rejectedAt: crewMember.registrationStatus.rejectedAt,
+        rejectedBy: crewMember.registrationStatus.rejectedBy
       };
 
-      // Clear rejection details
-      crewMember.rejectionDetails = undefined;
+      // Clear rejection details and set back to pending
+      crewMember.registrationStatus.status = 'pending';
+      crewMember.registrationStatus.rejectedBy = undefined;
+      crewMember.registrationStatus.rejectedAt = undefined;
+      crewMember.registrationStatus.rejectionReason = undefined;
       crewMember.settings.isActive = false;
       
       await crewMember.save();
@@ -1440,7 +1444,7 @@ class CrewController {
       }
 
       // Only allow permanent deletion of rejected crew members
-      if (!crewMember.rejectionDetails) {
+      if (crewMember.registrationStatus.status !== 'rejected') {
         return res.status(400).json({
           success: false,
           message: 'Only rejected crew members can be permanently deleted. Use deactivate for active crew.'
@@ -1468,7 +1472,7 @@ class CrewController {
         feature: 'crew_permanent_deletion',
         metadata: {
           wasRejected: true,
-          rejectionReason: crewMember.rejectionDetails.reason,
+          rejectionReason: crewMember.registrationStatus.rejectionReason,
           originalRegistration: crewInfo
         },
         riskLevel: 'critical',
@@ -1512,10 +1516,11 @@ class CrewController {
 
       const approvedCrew = await Crew.find({ 
         'settings.isActive': true,
-        rejectionDetails: { $exists: false }
+        'registrationStatus.status': 'approved'
       })
+        .populate('registrationStatus.approvedBy', 'personal.firstName personal.lastName auth.role')
         .populate('audit.createdBy', 'personal.firstName personal.lastName')
-        .sort({ 'audit.createdAt': -1 });
+        .sort({ 'registrationStatus.approvedAt': -1 });
 
       res.status(200).json({
         success: true,
@@ -1544,11 +1549,11 @@ class CrewController {
       console.log('📋 Fetching rejected crew members');
 
       const rejectedCrew = await Crew.find({ 
-        'rejectionDetails.status': 'rejected'
+        'registrationStatus.status': 'rejected'
       })
-        .populate('rejectionDetails.rejectedBy', 'personal.firstName personal.lastName auth.role')
+        .populate('registrationStatus.rejectedBy', 'personal.firstName personal.lastName auth.role')
         .populate('audit.createdBy', 'personal.firstName personal.lastName')
-        .sort({ 'rejectionDetails.rejectedAt': -1 });
+        .sort({ 'registrationStatus.rejectedAt': -1 });
 
       res.status(200).json({
         success: true,

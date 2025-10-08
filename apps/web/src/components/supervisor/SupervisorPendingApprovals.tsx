@@ -902,12 +902,12 @@ const SupervisorPendingApprovals: React.FC = () => {
                       </div>
 
                       {/* Rejection Details */}
-                      {vehicle.rejectionDetails && (
+                      {vehicle.registrationStatus?.status === 'rejected' && vehicle.registrationStatus?.rejectedBy && (
                         <div className="bg-red-100 border border-red-300 rounded-md p-3 mb-4">
                           <p className="text-sm font-medium text-red-900 mb-1">Rejection Details:</p>
-                          <p className="text-sm text-red-800 mb-2"><strong>Reason:</strong> {vehicle.rejectionDetails.reason}</p>
+                          <p className="text-sm text-red-800 mb-2"><strong>Reason:</strong> {vehicle.registrationStatus.rejectionReason}</p>
                           <p className="text-sm text-red-700">
-                            <strong>Rejected by:</strong> {vehicle.rejectionDetails.rejectedBy?.personal?.firstName} {vehicle.rejectionDetails.rejectedBy?.personal?.lastName} on {formatDate(vehicle.rejectionDetails.rejectedAt)}
+                            <strong>Rejected by:</strong> {vehicle.registrationStatus.rejectedBy?.personal?.firstName} {vehicle.registrationStatus.rejectedBy?.personal?.lastName} on {formatDate(vehicle.registrationStatus.rejectedAt)}
                           </p>
                         </div>
                       )}
@@ -1023,12 +1023,12 @@ const SupervisorPendingApprovals: React.FC = () => {
                       </div>
 
                       {/* Rejection Details */}
-                      {crew.rejectionDetails && (
+                      {crew.registrationStatus?.status === 'rejected' && crew.registrationStatus?.rejectedBy && (
                         <div className="bg-red-100 border border-red-300 rounded-md p-3 mb-4">
                           <p className="text-sm font-medium text-red-900 mb-1">Rejection Details:</p>
-                          <p className="text-sm text-red-800 mb-2"><strong>Reason:</strong> {crew.rejectionDetails.reason}</p>
+                          <p className="text-sm text-red-800 mb-2"><strong>Reason:</strong> {crew.registrationStatus.rejectionReason}</p>
                           <p className="text-sm text-red-700">
-                            <strong>Rejected by:</strong> {crew.rejectionDetails.rejectedBy?.personal?.firstName} {crew.rejectionDetails.rejectedBy?.personal?.lastName} on {formatDate(crew.rejectionDetails.rejectedAt)}
+                            <strong>Rejected by:</strong> {crew.registrationStatus.rejectedBy?.personal?.firstName} {crew.registrationStatus.rejectedBy?.personal?.lastName} on {formatDate(crew.registrationStatus.rejectedAt)}
                           </p>
                         </div>
                       )}

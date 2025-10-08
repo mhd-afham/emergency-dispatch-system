@@ -157,8 +157,9 @@ class VehicleController {
 
       // Populate the response with referenced data
       const populatedVehicle = await Vehicle.findById(savedVehicle._id)
-        .populate('registration.approvedBy', 'personal.firstName personal.lastName auth.role')
-        .populate('audit.createdBy', 'personal.firstName personal.lastName');
+        .populate('audit.createdBy', 'personal.firstName personal.lastName')
+        .populate('registrationStatus.approvedBy', 'personal.firstName personal.lastName auth.role')
+        .populate('registrationStatus.rejectedBy', 'personal.firstName personal.lastName auth.role');
 
       console.log('✅ Vehicle registration successful:', plateNumber);
 
@@ -291,7 +292,8 @@ class VehicleController {
 
       const [vehicles, total] = await Promise.all([
         Vehicle.find(query)
-          .populate('registration.approvedBy', 'personal.firstName personal.lastName')
+          .populate('registrationStatus.approvedBy', 'personal.firstName personal.lastName')
+          .populate('registrationStatus.rejectedBy', 'personal.firstName personal.lastName')
           .populate('station.homeStationId', 'name location')
           .populate('assignment.crew', 'personal.firstName personal.lastName professional.role')
           .sort(sortObject)
@@ -345,17 +347,16 @@ class VehicleController {
       console.log('📋 Fetching vehicles pending approval for:', req.user.personal.firstName);
       console.log('🔍 User role:', req.user.auth.role);
 
-      // Query for pending vehicles (exclude rejected ones)
+      // Query for pending vehicles
       const query = {
         isActive: false,
         'status.operational': 'maintenance',
-        rejectionDetails: { $exists: false }
+        'registrationStatus.status': 'pending'
       };
       
       console.log('🔎 Query:', JSON.stringify(query, null, 2));
 
       const pendingVehicles = await Vehicle.find(query)
-        .populate('registration.approvedBy', 'personal.firstName personal.lastName')
         .populate('station.homeStationId', 'name location')
         .populate('audit.createdBy', 'personal.firstName personal.lastName auth.role')
         .sort({ 'audit.createdAt': -1 });
@@ -624,10 +625,15 @@ class VehicleController {
         });
       }
 
-      // Update vehicle status
+      // Update vehicle status and registration status
       vehicle.isActive = true;
       vehicle.status.operational = 'active';
-      vehicle.registration.approvedBy = req.user._id;
+      vehicle.registrationStatus.status = 'approved';
+      vehicle.registrationStatus.approvedBy = req.user._id;
+      vehicle.registrationStatus.approvedAt = new Date();
+      if (comments) {
+        vehicle.registrationStatus.notes = comments;
+      }
       vehicle.audit.updatedAt = new Date();
 
       await vehicle.save();
@@ -656,7 +662,7 @@ class VehicleController {
       });
 
       const approvedVehicle = await Vehicle.findById(id)
-        .populate('registration.approvedBy', 'personal.firstName personal.lastName')
+        .populate('registrationStatus.approvedBy', 'personal.firstName personal.lastName')
         .populate('station.homeStationId', 'name location');
 
       console.log(`✅ Vehicle approved successfully:`, vehicle.registration.plateNumber);
@@ -724,12 +730,10 @@ class VehicleController {
 
       // Mark vehicle as rejected instead of deleting (for history tracking)
       vehicle.isActive = false;
-      vehicle.rejectionDetails = {
-        rejectedBy: req.user._id,
-        rejectedAt: new Date(),
-        reason: reason,
-        status: 'rejected'
-      };
+      vehicle.registrationStatus.status = 'rejected';
+      vehicle.registrationStatus.rejectedBy = req.user._id;
+      vehicle.registrationStatus.rejectedAt = new Date();
+      vehicle.registrationStatus.rejectionReason = reason;
       
       await vehicle.save();
 
@@ -815,7 +819,7 @@ class VehicleController {
         });
       }
 
-      if (!vehicle.rejectionDetails) {
+      if (vehicle.registrationStatus.status !== 'rejected') {
         return res.status(400).json({
           success: false,
           message: 'Vehicle is not rejected'
@@ -824,13 +828,16 @@ class VehicleController {
 
       // Store rejection info for audit log before clearing
       const previousRejection = {
-        reason: vehicle.rejectionDetails.reason,
-        rejectedAt: vehicle.rejectionDetails.rejectedAt,
-        rejectedBy: vehicle.rejectionDetails.rejectedBy
+        reason: vehicle.registrationStatus.rejectionReason,
+        rejectedAt: vehicle.registrationStatus.rejectedAt,
+        rejectedBy: vehicle.registrationStatus.rejectedBy
       };
 
-      // Clear rejection details
-      vehicle.rejectionDetails = undefined;
+      // Clear rejection details and set back to pending
+      vehicle.registrationStatus.status = 'pending';
+      vehicle.registrationStatus.rejectedBy = undefined;
+      vehicle.registrationStatus.rejectedAt = undefined;
+      vehicle.registrationStatus.rejectionReason = undefined;
       vehicle.isActive = false;
       vehicle.status.operational = 'maintenance';
       
@@ -902,7 +909,8 @@ class VehicleController {
       }
 
       const vehicle = await Vehicle.findById(id)
-        .populate('registration.approvedBy', 'personal.firstName personal.lastName auth.role')
+        .populate('registrationStatus.approvedBy', 'personal.firstName personal.lastName auth.role')
+        .populate('registrationStatus.rejectedBy', 'personal.firstName personal.lastName auth.role')
         .populate('station.homeStationId', 'name location coordinates')
         .populate('station.currentStationId', 'name location')
         .populate('assignment.crew', 'personal.firstName personal.lastName professional.role')
@@ -989,7 +997,9 @@ class VehicleController {
         id,
         { $set: filteredUpdates },
         { new: true, runValidators: true }
-      ).populate('registration.approvedBy', 'personal.firstName personal.lastName');
+      )
+        .populate('registrationStatus.approvedBy', 'personal.firstName personal.lastName')
+        .populate('registrationStatus.rejectedBy', 'personal.firstName personal.lastName');
 
       // Log the update action
       await AuditLog.logAction({
@@ -1228,7 +1238,7 @@ class VehicleController {
       }
 
       // Only allow permanent deletion of rejected vehicles
-      if (!vehicle.rejectionDetails) {
+      if (vehicle.registrationStatus.status !== 'rejected') {
         return res.status(400).json({
           success: false,
           message: 'Only rejected vehicles can be permanently deleted. Use deactivate for active vehicles.'
@@ -1257,7 +1267,7 @@ class VehicleController {
         feature: 'vehicle_permanent_deletion',
         metadata: {
           wasRejected: true,
-          rejectionReason: vehicle.rejectionDetails.reason,
+          rejectionReason: vehicle.registrationStatus.rejectionReason,
           originalRegistration: vehicleInfo
         },
         riskLevel: 'critical',
@@ -1349,11 +1359,11 @@ class VehicleController {
 
       const approvedVehicles = await Vehicle.find({ 
         isActive: true,
-        rejectionDetails: { $exists: false }
+        'registrationStatus.status': 'approved'
       })
-        .populate('registration.approvedBy', 'personal.firstName personal.lastName auth.role')
+        .populate('registrationStatus.approvedBy', 'personal.firstName personal.lastName auth.role')
         .populate('station.homeStationId', 'name location')
-        .sort({ 'registration.approvalDate': -1 });
+        .sort({ 'registrationStatus.approvedAt': -1 });
 
       res.status(200).json({
         success: true,
@@ -1382,11 +1392,11 @@ class VehicleController {
       console.log('📋 Fetching rejected vehicles');
 
       const rejectedVehicles = await Vehicle.find({ 
-        'rejectionDetails.status': 'rejected'
+        'registrationStatus.status': 'rejected'
       })
-        .populate('rejectionDetails.rejectedBy', 'personal.firstName personal.lastName auth.role')
+        .populate('registrationStatus.rejectedBy', 'personal.firstName personal.lastName auth.role')
         .populate('station.homeStationId', 'name location')
-        .sort({ 'rejectionDetails.rejectedAt': -1 });
+        .sort({ 'registrationStatus.rejectedAt': -1 });
 
       res.status(200).json({
         success: true,

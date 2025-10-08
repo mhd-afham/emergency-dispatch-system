@@ -939,12 +939,12 @@ const AdminRegistrationSection: React.FC = () => {
                               <div className="flex-1">
                                 <h4 className="text-lg font-semibold text-gray-900">{vehicle.registration.plateNumber}</h4>
                                 <p className="text-gray-700">{vehicle.registration.vehicleType} - {vehicle.registration.make} {vehicle.registration.model} ({vehicle.registration.year})</p>
-                                {vehicle.rejectionDetails && (
+                                {vehicle.registrationStatus?.status === 'rejected' && vehicle.registrationStatus?.rejectedBy && (
                                   <>
                                     <p className="text-sm text-red-700 mt-2 font-medium">
-                                      ❌ Rejected by {vehicle.rejectionDetails.rejectedBy.personal.firstName} {vehicle.rejectionDetails.rejectedBy.personal.lastName} on {formatDate(vehicle.rejectionDetails.rejectedAt)}
+                                      ❌ Rejected by {vehicle.registrationStatus.rejectedBy.personal.firstName} {vehicle.registrationStatus.rejectedBy.personal.lastName} on {formatDate(vehicle.registrationStatus.rejectedAt)}
                                     </p>
-                                    <p className="text-sm text-gray-700 mt-1"><strong>Reason:</strong> {vehicle.rejectionDetails.reason}</p>
+                                    <p className="text-sm text-gray-700 mt-1"><strong>Reason:</strong> {vehicle.registrationStatus.rejectionReason}</p>
                                   </>
                                 )}
                               </div>
@@ -986,12 +986,12 @@ const AdminRegistrationSection: React.FC = () => {
                               <div className="flex-1">
                                 <h4 className="text-lg font-semibold text-gray-900">{crew.personal.firstName} {crew.personal.lastName}</h4>
                                 <p className="text-gray-700">{crew.professional.role} - ID: {crew.personal.employeeId}</p>
-                                {crew.rejectionDetails && (
+                                {crew.registrationStatus?.status === 'rejected' && crew.registrationStatus?.rejectedBy && (
                                   <>
                                     <p className="text-sm text-red-700 mt-2 font-medium">
-                                      ❌ Rejected by {crew.rejectionDetails.rejectedBy.personal.firstName} {crew.rejectionDetails.rejectedBy.personal.lastName} on {formatDate(crew.rejectionDetails.rejectedAt)}
+                                      ❌ Rejected by {crew.registrationStatus.rejectedBy.personal.firstName} {crew.registrationStatus.rejectedBy.personal.lastName} on {formatDate(crew.registrationStatus.rejectedAt)}
                                     </p>
-                                    <p className="text-sm text-gray-700 mt-1"><strong>Reason:</strong> {crew.rejectionDetails.reason}</p>
+                                    <p className="text-sm text-gray-700 mt-1"><strong>Reason:</strong> {crew.registrationStatus.rejectionReason}</p>
                                   </>
                                 )}
                               </div>
