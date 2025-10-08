@@ -16,7 +16,7 @@ interface IncidentFormData {
     name: string;
     contactNumber: string;
     alternateContact?: string;
-    reportingMethod: 'phone_call' | 'mobile_app' | 'sms' | 'walk_in' | 'third_party';
+    reportingMethod: 'phone_call' | 'sms';
   };
   
   // Incident Classification
@@ -99,10 +99,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
   // Reporting methods for dropdown
   const reportingMethods = [
     { value: 'phone_call', label: 'Phone Call' },
-    { value: 'mobile_app', label: 'Mobile App' },
-    { value: 'sms', label: 'SMS' },
-    { value: 'walk_in', label: 'Walk-in' },
-    { value: 'third_party', label: 'Third Party Report' }
+    { value: 'sms', label: 'SMS' }
   ];
 
   // Incident types
