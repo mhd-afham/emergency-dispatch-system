@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import SupervisorEquipmentSection from "../components/supervisor/SupervisorEquipmentSection";
+import SupervisorEquipmentSection from "../components/SupervisorEquipmentSection";
 import SupervisorShiftSection from "../components/supervisor/SupervisorShiftSection";
 
 /**
