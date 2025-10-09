@@ -6,7 +6,6 @@ const Station = require("../models/Station");
 
 /**
  * Database utility functions for optimized queries and analytics
- * Based on design document Section 5.4 Performance Optimization
  */
 
 class DatabaseUtils {

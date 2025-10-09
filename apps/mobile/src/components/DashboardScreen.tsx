@@ -27,7 +27,7 @@ import AssignmentNotificationModal from "./AssignmentNotificationModal";
 
 interface DashboardScreenProps {
   user: any;
-  crew: any; // ✅ ADDED - Crew data from login
+  crew: any;
   onLogout: () => void;
 }
 

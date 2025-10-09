@@ -7,7 +7,6 @@ const mongoose = require("mongoose");
 /**
  * Assignment Controller for Emergency Dispatch System
  * Handles resource dispatch, assignment management, and status tracking
- * Implements Phase 4a - Assignment Logic
  */
 class AssignmentController {
   /**

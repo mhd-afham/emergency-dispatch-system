@@ -88,17 +88,17 @@ app.get("/", (req, res) => {
   });
 });
 
-// Import routes (will be added as we create them)
+// Import routes
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/incidents", require("./routes/incidents"));
 app.use("/api/equipment", require("./routes/equipment"));
 app.use("/api/vehicles", require("./routes/vehicles"));
 app.use("/api/assignments", require("./routes/assignments"));
 app.use("/api/crews", require("./routes/crews"));
-app.use("/api/shifts", require("./routes/shifts")); // Julien's shift management
-app.use("/api/crew", require("./routes/crew")); // Crew routes (merged Julien + Inusha)
-app.use("/api/drafts", require("./routes/drafts")); // Inusha's drafts
-app.use("/api/analytics", require("./routes/analytics")); // Chirath's analytics
+app.use("/api/shifts", require("./routes/shifts"));
+app.use("/api/crew", require("./routes/crew"));
+app.use("/api/drafts", require("./routes/drafts"));
+app.use("/api/analytics", require("./routes/analytics"));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
