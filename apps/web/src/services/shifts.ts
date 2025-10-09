@@ -199,19 +199,19 @@ export const shiftService = {
     page?: number;
     limit?: number;
   }): Promise<ShiftsResponse> => {
-    const response = await api.get("/api/shifts", { params });
+    const response = await api.get("/shifts", { params });
     return response.data;
   },
 
   // Get shift by ID
   getShift: async (id: string): Promise<ShiftResponse> => {
-    const response = await api.get(`/api/shifts/${id}`);
+    const response = await api.get(`/shifts/${id}`);
     return response.data;
   },
 
   // Create new shift
   createShift: async (shiftData: CreateShiftForm): Promise<ShiftResponse> => {
-    const response = await api.post("/api/shifts", shiftData);
+    const response = await api.post("/shifts", shiftData);
     return response.data;
   },
 
@@ -220,7 +220,7 @@ export const shiftService = {
     id: string,
     updates: UpdateShiftData | Partial<CreateShiftForm>
   ): Promise<ShiftResponse> => {
-    const response = await api.put(`/api/shifts/${id}`, updates);
+    const response = await api.put(`/shifts/${id}`, updates);
     return response.data;
   },
 
@@ -228,13 +228,13 @@ export const shiftService = {
   deleteShift: async (
     id: string
   ): Promise<{ success: boolean; message: string }> => {
-    const response = await api.delete(`/api/shifts/${id}`);
+    const response = await api.delete(`/shifts/${id}`);
     return response.data;
   },
 
   // Get available crew for shift
   getAvailableCrew: async (shiftId: string): Promise<AvailableCrewResponse> => {
-    const response = await api.get(`/api/shifts/available-crew/${shiftId}`);
+    const response = await api.get(`/shifts/available-crew/${shiftId}`);
     return response.data;
   },
 
@@ -243,7 +243,7 @@ export const shiftService = {
     shiftId: string,
     crewAssignments: { crewId: string; role: string }[]
   ): Promise<ShiftResponse> => {
-    const response = await api.post(`/api/shifts/${shiftId}/assign-crew`, {
+    const response = await api.post(`/shifts/${shiftId}/assign-crew`, {
       crewAssignments,
     });
     return response.data;
@@ -255,7 +255,7 @@ export const shiftService = {
     crewId: string
   ): Promise<{ success: boolean; message: string }> => {
     const response = await api.delete(
-      `/api/shifts/${shiftId}/remove-crew/${crewId}`
+      `/shifts/${shiftId}/remove-crew/${crewId}`
     );
     return response.data;
   },
@@ -266,7 +266,7 @@ export const shiftService = {
     month: number,
     stationId?: string
   ) => {
-    const response = await api.get(`/api/shifts/calendar/${year}/${month}`, {
+    const response = await api.get(`/shifts/calendar/${year}/${month}`, {
       params: { stationId },
     });
     return response.data;
@@ -285,7 +285,7 @@ export const crewService = {
     page?: number;
     limit?: number;
   }) => {
-    const response = await api.get("/api/crew", { params });
+    const response = await api.get("/crew", { params });
     return response.data;
   },
 
@@ -297,19 +297,19 @@ export const crewService = {
     role?: string;
     certificationLevel?: string;
   }) => {
-    const response = await api.get("/api/crew/available", { params });
+    const response = await api.get("/crew/available", { params });
     return response.data;
   },
 
   // Get crew by ID
   getCrewById: async (id: string) => {
-    const response = await api.get(`/api/crew/${id}`);
+    const response = await api.get(`/crew/${id}`);
     return response.data;
   },
 
   // Update crew availability
   updateAvailability: async (id: string, availability: string) => {
-    const response = await api.put(`/api/crew/${id}/availability`, {
+    const response = await api.put(`/crew/${id}/availability`, {
       availability,
     });
     return response.data;
@@ -317,7 +317,7 @@ export const crewService = {
 
   // Get crew statistics
   getStatistics: async () => {
-    const response = await api.get("/api/crew/statistics/overview");
+    const response = await api.get("/crew/statistics/overview");
     return response.data;
   },
 };
