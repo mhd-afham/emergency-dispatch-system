@@ -208,7 +208,7 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
       // Also fetch ALL crew members
       const allCrewResponse = await crewService.getCrew({ limit: 1000, isActive: true });
       if (allCrewResponse.success) {
-        setAllCrew(allCrewResponse.data);
+        setAllCrew(allCrewResponse.data.crewMembers || []);
       }
     } catch (error: any) {
       console.error('Error fetching available crew:', error);
