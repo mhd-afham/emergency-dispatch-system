@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import SupervisorEquipmentSection from "../components/SupervisorEquipmentSection";
+import SupervisorEquipmentSection from "../components/supervisor/SupervisorEquipmentSection";
 import SupervisorShiftSection from "../components/supervisor/SupervisorShiftSection";
+import SupervisorPendingApprovals from "../components/supervisor/SupervisorPendingApprovals";
 import { analyticsService, AnalyticsSummary } from "../services/analytics";
 
 /**
@@ -34,28 +35,6 @@ const ModularSupervisorDashboard: React.FC = () => {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Core supervisor data (owned by main dashboard) - MUST be before any conditional returns
-  const [pendingApprovals] = useState([
-    {
-      id: "APPR-001",
-      type: "Vehicle Registration",
-      item: "AMB-05 - New Ambulance",
-      requestedBy: "John Smith",
-      department: "Medical Services",
-      requestedAt: "2024-01-15 09:30",
-      priority: "Medium",
-    },
-    {
-      id: "APPR-002",
-      type: "Crew Assignment",
-      item: "Night Shift - Station 2",
-      requestedBy: "Sarah Johnson",
-      department: "Operations",
-      requestedAt: "2024-01-15 11:45",
-      priority: "High",
-    },
-  ]);
 
   // Fetch real-time analytics data
   useEffect(() => {
@@ -560,59 +539,7 @@ const ModularSupervisorDashboard: React.FC = () => {
         {activeSection === "shifts" && <SupervisorShiftSection />}
 
         {/* Pending Approvals Section */}
-        {activeSection === "approvals" && (
-          <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">
-              Pending Approvals
-            </h3>
-            <div className="space-y-4">
-              {pendingApprovals.map((approval) => (
-                <div
-                  key={approval.id}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-lg">{approval.type}</h4>
-                      <p className="text-gray-600">{approval.item}</p>
-                      <p className="text-sm text-gray-500">
-                        Requested by: {approval.requestedBy} (
-                        {approval.department})
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {approval.requestedAt}
-                      </p>
-                    </div>
-                    <div>
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          approval.priority === "High"
-                            ? "bg-red-100 text-red-800"
-                            : approval.priority === "Medium"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-green-100 text-green-800"
-                        }`}
-                      >
-                        {approval.priority}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex space-x-3">
-                    <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                      Approve
-                    </button>
-                    <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                      Reject
-                    </button>
-                    <button className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {activeSection === "approvals" && <SupervisorPendingApprovals />}
       </div>
     </div>
   );
