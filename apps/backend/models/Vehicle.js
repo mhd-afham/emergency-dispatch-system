@@ -54,11 +54,6 @@ const vehicleSchema = new mongoose.Schema(
         type: Date,
         default: Date.now,
       },
-      approvedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: [true, "Approving supervisor is required"],
-      },
     },
 
     // Current Status Information
@@ -183,6 +178,42 @@ const vehicleSchema = new mongoose.Schema(
       default: true,
     },
 
+    // Registration Status (for tracking registration lifecycle)
+    registrationStatus: {
+      status: {
+        type: String,
+        enum: {
+          values: ["pending", "approved", "rejected"],
+          message: "Status must be pending, approved, or rejected",
+        },
+        default: "pending",
+      },
+      approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      approvedAt: {
+        type: Date,
+      },
+      rejectedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      rejectedAt: {
+        type: Date,
+      },
+      rejectionReason: {
+        type: String,
+        trim: true,
+        maxlength: [500, "Rejection reason cannot exceed 500 characters"],
+      },
+      notes: {
+        type: String,
+        trim: true,
+        maxlength: [1000, "Registration notes cannot exceed 1000 characters"],
+      },
+    },
+
     // Audit Fields
     audit: {
       createdBy: {
@@ -198,6 +229,22 @@ const vehicleSchema = new mongoose.Schema(
         type: Date,
         default: Date.now,
       },
+    },
+
+    // Registration Status (for tracking approval/rejection workflow)
+    registrationStatus: {
+      status: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+        default: "pending", // ← Safe for your system!
+      },
+      // Separate fields (clear audit trail)
+      approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      approvedAt: { type: Date },
+      rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      rejectedAt: { type: Date },
+      rejectionReason: { type: String, maxlength: 500 },
+      notes: { type: String, maxlength: 1000 },
     },
   },
   {
@@ -215,6 +262,7 @@ vehicleSchema.index({ "status.currentLocation": "2dsphere" }); // Geospatial ind
 vehicleSchema.index({ "assignment.currentIncidentId": 1 });
 vehicleSchema.index({ "station.homeStationId": 1 });
 vehicleSchema.index({ isActive: 1 });
+vehicleSchema.index({ "registrationStatus.status": 1 }); // Registration status index
 
 // Pre-save middleware to update timestamps
 vehicleSchema.pre("save", function (next) {
@@ -265,6 +313,16 @@ vehicleSchema.statics.findNearLocation = function (
     isActive: true,
     "status.operational": "active",
   });
+};
+
+// Static method to find pending vehicle registrations
+vehicleSchema.statics.findPendingRegistrations = function () {
+  return this.find({
+    "registrationStatus.status": "pending",
+  })
+    .populate("audit.createdBy", "firstName lastName email")
+    .populate("registration.approvedBy", "firstName lastName email")
+    .sort({ "audit.createdAt": -1 });
 };
 
 module.exports = mongoose.model("Vehicle", vehicleSchema);

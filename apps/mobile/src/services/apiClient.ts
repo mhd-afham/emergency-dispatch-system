@@ -1,11 +1,12 @@
 import axios, { AxiosInstance, AxiosResponse } from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../constants";
 
 class ApiClient {
   private instance: AxiosInstance;
   private authToken: string = "";
 
-  constructor(baseURL: string = "http://localhost:5000") {
+  constructor(baseURL: string = API_BASE_URL) {
     this.instance = axios.create({
       baseURL,
       timeout: 10000,
@@ -18,24 +19,55 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor to add auth token
+    // Request interceptor to add auth token and log requests
     this.instance.interceptors.request.use(
       (config) => {
         const token = this.getAuthToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Enhanced request logging for debugging
+        console.log("[API REQUEST]:", {
+          method: config.method?.toUpperCase(),
+          url: config.url,
+          baseURL: config.baseURL,
+          fullURL: `${config.baseURL}${config.url}`,
+          data: config.data,
+          hasToken: !!token,
+        });
+
         return config;
       },
       (error) => {
+        console.error("[API REQUEST ERROR]:", error);
         return Promise.reject(error);
       }
     );
 
-    // Response interceptor for error handling
+    // Response interceptor for error handling and logging
     this.instance.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Enhanced response logging for debugging
+        console.log("[API SUCCESS]:", {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.config.url,
+          data: response.data,
+        });
+        return response;
+      },
       (error) => {
+        // Enhanced error logging for debugging
+        console.error("[API ERROR]:", {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          url: error.config?.url,
+          data: error.response?.data,
+          code: error.code,
+        });
+
         if (error.response?.status === 401) {
           this.handleAuthError();
         }
@@ -67,7 +99,8 @@ class ApiClient {
 
   // Auth endpoints
   public async login(email: string, password: string): Promise<AxiosResponse> {
-    return this.instance.post("/auth/login", { email, password });
+    // Backend expects "login" field (not "email")
+    return this.instance.post("/auth/login", { login: email, password });
   }
 
   public async register(userData: any): Promise<AxiosResponse> {
@@ -113,6 +146,40 @@ class ApiClient {
 
   public async deleteIncident(id: string): Promise<AxiosResponse> {
     return this.delete(`/incidents/${id}`);
+  }
+
+  // Crew endpoints (Sprint 1)
+  public async getCrewByEmployeeId(employeeId: string): Promise<AxiosResponse> {
+    return this.get(`/crews/by-employee/${employeeId}`);
+  }
+
+  public async getCrewAssignments(crewId: string): Promise<AxiosResponse> {
+    return this.get(`/crews/${crewId}/assignments`);
+  }
+
+  public async getCrewVehicle(crewId: string): Promise<AxiosResponse> {
+    return this.get(`/crews/${crewId}/vehicle`);
+  }
+
+  public async updateCrewLocation(
+    crewId: string,
+    coordinates: [number, number]
+  ): Promise<AxiosResponse> {
+    return this.put(`/crews/${crewId}/location`, { coordinates });
+  }
+
+  // Assignment endpoints (Sprint 1)
+  public async updateAssignmentStatus(
+    assignmentId: string,
+    status: string,
+    declineReason?: string,
+    notes?: string
+  ): Promise<AxiosResponse> {
+    return this.put(`/assignments/${assignmentId}/status`, {
+      status,
+      declineReason,
+      notes,
+    });
   }
 }
 

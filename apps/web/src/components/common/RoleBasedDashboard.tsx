@@ -1,6 +1,6 @@
 import React from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import AdminDashboard from "../../pages/AdminDashboard";
+import ModularAdminDashboard from "../../pages/ModularAdminDashboard";
 import CallTakerDashboard from "../../pages/CallTakerDashboard";
 import DispatcherDashboard from "../../pages/DispatcherDashboard";
 import ModularSupervisorDashboard from "../../pages/ModularSupervisorDashboard";
@@ -22,7 +22,7 @@ const RoleBasedDashboard: React.FC = () => {
   // Route to appropriate dashboard based on user role
   switch (user.role) {
     case "Admin":
-      return <AdminDashboard />;
+      return <ModularAdminDashboard />;
     case "Call Taker":
       return <CallTakerDashboard />;
     case "Dispatcher":

@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach to Expo",
+      "request": "attach",
+      "type": "reactnative",
+      "cwd": "${workspaceFolder}/apps/mobile",
+      "port": 19000,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug in Expo Go (Android)",
+      "request": "launch",
+      "type": "reactnative",
+      "cwd": "${workspaceFolder}/apps/mobile",
+      "platform": "android"
+    },
+    {
+      "name": "Debug in Expo Go (iOS)",
+      "request": "launch",
+      "type": "reactnative",
+      "cwd": "${workspaceFolder}/apps/mobile",
+      "platform": "ios"
+    },
+    {
+      "name": "Run Mobile App on Web",
+      "request": "launch",
+      "type": "reactnative",
+      "cwd": "${workspaceFolder}/apps/mobile",
+      "platform": "expoweb"
+    },
+    {
+      "name": "Backend Server",
+      "type": "node",
+      "request": "launch",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/apps/backend/server.js",
+      "cwd": "${workspaceFolder}/apps/backend",
+      "env": {
+        "NODE_ENV": "development"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack Debug",
+      "configurations": ["Backend Server", "Attach to Expo"],
+      "stopAll": true
+    }
+  ]
+}

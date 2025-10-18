@@ -60,7 +60,7 @@ const auditLogSchema = new mongoose.Schema(
       role: {
         type: String,
         required: true,
-        enum: ["admin", "dispatcher", "crew_chief", "crew_member"],
+        enum: ["admin", "supervisor", "dispatcher", "crew_chief", "crew_member"],
       },
       sessionId: String, // To track user sessions
     },
@@ -132,8 +132,10 @@ const auditLogSchema = new mongoose.Schema(
         validate: {
           validator: function (ip) {
             if (!ip) return true; // Optional field
+            // IPv4 regex
             const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-            const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
+            // IPv6 regex (including compressed forms like ::1)
+            const ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|::)$/;
             return ipv4Regex.test(ip) || ipv6Regex.test(ip);
           },
           message: "Invalid IP address format",
@@ -337,7 +339,6 @@ auditLogSchema.index({ "target.entityType": 1, "target.entityId": 1 });
 auditLogSchema.index({ "action.type": 1, timestamp: -1 });
 auditLogSchema.index({ "context.module": 1, timestamp: -1 });
 auditLogSchema.index({ "security.riskLevel": 1, timestamp: -1 });
-auditLogSchema.index({ "retention.expiresAt": 1 }); // For TTL cleanup
 
 // Compound indexes
 auditLogSchema.index({ "actor.userId": 1, "action.type": 1, timestamp: -1 });
@@ -352,7 +353,7 @@ auditLogSchema.index({
   timestamp: -1,
 });
 
-// TTL index for automatic cleanup
+// TTL index for automatic cleanup (also serves as single field index)
 auditLogSchema.index({ "retention.expiresAt": 1 }, { expireAfterSeconds: 0 });
 
 // Static method to log an action
