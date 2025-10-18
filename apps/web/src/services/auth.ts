@@ -15,9 +15,7 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
   withCredentials: true, // Important: This enables cookies for JWT
-});
-
-// Request interceptor to add auth token
+}); // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");

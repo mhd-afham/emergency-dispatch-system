@@ -7,7 +7,32 @@ import React, {
   useRef,
 } from "react";
 import { useAuth } from "./AuthContext";
-import { io, Socket } from "socket.io-client";
+import io from "socket.io-client";
+
+// Define Socket type for socket.io-client v4
+type SocketType = ReturnType<typeof io>;
+
+// Define Incident interface
+interface Incident {
+  _id: string;
+  title: string;
+  description: string;
+  location: {
+    address: string;
+    coordinates: {
+      lat: number;
+      lng: number;
+    };
+  };
+  priority: "low" | "medium" | "high" | "critical";
+  category: string;
+  subcategory: string;
+  status: "pending" | "in_progress" | "resolved" | "cancelled";
+  assignedTo?: string[];
+  reporterId: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface WebSocketMessage {
   type:
@@ -21,8 +46,9 @@ interface WebSocketMessage {
 }
 
 interface WebSocketContextType {
-  socket: Socket | null;
+  socket: SocketType | null;
   isConnected: boolean;
+  isConnecting: boolean;
   lastMessage: WebSocketMessage | null;
   sendMessage: (eventName: string, data: any) => void;
   subscribe: (eventType: string, callback: (data: any) => void) => () => void;
@@ -40,8 +66,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
 }) => {
   const { user, token } = useAuth();
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socket, setSocket] = useState<SocketType | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const subscribersRef = useRef<Map<string, Set<(data: any) => void>>>(
@@ -51,8 +78,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 
   // Connect to Socket.IO server
   const connect = useCallback(() => {
+    // Don't attempt connection if user is not authenticated
     if (!user || !token) {
-      console.log("Socket.IO: No user or token available, skipping connection");
+      console.log(
+        "Socket.IO: No user or token available, connection will be attempted after login"
+      );
       return;
     }
 
@@ -75,6 +105,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     }
 
     isConnectingRef.current = true;
+    setIsConnecting(true);
 
     try {
       console.log("Socket.IO: Connecting to backend server...");
@@ -95,6 +126,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       newSocket.on("connect", () => {
         console.log("Socket.IO: Connected successfully");
         setIsConnected(true);
+        setIsConnecting(false);
         setSocket(newSocket);
         isConnectingRef.current = false; // Reset connecting flag
 
@@ -104,12 +136,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         }
       });
 
-      newSocket.on("connected", (data) => {
+      newSocket.on("connected", (data: any) => {
         console.log("Socket.IO: Welcome message received", data);
       });
 
       // Handle incident events
-      newSocket.on("incident_created", (incident) => {
+      newSocket.on("incident_created", (incident: Incident) => {
         console.log("Socket.IO: New incident created", incident);
         const message: WebSocketMessage = {
           type: "incident_created",
@@ -130,7 +162,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         }
       });
 
-      newSocket.on("incident_update", (incident) => {
+      newSocket.on("incident_update", (incident: Incident) => {
         console.log("Socket.IO: Incident updated", incident);
         const message: WebSocketMessage = {
           type: "incident_update",
@@ -151,7 +183,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         }
       });
 
-      newSocket.on("incident_deleted", (incidentId) => {
+      newSocket.on("incident_deleted", (incidentId: string) => {
         console.log("Socket.IO: Incident deleted", incidentId);
         const message: WebSocketMessage = {
           type: "incident_deleted",
@@ -172,15 +204,126 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         }
       });
 
-      newSocket.on("connect_error", (error) => {
+      // Handle assignment events
+      newSocket.on("assignment_created", (data: any) => {
+        console.log("Socket.IO: Assignment created", data);
+        const subscribers = subscribersRef.current.get("assignment_created");
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment_created subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      newSocket.on("assignment_status_update", (data: any) => {
+        console.log("Socket.IO: Assignment status update", data);
+        const subscribers = subscribersRef.current.get(
+          "assignment_status_update"
+        );
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment_status_update subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      newSocket.on("assignment_declined", (data: any) => {
+        console.log("Socket.IO: Assignment declined", data);
+        const subscribers = subscribersRef.current.get("assignment_declined");
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment_declined subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      newSocket.on("assignment_notification", (data: any) => {
+        console.log("Socket.IO: Assignment notification", data);
+        const subscribers = subscribersRef.current.get(
+          "assignment_notification"
+        );
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment_notification subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      // Handle incident:updated event (from assignment status changes)
+      newSocket.on("incident:updated", (data: any) => {
+        console.log("Socket.IO: Incident updated (from assignment):", data);
+        const subscribers = subscribersRef.current.get("incident:updated");
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in incident:updated subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      // Handle assignment:cancelled event
+      newSocket.on("assignment:cancelled", (data: any) => {
+        console.log("Socket.IO: Assignment cancelled:", data);
+        const subscribers = subscribersRef.current.get("assignment:cancelled");
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in assignment:cancelled subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
+      newSocket.on("connect_error", (error: Error) => {
         console.error("Socket.IO: Connection error", error);
         setIsConnected(false);
+        setIsConnecting(false);
         isConnectingRef.current = false; // Reset connecting flag on error
       });
 
-      newSocket.on("disconnect", (reason) => {
+      newSocket.on("disconnect", (reason: string) => {
         console.log("Socket.IO: Disconnected", reason);
         setIsConnected(false);
+        setIsConnecting(false);
         setSocket(null);
         isConnectingRef.current = false; // Reset connecting flag on disconnect
 
@@ -200,6 +343,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       });
     } catch (error) {
       console.error("Socket.IO: Error creating connection", error);
+      setIsConnecting(false);
       isConnectingRef.current = false; // Reset connecting flag on error
     }
   }, [user, token, socket]);
@@ -214,6 +358,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     }
     setSocket(null);
     setIsConnected(false);
+    setIsConnecting(false);
     console.log("Socket.IO: Disconnected");
   }, [socket]);
 
@@ -283,6 +428,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const value: WebSocketContextType = {
     socket,
     isConnected,
+    isConnecting,
     lastMessage,
     sendMessage,
     subscribe,

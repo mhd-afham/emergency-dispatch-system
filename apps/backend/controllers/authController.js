@@ -178,14 +178,14 @@ const login = async (req, res) => {
       });
     }
 
-    // Check if account is locked
-    if (user.isLocked) {
-      return res.status(423).json({
-        success: false,
-        message:
-          "Account is temporarily locked due to multiple failed login attempts. Please try again later.",
-      });
-    }
+    // Check if account is locked (TEMPORARILY DISABLED)
+    // if (user.isLocked) {
+    //   return res.status(423).json({
+    //     success: false,
+    //     message:
+    //       "Account is temporarily locked due to multiple failed login attempts. Please try again later.",
+    //   });
+    // }
 
     // Check if account is active
     if (!user.settings.isActive) {
@@ -199,8 +199,8 @@ const login = async (req, res) => {
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
-      // Increment login attempts
-      await user.incLoginAttempts();
+      // Increment login attempts (TEMPORARILY DISABLED)
+      // await user.incLoginAttempts();
 
       return res.status(401).json({
         success: false,

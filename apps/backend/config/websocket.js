@@ -78,6 +78,18 @@ module.exports = (io) => {
       console.log(`👋 ${socket.userName} left incident room: ${incidentId}`);
     });
 
+    // Handle joining crew-specific rooms (for mobile crew leaders)
+    socket.on("join_crew_room", (roomName) => {
+      socket.join(roomName);
+      console.log(`👥 ${socket.userName} joined crew room: ${roomName}`);
+      // Send confirmation back to client
+      socket.emit("crew_room_joined", {
+        roomName,
+        message: `Successfully joined ${roomName}`,
+        timestamp: new Date().toISOString(),
+      });
+    });
+
     // Handle disconnection
     socket.on("disconnect", (reason) => {
       console.log(

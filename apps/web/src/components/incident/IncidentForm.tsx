@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationModal from '../common/NotificationModal';
 import { useNotification } from '../../hooks/useNotification';
+import MapLocationPicker from './MapLocationPicker';
 
 /**
  * Emergency Incident Intake Form Component
@@ -15,7 +16,7 @@ interface IncidentFormData {
     name: string;
     contactNumber: string;
     alternateContact?: string;
-    reportingMethod: 'phone_call' | 'mobile_app' | 'sms' | 'walk_in' | 'third_party';
+    reportingMethod: 'phone_call' | 'sms';
   };
   
   // Incident Classification
@@ -85,6 +86,10 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
   // Loading state for categories
   const [loadingCategories, setLoadingCategories] = useState(false);
 
+  // Map functionality state
+  const [showMap, setShowMap] = useState(false);
+  const [mapSelectedLocation, setMapSelectedLocation] = useState<any>(null);
+
   // Sri Lankan provinces for dropdown
   const provinces = [
     'Western', 'Central', 'Southern', 'Northern', 'Eastern',
@@ -94,10 +99,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
   // Reporting methods for dropdown
   const reportingMethods = [
     { value: 'phone_call', label: 'Phone Call' },
-    { value: 'mobile_app', label: 'Mobile App' },
-    { value: 'sms', label: 'SMS' },
-    { value: 'walk_in', label: 'Walk-in' },
-    { value: 'third_party', label: 'Third Party Report' }
+    { value: 'sms', label: 'SMS' }
   ];
 
   // Incident types
@@ -621,11 +623,65 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
             Location Information
           </h3>
 
+          {/* Map Toggle Button */}
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setShowMap(!showMap)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+              {showMap ? 'Hide Map' : 'Select Location on Map'}
+            </button>
+          </div>
+
+          {/* Google Maps Integration */}
+          {showMap && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Click on the map to select incident location
+              </label>
+              <MapLocationPicker
+                onLocationSelect={(location) => {
+                  setMapSelectedLocation(location);
+                  // Auto-fill form fields
+                  handleInputChange('location.address', location.address);
+                  handleInputChange('location.city', location.city);
+                  // Set coordinates
+                  setFormData(prev => ({
+                    ...prev,
+                    location: {
+                      ...prev.location,
+                      coordinates: {
+                        type: 'Point',
+                        coordinates: location.coordinates
+                      },
+                      locationAccuracy: 'exact'
+                    }
+                  }));
+                }}
+                className="w-full"
+              />
+              {mapSelectedLocation && (
+                <div className="mt-3 p-3 bg-green-100 rounded-md">
+                  <p className="text-sm text-green-800 font-medium">
+                    📍 Selected Location: {mapSelectedLocation.formattedAddress}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Coordinates: {mapSelectedLocation.coordinates[1].toFixed(6)}, {mapSelectedLocation.coordinates[0].toFixed(6)}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Address */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Street Address *
+                Street Address * {mapSelectedLocation && <span className="text-green-600">(Auto-filled from map)</span>}
               </label>
               <input
                 type="text"
@@ -633,7 +689,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
                 onChange={(e) => handleInputChange('location.address', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   errors['location.address'] ? 'border-red-300' : 'border-gray-300'
-                }`}
+                } ${mapSelectedLocation ? 'bg-green-50' : ''}`}
                 placeholder="Enter street address or location description"
                 disabled={isLoading}
               />
@@ -645,7 +701,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
             {/* City */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                City *
+                City * {mapSelectedLocation && <span className="text-green-600">(Auto-filled from map)</span>}
               </label>
               <input
                 type="text"
@@ -653,7 +709,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
                 onChange={(e) => handleInputChange('location.city', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   errors['location.city'] ? 'border-red-300' : 'border-gray-300'
-                }`}
+                } ${mapSelectedLocation ? 'bg-green-50' : ''}`}
                 placeholder="Enter city or town"
                 disabled={isLoading}
               />
@@ -680,6 +736,20 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSuccess, onCancel }) => {
                 ))}
               </select>
             </div>
+
+            {/* Location Accuracy Display */}
+            {formData.location.coordinates && (
+              <div className="md:col-span-2">
+                <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-md">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-blue-800">
+                    GPS coordinates captured: {formData.location.locationAccuracy} location
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Landmarks */}
             <div className="md:col-span-2">

@@ -53,6 +53,11 @@ const crewSchema = new mongoose.Schema(
             "Invalid role. Allowed roles: EMT, Paramedic, Firefighter, Driver, Supervisor",
         },
       },
+      isLeader: {
+        type: Boolean,
+        default: false,
+        required: [true, "Leader status is required"],
+      },
       certificationLevel: {
         type: String,
         required: [true, "Certification level is required"],
@@ -195,6 +200,42 @@ const crewSchema = new mongoose.Schema(
       },
     },
 
+    // Registration Status (for tracking registration lifecycle)
+    registrationStatus: {
+      status: {
+        type: String,
+        enum: {
+          values: ["pending", "approved", "rejected"],
+          message: "Status must be pending, approved, or rejected",
+        },
+        default: "pending",
+      },
+      approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      approvedAt: {
+        type: Date,
+      },
+      rejectedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      rejectedAt: {
+        type: Date,
+      },
+      rejectionReason: {
+        type: String,
+        trim: true,
+        maxlength: [500, "Rejection reason cannot exceed 500 characters"],
+      },
+      notes: {
+        type: String,
+        trim: true,
+        maxlength: [1000, "Registration notes cannot exceed 1000 characters"],
+      },
+    },
+
     // Audit Fields
     audit: {
       createdBy: {
@@ -211,6 +252,22 @@ const crewSchema = new mongoose.Schema(
         default: Date.now,
       },
     },
+
+    // Registration Status (for tracking approval/rejection workflow)
+    registrationStatus: {
+      status: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+        default: "pending", // ← Safe for your system!
+      },
+      // Separate fields (clear audit trail)
+      approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      approvedAt: { type: Date },
+      rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      rejectedAt: { type: Date },
+      rejectionReason: { type: String, maxlength: 500 },
+      notes: { type: String, maxlength: 1000 },
+    },
   },
   {
     timestamps: true,
@@ -219,8 +276,7 @@ const crewSchema = new mongoose.Schema(
 );
 
 // Indexes for performance
-crewSchema.index({ "personal.employeeId": 1 });
-crewSchema.index({ "personal.email": 1 });
+// Note: employeeId and email already have unique indexes from schema definition
 crewSchema.index({ "professional.role": 1 });
 crewSchema.index({ "professional.certificationLevel": 1 });
 crewSchema.index({ "currentStatus.availability": 1 });
@@ -228,6 +284,7 @@ crewSchema.index({ "currentStatus.shiftId": 1 });
 crewSchema.index({ "currentStatus.assignedVehicleId": 1 });
 crewSchema.index({ "currentStatus.location": "2dsphere" }); // Geospatial index
 crewSchema.index({ "settings.isActive": 1 });
+crewSchema.index({ "registrationStatus.status": 1 }); // Registration status index
 
 // Pre-save middleware to update timestamps
 crewSchema.pre("save", function (next) {
@@ -292,6 +349,15 @@ crewSchema.statics.findExpiringCertifications = function (daysAhead = 30) {
       },
     },
   });
+};
+
+// Static method to find pending crew registrations
+crewSchema.statics.findPendingRegistrations = function () {
+  return this.find({
+    "registrationStatus.status": "pending",
+  })
+    .populate("audit.createdBy", "firstName lastName email")
+    .sort({ "audit.createdAt": -1 });
 };
 
 module.exports = mongoose.model("Crew", crewSchema);

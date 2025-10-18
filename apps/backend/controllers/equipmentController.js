@@ -2,6 +2,7 @@ const EquipmentCheck = require('../models/EquipmentCheck');
 const EquipmentChecklistTemplate = require('../models/EquipmentChecklistTemplate');
 const Vehicle = require('../models/Vehicle');
 const Crew = require('../models/Crew');
+const MaintenanceRecord = require('../models/MaintenanceRecord');
 const mongoose = require('mongoose');
 
 /**
@@ -512,6 +513,117 @@ class EquipmentController {
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve equipment statistics',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Get equipment status overview for supervisor dashboard (UC-005)
+   * GET /api/equipment/status
+   */
+  static async getEquipmentStatus(req, res) {
+    try {
+      console.log('📊 Getting equipment status overview for supervisor dashboard');
+
+      // Get all vehicles with their latest equipment check status
+      const vehicles = await EquipmentCheck.aggregate([
+        {
+          $lookup: {
+            from: 'vehicles',
+            localField: 'vehicleId',
+            foreignField: '_id',
+            as: 'vehicle'
+          }
+        },
+        {
+          $sort: { timestamp: -1 }
+        },
+        {
+          $group: {
+            _id: '$vehicleId',
+            latestCheck: { $first: '$$ROOT' },
+            vehicle: { $first: { $arrayElemAt: ['$vehicle', 0] } }
+          }
+        }
+      ]);
+
+      // Get maintenance records
+      const maintenanceRecords = await MaintenanceRecord.find()
+        .populate('vehicleId', 'registration type')
+        .sort({ createdAt: -1 })
+        .limit(10);
+
+      // Process vehicles according to UC-005 status logic
+      const processedVehicles = vehicles.map(v => {
+        const latestCheck = v.latestCheck;
+        let status = 'PENDING_INSPECTION';
+        let readinessScore = 0;
+        let criticalIssues = 0;
+        let nonCriticalIssues = 0;
+
+        if (latestCheck && latestCheck.checkResults) {
+          const results = latestCheck.checkResults;
+          const criticalFails = results.filter(item => item.isCritical && item.status === 'FAIL');
+          const nonCriticalFails = results.filter(item => !item.isCritical && item.status === 'FAIL');
+          const totalItems = results.length;
+          const passedItems = results.filter(item => item.status === 'PASS').length;
+
+          criticalIssues = criticalFails.length;
+          nonCriticalIssues = nonCriticalFails.length;
+          readinessScore = totalItems > 0 ? Math.round((passedItems / totalItems) * 100) : 0;
+
+          // UC-005 Status Logic:
+          // All critical items pass = READY
+          // Critical items fail = OUT OF SERVICE  
+          // Only non-critical items fail = AVAILABLE WITH RESTRICTIONS
+          if (criticalFails.length > 0) {
+            status = 'OUT_OF_SERVICE';
+          } else if (nonCriticalFails.length > 0) {
+            status = 'AVAILABLE_WITH_RESTRICTIONS';
+          } else if (results.length > 0) {
+            status = 'READY';
+          }
+        }
+
+        return {
+          id: v._id,
+          vehicleNumber: v.vehicle?.registration?.plateNumber || 'Unknown',
+          type: v.vehicle?.type || 'unknown',
+          status,
+          lastCheck: latestCheck?.timestamp ? new Date(latestCheck.timestamp).toLocaleDateString() : 'Never',
+          readinessScore,
+          location: latestCheck?.gpsLocation || 'Unknown',
+          assignedCrewLeader: latestCheck?.crewLeaderId || null,
+          criticalIssues,
+          nonCriticalIssues
+        };
+      });
+
+      res.json({
+        success: true,
+        message: 'Equipment status retrieved successfully',
+        data: {
+          vehicles: processedVehicles,
+          maintenanceRecords: maintenanceRecords.map(record => ({
+            id: record._id,
+            vehicleId: record.vehicleId?._id,
+            vehicleNumber: record.vehicleId?.registration?.plateNumber || 'Unknown',
+            recordType: record.recordType,
+            description: record.description,
+            priority: record.priority,
+            createdBy: record.createdBy,
+            createdAt: new Date(record.createdAt).toLocaleDateString(),
+            status: record.status
+          }))
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Equipment status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve equipment status',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
