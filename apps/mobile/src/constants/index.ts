@@ -13,8 +13,8 @@
 //
 // CURRENT IP: 192.168.1.103 (Updated: October 9, 2025)
 // ========================================
-export const API_BASE_URL = "http://172.20.10.3:5000/api";
-export const WEBSOCKET_URL = "http://172.20.10.3:5000";
+export const API_BASE_URL = "http://192.168.1.104:5000/api";
+export const WEBSOCKET_URL = "http://192.168.1.104:5000";
 
 export const API_ENDPOINTS = {
   AUTH: "/auth",
