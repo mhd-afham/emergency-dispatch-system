@@ -196,25 +196,78 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     websocketService.onAssignmentCancelled((data) => {
       console.log("🚫 Assignment cancelled:", data);
 
-      // Check if it's the current assignment that was cancelled
-      if (currentAssignment && currentAssignment._id === data.assignmentId) {
-        Alert.alert(
-          "Assignment Cancelled",
-          `Your assignment has been cancelled by dispatch.\n\nReason: ${
-            data.reason || "No reason provided"
-          }`,
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                // Clear current assignment and reload dashboard
-                setCurrentAssignment(null);
-                loadDashboardData();
+      // Use refs to track what was cancelled (to avoid state update timing issues)
+      let currentWasCancelled = false;
+      let pendingWasCancelled = false;
+
+      // Check if it's the current assignment
+      setCurrentAssignment((prevAssignment) => {
+        if (prevAssignment && prevAssignment._id === data.assignmentId) {
+          console.log(
+            "🚫 Current assignment was cancelled:",
+            data.assignmentId
+          );
+          currentWasCancelled = true;
+          return null; // Clear the assignment
+        }
+        return prevAssignment;
+      });
+
+      // Check if it's the pending assignment (in notification modal)
+      // Note: pendingAssignment uses 'assignmentId', not '_id'
+      setPendingAssignment((prevPending: any) => {
+        if (prevPending && prevPending.assignmentId === data.assignmentId) {
+          console.log(
+            "🚫 Pending assignment was cancelled:",
+            data.assignmentId
+          );
+          pendingWasCancelled = true;
+          return null; // Clear the pending assignment
+        }
+        return prevPending;
+      });
+
+      // Use setTimeout to ensure state updates have completed
+      // This ensures modal closes before alert shows
+      setTimeout(() => {
+        if (pendingWasCancelled) {
+          // Close the notification modal BEFORE showing alert
+          setShowNotification(false);
+
+          // Small delay to let modal close animation complete
+          setTimeout(() => {
+            Alert.alert(
+              "Assignment Cancelled",
+              `A new assignment has been cancelled by dispatch before you could respond.\n\nReason: ${
+                data.reason || "No reason provided"
+              }`,
+              [
+                {
+                  text: "OK",
+                  onPress: () => {
+                    loadDashboardData();
+                  },
+                },
+              ]
+            );
+          }, 300);
+        } else if (currentWasCancelled) {
+          Alert.alert(
+            "Assignment Cancelled",
+            `Your assignment has been cancelled by dispatch.\n\nReason: ${
+              data.reason || "No reason provided"
+            }`,
+            [
+              {
+                text: "OK",
+                onPress: () => {
+                  loadDashboardData();
+                },
               },
-            },
-          ]
-        );
-      }
+            ]
+          );
+        }
+      }, 100);
     });
 
     // Listen for vehicle readiness updates (October 21, 2025)
@@ -305,9 +358,14 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       }, 100);
     });
 
-    // Cleanup listeners on unmount
+    // Cleanup listeners on unmount or when crew changes
     return () => {
       console.log("🧹 Cleaning up WebSocket listeners");
+      websocketService.off("assignment_notification");
+      websocketService.off("assignment_status_update");
+      websocketService.off("assignment:cancelled");
+      websocketService.off("vehicle_readiness_update");
+      websocketService.off("vehicle_status_update");
     };
   }, [crew._id]); // Only depend on crew._id to avoid WebSocket loop (October 21, 2025)
 
