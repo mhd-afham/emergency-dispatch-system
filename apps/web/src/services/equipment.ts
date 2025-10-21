@@ -526,6 +526,87 @@ class EquipmentService {
     const data = await response.json();
     return data.data;
   }
+
+  // ========== MAINTENANCE SEARCH METHODS ==========
+
+  /**
+   * Search maintenance records with filters and pagination
+   */
+  async searchMaintenanceRecords(searchParams: {
+    vehicleNumber?: string;
+    recordType?: 'ROUTINE' | 'CORRECTIVE' | 'EMERGENCY';
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+    status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    createdBy?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{
+    records: any[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      pages: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+    searchCriteria: any;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/equipment/maintenance/search`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(searchParams)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to search maintenance records: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  /**
+   * Download PDF report for a specific maintenance record
+   */
+  async downloadMaintenancePDF(recordId: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/equipment/maintenance/${recordId}/pdf`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate PDF: ${response.statusText}`);
+    }
+
+    return await response.blob();
+  }
+
+  /**
+   * Helper method to trigger PDF download in browser
+   */
+  async downloadMaintenancePDFFile(recordId: string, filename?: string): Promise<void> {
+    try {
+      const blob = await this.downloadMaintenancePDF(recordId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || `maintenance-record-${recordId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      throw error;
+    }
+  }
 }
 
 export const equipmentService = new EquipmentService();

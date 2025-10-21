@@ -110,7 +110,7 @@ class EquipmentController {
         }
       }
 
-      // Validate ObjectIds
+      // Validate ObjectIds 
       if (!mongoose.Types.ObjectId.isValid(vehicleId) || !mongoose.Types.ObjectId.isValid(templateId)) {
         return res.status(400).json({
           success: false,

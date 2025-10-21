@@ -894,4 +894,305 @@ router.delete('/maintenance/:id',
   }
 );
 
+/**
+ * @route   POST /api/equipment/maintenance/search
+ * @desc    Search maintenance records with filters and pagination
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.post('/maintenance/search',
+  auditLog('SEARCH_MAINTENANCE_RECORDS', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('🔍 Searching maintenance records:', JSON.stringify(req.body, null, 2));
+      
+      const allowedRoles = ['Supervisor', 'Maintenance Technician', 'Admin', 'Field Crew', 'Crew Leader'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to search maintenance records'
+        });
+      }
+
+      const { 
+        vehicleNumber, 
+        recordType, 
+        priority, 
+        status, 
+        createdBy,
+        dateFrom,
+        dateTo,
+        page = 1,
+        limit = 20,
+        sortBy = 'createdAt',
+        sortOrder = 'desc'
+      } = req.body;
+
+      // Build search query
+      const query = {};
+
+      // Search by vehicle number (requires lookup)
+      if (vehicleNumber) {
+        const Vehicle = require('../models/Vehicle');
+        const vehicles = await Vehicle.find({
+          'registration.plateNumber': { $regex: vehicleNumber, $options: 'i' }
+        }).select('_id');
+        
+        if (vehicles.length > 0) {
+          query.vehicleId = { $in: vehicles.map(v => v._id) };
+        } else {
+          // No matching vehicles found
+          return res.json({
+            success: true,
+            data: {
+              records: [],
+              pagination: {
+                total: 0,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                pages: 0
+              }
+            }
+          });
+        }
+      }
+
+      // Filter by record type
+      if (recordType && ['ROUTINE', 'CORRECTIVE', 'EMERGENCY'].includes(recordType)) {
+        query.recordType = recordType;
+      }
+
+      // Filter by priority
+      if (priority && ['LOW', 'MEDIUM', 'HIGH'].includes(priority)) {
+        query.priority = priority;
+      }
+
+      // Filter by status
+      if (status && ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status)) {
+        query.status = status;
+      }
+
+      // Filter by creator
+      if (createdBy) {
+        query.createdBy = { $regex: createdBy, $options: 'i' };
+      }
+
+      // Date range filter
+      if (dateFrom || dateTo) {
+        query.createdAt = {};
+        if (dateFrom) {
+          query.createdAt.$gte = new Date(dateFrom);
+        }
+        if (dateTo) {
+          query.createdAt.$lte = new Date(dateTo);
+        }
+      }
+
+      // Pagination options
+      const options = {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 },
+        populate: {
+          path: 'vehicleId',
+          select: 'registration.plateNumber registration.vehicleType'
+        }
+      };
+
+      console.log('📋 Search query:', JSON.stringify(query, null, 2));
+      console.log('⚙️ Search options:', JSON.stringify(options, null, 2));
+
+      const result = await MaintenanceRecord.paginate(query, options);
+
+      // Transform results for frontend
+      const records = result.docs.map(record => ({
+        id: record._id,
+        vehicleId: record.vehicleId._id,
+        vehicleNumber: record.vehicleId.registration?.plateNumber || 'Unknown',
+        vehicleType: record.vehicleId.registration?.vehicleType || 'Unknown',
+        recordType: record.recordType,
+        description: record.description,
+        priority: record.priority,
+        createdBy: record.createdBy,
+        createdAt: record.createdAt.toISOString(),
+        status: record.status
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          records,
+          pagination: {
+            total: result.totalDocs,
+            page: result.page,
+            limit: result.limit,
+            pages: result.totalPages,
+            hasNextPage: result.hasNextPage,
+            hasPrevPage: result.hasPrevPage
+          },
+          searchCriteria: {
+            vehicleNumber,
+            recordType,
+            priority,
+            status,
+            createdBy,
+            dateFrom,
+            dateTo
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Maintenance record search error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to search maintenance records',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/equipment/maintenance/:id/pdf
+ * @desc    Generate PDF report for a specific maintenance record
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.get('/maintenance/:id/pdf',
+  auditLog('GENERATE_MAINTENANCE_PDF', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('📄 Generating PDF for maintenance record:', req.params.id);
+      
+      const allowedRoles = ['Supervisor', 'Maintenance Technician', 'Admin'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to generate maintenance PDF'
+        });
+      }
+
+      // Validate record ID
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid maintenance record ID format'
+        });
+      }
+
+      // Fetch maintenance record with vehicle details
+      const record = await MaintenanceRecord.findById(req.params.id)
+        .populate({
+          path: 'vehicleId',
+          select: 'registration specifications status'
+        });
+
+      if (!record) {
+        return res.status(404).json({
+          success: false,
+          message: 'Maintenance record not found'
+        });
+      }
+
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ margin: 50 });
+
+      // Set response headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=maintenance-record-${record._id}.pdf`);
+
+      // Pipe PDF to response
+      doc.pipe(res);
+
+      // Add header
+      doc.fontSize(20).text('Maintenance Record Report', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(10).text(`Generated: ${new Date().toLocaleString()}`, { align: 'right' });
+      doc.moveDown(2);
+
+      // Record Information
+      doc.fontSize(16).text('Record Information', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(12);
+      doc.text(`Record ID: ${record._id}`);
+      doc.text(`Record Type: ${record.recordType}`);
+      doc.text(`Priority: ${record.priority}`);
+      doc.text(`Status: ${record.status}`);
+      doc.text(`Created By: ${record.createdBy}`);
+      doc.text(`Created At: ${new Date(record.createdAt).toLocaleString()}`);
+      doc.moveDown(2);
+
+      // Vehicle Information
+      doc.fontSize(16).text('Vehicle Information', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(12);
+      doc.text(`Vehicle Number: ${record.vehicleId.registration?.plateNumber || 'N/A'}`);
+      doc.text(`Vehicle Type: ${record.vehicleId.registration?.vehicleType || 'N/A'}`);
+      doc.text(`Make/Model: ${record.vehicleId.registration?.make || 'N/A'} ${record.vehicleId.registration?.model || 'N/A'}`);
+      doc.text(`Operational Status: ${record.vehicleId.status?.operational || 'N/A'}`);
+      doc.moveDown(2);
+
+      // Maintenance Details
+      doc.fontSize(16).text('Maintenance Details', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(12);
+      doc.text('Description:', { continued: false });
+      doc.moveDown(0.3);
+      doc.fontSize(11);
+      doc.text(record.description, { align: 'justify' });
+      doc.moveDown(2);
+
+      // Priority Badge
+      const priorityColors = {
+        HIGH: '#EF4444',
+        MEDIUM: '#F59E0B',
+        LOW: '#10B981'
+      };
+      doc.fontSize(14).fillColor(priorityColors[record.priority] || '#6B7280');
+      doc.text(`Priority Level: ${record.priority}`, { align: 'center' });
+      doc.fillColor('#000000');
+      doc.moveDown(2);
+
+      // Status Badge
+      const statusColors = {
+        PENDING: '#F59E0B',
+        IN_PROGRESS: '#3B82F6',
+        COMPLETED: '#10B981',
+        CANCELLED: '#6B7280'
+      };
+      doc.fontSize(14).fillColor(statusColors[record.status] || '#6B7280');
+      doc.text(`Current Status: ${record.status}`, { align: 'center' });
+      doc.fillColor('#000000');
+      doc.moveDown(3);
+
+      // Footer
+      doc.fontSize(10).text('_'.repeat(80), { align: 'center' });
+      doc.moveDown(0.5);
+      doc.text('Emergency Dispatch System - UC-005 Digital Equipment Readiness', { align: 'center' });
+      doc.text('This is an official maintenance record document', { align: 'center' });
+      doc.moveDown(2);
+
+      // Signature Section
+      doc.fontSize(12);
+      doc.text('Supervisor Signature: _______________________     Date: __________', { align: 'left' });
+      doc.moveDown();
+      doc.text('Technician Signature: _______________________     Date: __________', { align: 'left' });
+
+      // Finalize PDF
+      doc.end();
+
+      console.log('✅ PDF generated successfully for record:', record._id);
+
+    } catch (error) {
+      console.error('❌ PDF generation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate PDF',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
 module.exports = router;
