@@ -874,7 +874,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       // After completion, show "Returned to Station" button when vehicle is returning
       console.log(
-        `📱 Button check: Assignment status='${status}', Vehicle status='${vehicle?.status?.currentStatus}', COMPLETED constant='${ASSIGNMENT_STATUS.COMPLETED}'`
+        `📱 Button check: Assignment status='${status}', Vehicle status='${vehicle?.status?.currentStatus}', hasCompletedAssignment=${hasCompletedAssignment}`
       );
       console.log(
         `📱 Current assignment object:`,
@@ -887,21 +887,24 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           : "null"
       );
 
-      // Check both conditions explicitly for debugging
+      // Check conditions: Either vehicle is returning OR hasCompletedAssignment flag is true
+      // The flag is set immediately when assignment_status_update event fires with status="completed"
       const assignmentIsCompleted = status === ASSIGNMENT_STATUS.COMPLETED;
       const vehicleIsReturning = vehicle?.status?.currentStatus === "returning";
+      const shouldShowButton =
+        assignmentIsCompleted && (vehicleIsReturning || hasCompletedAssignment);
 
       console.log(
-        `📱 Condition check: assignmentIsCompleted=${assignmentIsCompleted}, vehicleIsReturning=${vehicleIsReturning}`
+        `📱 Condition check: assignmentIsCompleted=${assignmentIsCompleted}, vehicleIsReturning=${vehicleIsReturning}, hasCompletedAssignment=${hasCompletedAssignment}`
       );
       console.log(
         `📱 Vehicle object status:`,
         vehicle?.status || "Vehicle status undefined"
       );
 
-      if (assignmentIsCompleted && vehicleIsReturning) {
+      if (shouldShowButton) {
         console.log(
-          `📱 ✅ Showing "Returned to Station" button - Assignment: ${status}, Vehicle: ${vehicle?.status?.currentStatus}`
+          `📱 ✅ Showing "Returned to Station" button - Assignment: ${status}, Vehicle: ${vehicle?.status?.currentStatus}, Flag: ${hasCompletedAssignment}`
         );
         return (
           <TouchableOpacity
@@ -918,7 +921,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         `📱 ❌ "Returned to Station" button not shown. Conditions not met.`
       );
       console.log(
-        `📱 Missing conditions: assignmentIsCompleted=${assignmentIsCompleted}, vehicleIsReturning=${vehicleIsReturning}`
+        `📱 Missing conditions: shouldShowButton=${shouldShowButton} (needs assignmentIsCompleted AND (vehicleIsReturning OR hasCompletedAssignment))`
       );
     } else {
       console.log(
