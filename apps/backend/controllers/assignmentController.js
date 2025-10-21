@@ -200,6 +200,7 @@ class AssignmentController {
       }
 
       // Create assignment with incident location (GeoJSON format)
+      // Map incident severity to assignment priority (they use the same enum now)
       const assignment = new Assignment({
         incident: {
           incidentId: incidentId,
@@ -212,7 +213,7 @@ class AssignmentController {
         dispatch: {
           assignedBy: req.user._id,
           assignedAt: new Date(),
-          priority: priority || "urgent",
+          priority: priority || incident.severity || "medium", // Use incident severity as priority
         },
         response: {
           status: "assigned",
@@ -1119,6 +1120,89 @@ class AssignmentController {
       res.status(500).json({
         success: false,
         message: "Failed to cancel assignment",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Delete Assignment (CRUD - Delete Operation)
+   * Permanently deletes an assignment from the database
+   * Only cancelled assignments can be safely deleted to preserve audit trail
+   */
+  static async deleteAssignment(req, res) {
+    try {
+      const { id } = req.params;
+
+      console.log(
+        `🗑️  Attempting to delete assignment: ${id} by ${req.user.firstName} ${req.user.lastName}`
+      );
+
+      // Find assignment
+      const assignment = await Assignment.findById(id);
+
+      if (!assignment) {
+        return res.status(404).json({
+          success: false,
+          message: `Assignment not found: ${id}`,
+        });
+      }
+
+      // Safety check: Only allow deletion of cancelled assignments
+      // This preserves audit trail for active/completed assignments
+      const currentStatus = assignment.response?.status || assignment.status;
+
+      if (currentStatus !== "cancelled") {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete assignment with status: ${currentStatus}`,
+          details:
+            "Only cancelled assignments can be deleted. Please cancel the assignment first if you need to remove it.",
+          currentStatus,
+          suggestion: "Cancel the assignment first, then delete it",
+        });
+      }
+
+      // Store cancellation details before deletion (for response)
+      const deletedData = {
+        assignmentId: assignment._id,
+        incidentId: assignment.incident?.incidentId,
+        vehicleId: assignment.resource?.vehicleId,
+        crewId: assignment.resource?.primaryCrewId,
+        status: currentStatus,
+        cancelledAt: assignment.response?.cancelledAt,
+        cancellationReason: assignment.response?.cancellationReason,
+        assignedAt: assignment.dispatch?.assignedAt,
+      };
+
+      // Perform deletion
+      await Assignment.findByIdAndDelete(id);
+      console.log("✅ Assignment deleted successfully:", id);
+
+      // Emit real-time event for deletion
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("assignment:deleted", {
+          assignmentId: id,
+          deletedAt: new Date(),
+          deletedBy: {
+            name: `${req.user.firstName} ${req.user.lastName}`,
+            role: req.user.auth.role,
+          },
+        });
+        console.log("📡 assignment:deleted event emitted");
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Assignment deleted successfully",
+        data: deletedData,
+      });
+    } catch (error) {
+      console.error("❌ Error deleting assignment:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete assignment",
         error: error.message,
       });
     }

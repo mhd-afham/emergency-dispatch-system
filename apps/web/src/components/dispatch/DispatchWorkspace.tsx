@@ -616,12 +616,16 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/assignments/${assignmentId}`,
+        `http://localhost:5000/api/assignments/${assignmentId}/cancel`,
         {
-          method: "DELETE",
+          method: "PATCH",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({
+            reason: "Cancelled by dispatcher",
+          }),
         }
       );
 

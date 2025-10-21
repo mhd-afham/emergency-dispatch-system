@@ -408,9 +408,9 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/assignments/${cancelModal.assignmentId}`,
+        `http://localhost:5000/api/assignments/${cancelModal.assignmentId}/cancel`,
         {
-          method: "DELETE",
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,

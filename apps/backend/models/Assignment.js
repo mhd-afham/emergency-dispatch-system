@@ -44,8 +44,8 @@ const assignmentSchema = new mongoose.Schema(
       },
       priority: {
         type: String,
-        enum: ["routine", "urgent", "emergency", "critical"],
-        default: "routine",
+        enum: ["low", "medium", "high", "critical"],
+        default: "medium",
       },
       estimatedArrivalTime: Date,
       dispatchNotes: {
