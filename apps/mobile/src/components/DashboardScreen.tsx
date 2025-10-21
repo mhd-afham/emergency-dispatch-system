@@ -15,7 +15,7 @@ import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { websocketService } from "../services/websocketService";
 import { apiClient } from "../services/apiClient";
 import { locationService } from "../services/locationService";
-import { ASSIGNMENT_STATUS } from "../constants";
+import { ASSIGNMENT_STATUS, VEHICLE_STATUS } from "../constants";
 import {
   colors,
   spacing,
@@ -57,6 +57,12 @@ interface Assignment {
   };
   response?: {
     status: string;
+    acceptedAt?: string;
+    enRouteAt?: string;
+    onSceneAt?: string;
+    completedAt?: string;
+    returningAt?: string;
+    returnedAt?: string;
   };
   status: string;
   dispatch?: {
@@ -73,6 +79,11 @@ interface Vehicle {
   status: {
     operational: string;
     currentStatus: string;
+  };
+  readiness?: {
+    isReady: boolean;
+    lastReadyUpdate?: string;
+    notReadyReason?: string | null;
   };
   equipment?: any;
   assignment?: {
@@ -93,6 +104,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
+  const [readinessLoading, setReadinessLoading] = useState(false); // October 20, 2025
+  const [hasCompletedAssignment, setHasCompletedAssignment] = useState(false); // October 21, 2025
+  const [forceRenderCount, setForceRenderCount] = useState(0); // October 21, 2025 - Force re-render
 
   // Assignment notification state
   const [showNotification, setShowNotification] = useState(false);
@@ -129,10 +143,54 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     websocketService.onAssignmentStatusUpdate((data) => {
       console.log("📊 Assignment status update:", data);
 
-      // Refresh current assignment if it's the one that was updated
-      if (currentAssignment && currentAssignment._id === data.assignmentId) {
-        fetchCurrentAssignment();
-      }
+      // Update current assignment if it's the one that was updated
+      setCurrentAssignment((prevAssignment) => {
+        if (prevAssignment && prevAssignment._id === data.assignmentId) {
+          console.log(
+            `📱 Updating assignment status from ${prevAssignment.status} to ${data.status}`
+          );
+
+          // Special handling for "returned" status - clear assignment immediately
+          if (data.status === "returned") {
+            console.log("📱 Assignment returned - clearing local state");
+            setHasCompletedAssignment(false);
+            // Refresh vehicle and assignments to show any new assignments
+            fetchVehicle();
+            fetchCurrentAssignment();
+            return null; // Clear assignment from state
+          }
+
+          const updatedAssignment = {
+            ...prevAssignment,
+            status: data.status,
+            response: {
+              ...prevAssignment.response,
+              status: data.status,
+            },
+          };
+
+          // Track completed assignments
+          if (data.status === ASSIGNMENT_STATUS.COMPLETED) {
+            setHasCompletedAssignment(true);
+            console.log(
+              `📱 Assignment completed - setting hasCompletedAssignment flag`
+            );
+            // Fetch vehicle to get updated "returning" status
+            // This is critical for showing the "Returned to Station" button
+            fetchVehicle();
+          } else if (data.status !== "returned") {
+            setHasCompletedAssignment(false);
+            fetchCurrentAssignment();
+          }
+
+          // Force re-render to ensure UI updates
+          setForceRenderCount((prev) => prev + 1);
+          console.log(`📱 Forcing UI re-render after assignment status update`);
+
+          return updatedAssignment;
+        }
+        return prevAssignment;
+      });
     });
 
     // Listen for assignment cancellation
@@ -160,11 +218,99 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       }
     });
 
+    // Listen for vehicle readiness updates (October 21, 2025)
+    // This handles automatic readiness updates from backend (e.g., after completing assignment)
+    websocketService.onVehicleReadinessUpdate((data) => {
+      console.log("🚗 Vehicle readiness update:", data);
+
+      // Update local vehicle state if it's our vehicle
+      setVehicle((prevVehicle) => {
+        if (prevVehicle && prevVehicle._id === data.vehicleId) {
+          const updatedVehicle = {
+            ...prevVehicle,
+            readiness: {
+              ...prevVehicle.readiness,
+              isReady: data.isReady,
+              notReadyReason: data.notReadyReason || null,
+              lastReadyUpdate: data.timestamp,
+            },
+          };
+          console.log(
+            `✅ Vehicle readiness updated in UI: ${
+              data.isReady ? "READY" : "NOT READY"
+            }`
+          );
+          return updatedVehicle;
+        }
+        return prevVehicle;
+      });
+    });
+
+    // Listen for vehicle status updates (October 21, 2025)
+    // This handles real-time vehicle status changes (e.g., completing assignment -> returning, returned -> available)
+    websocketService.onVehicleStatusUpdate((data) => {
+      console.log("🚛 Vehicle status update received:", data);
+
+      // Update local vehicle state if it's our vehicle
+      setVehicle((prevVehicle) => {
+        if (prevVehicle && prevVehicle._id === data.vehicleId) {
+          console.log(
+            `🚛 Updating vehicle status from ${prevVehicle.status?.currentStatus} to ${data.status}`
+          );
+
+          const updatedVehicle = {
+            ...prevVehicle,
+            status: {
+              ...prevVehicle.status,
+              currentStatus: data.status,
+            },
+          };
+
+          console.log(`✅ Vehicle status updated in UI: ${data.status}`);
+
+          // Handle status transitions
+          if (data.status === "returning") {
+            // Assignment was completed - vehicle is returning
+            // CRITICAL: Set flag to ensure button appears
+            console.log("🚗 Vehicle is returning - setting completed flag");
+            setHasCompletedAssignment(true);
+          } else if (data.status === "available") {
+            // Vehicle returned to station - clear any lingering assignment state
+            console.log("🏠 Vehicle is available - clearing assignment state");
+            setCurrentAssignment(null);
+            setHasCompletedAssignment(false);
+            fetchCurrentAssignment(); // Check for any new assignments
+          } else if (data.status === "assigned") {
+            // New assignment received
+            fetchCurrentAssignment();
+            console.log(
+              "🔄 Refreshing current assignment due to status change"
+            );
+          }
+
+          return updatedVehicle;
+        }
+        return prevVehicle;
+      });
+
+      // Force re-render AFTER state update to ensure button updates
+      // Small delay to ensure state is updated first
+      setTimeout(() => {
+        setForceRenderCount((prev) => {
+          const newCount = prev + 1;
+          console.log(
+            `📱 Forcing UI re-render (count: ${newCount}) after vehicle status update to: ${data.status}`
+          );
+          return newCount;
+        });
+      }, 100);
+    });
+
     // Cleanup listeners on unmount
     return () => {
       console.log("🧹 Cleaning up WebSocket listeners");
     };
-  }, [crew._id, currentAssignment]);
+  }, [crew._id]); // Only depend on crew._id to avoid WebSocket loop (October 21, 2025)
 
   // Load initial data
   useEffect(() => {
@@ -185,27 +331,36 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
-  // Manage GPS tracking based on assignment status
+  // Manage GPS tracking based on vehicle status (October 20, 2025)
+  // Automatic GPS management - no manual control
   useEffect(() => {
     const manageLocationTracking = async () => {
-      if (!currentAssignment) {
-        // No assignment - stop tracking if active
+      if (!vehicle) {
+        // No vehicle - stop tracking if active
         if (locationService.isCurrentlyTracking()) {
           locationService.stopTracking();
-          console.log("🛑 Stopped location tracking (no assignment)");
+          console.log("🛑 Stopped location tracking (no vehicle)");
         }
         return;
       }
 
-      const status =
-        currentAssignment.response?.status || currentAssignment.status;
+      const vehicleStatus = vehicle.status?.currentStatus;
 
-      // Start tracking when en_route, stop otherwise
-      if (status === ASSIGNMENT_STATUS.EN_ROUTE) {
+      // GPS ON when: assigned, en_route, on_scene, returning
+      // GPS OFF when: available
+      const shouldTrack =
+        vehicleStatus === VEHICLE_STATUS.ASSIGNED ||
+        vehicleStatus === VEHICLE_STATUS.EN_ROUTE ||
+        vehicleStatus === VEHICLE_STATUS.ON_SCENE ||
+        vehicleStatus === VEHICLE_STATUS.RETURNING;
+
+      if (shouldTrack) {
         if (!locationService.isCurrentlyTracking()) {
           const started = await locationService.startTracking(crew._id);
           if (started) {
-            console.log("🎯 Started location tracking (en route)");
+            console.log(
+              `🎯 Started location tracking (vehicle status: ${vehicleStatus})`
+            );
           } else {
             Alert.alert(
               "Location Tracking Failed",
@@ -215,32 +370,120 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           }
         }
       } else {
-        // Stop tracking for other statuses
+        // Stop tracking when vehicle is available
         if (locationService.isCurrentlyTracking()) {
           locationService.stopTracking();
-          console.log("🛑 Stopped location tracking (status changed)");
+          console.log(
+            `🛑 Stopped location tracking (vehicle status: ${vehicleStatus})`
+          );
         }
       }
     };
 
     manageLocationTracking();
-  }, [currentAssignment, crew._id]);
+  }, [vehicle, crew._id]);
 
   // Fetch current assignment
   const fetchCurrentAssignment = async () => {
+    const caller = new Error().stack?.split("\n")[2]?.trim() || "unknown";
+    console.log(`📋 fetchCurrentAssignment called from: ${caller}`);
+
     try {
+      console.log(`📋 Fetching assignments for crew: ${crew._id}`);
       const response = await apiClient.getCrewAssignments(crew._id);
       const assignments = response.data.data;
 
-      // Find first active assignment (exclude completed, cancelled, and declined)
-      const activeAssignment = assignments.find(
-        (a: Assignment) =>
-          a.status !== ASSIGNMENT_STATUS.COMPLETED &&
-          a.status !== ASSIGNMENT_STATUS.CANCELLED &&
-          a.status !== ASSIGNMENT_STATUS.DECLINED
+      console.log(`📋 Raw API response:`, {
+        count: assignments.length,
+        rawAssignments: assignments.length > 0 ? assignments[0] : null,
+      });
+
+      console.log(
+        `📋 Received ${assignments.length} assignments:`,
+        assignments.map((a: Assignment) => ({
+          id: a._id,
+          status: a.status || a.response?.status || "UNKNOWN",
+          rawStatus: a.status,
+          responseStatus: a.response?.status,
+          incidentId: a.incident?.incidentId?.incidentId || "N/A",
+        }))
       );
 
-      setCurrentAssignment(activeAssignment || null);
+      // Find first active assignment (include completed for "Returned to Station" button)
+      // Only exclude cancelled and declined assignments
+      const activeAssignment = assignments.find((a: Assignment) => {
+        // Try different ways to get the status
+        const assignmentStatus = a.status || a.response?.status;
+
+        // If still no status, log the raw assignment structure for debugging
+        if (!assignmentStatus) {
+          console.log(
+            `📋 Assignment with undefined status:`,
+            JSON.stringify(a, null, 2)
+          );
+        }
+
+        return (
+          assignmentStatus !== ASSIGNMENT_STATUS.CANCELLED &&
+          assignmentStatus !== ASSIGNMENT_STATUS.DECLINED
+        );
+      });
+
+      console.log(
+        `📋 Active assignment found:`,
+        activeAssignment
+          ? {
+              id: activeAssignment._id,
+              status:
+                activeAssignment.status ||
+                activeAssignment.response?.status ||
+                "UNKNOWN",
+              rawStatus: activeAssignment.status,
+              responseStatus: activeAssignment.response?.status,
+              incidentId:
+                activeAssignment.incident?.incidentId?.incidentId || "N/A",
+            }
+          : "None"
+      );
+
+      // If we found an assignment but status is undefined, try to use response.status
+      let finalAssignment = activeAssignment;
+      if (activeAssignment) {
+        // Ensure the assignment has a proper status
+        if (!activeAssignment.status && activeAssignment.response?.status) {
+          console.log(
+            `📋 Fixing assignment status: using response.status (${activeAssignment.response.status})`
+          );
+          finalAssignment = {
+            ...activeAssignment,
+            status: activeAssignment.response.status,
+          };
+        } else if (
+          !activeAssignment.status &&
+          !activeAssignment.response?.status
+        ) {
+          console.log(`📋 WARNING: Assignment has no status in either field!`);
+          // Don't set the assignment if we can't determine its status
+          finalAssignment = null;
+        }
+      }
+
+      // Special handling: Don't clear completed assignments when backend returns empty
+      if (!finalAssignment && hasCompletedAssignment) {
+        console.log(
+          `📋 No assignments returned but we have a completed assignment - keeping current assignment`
+        );
+        return; // Don't update currentAssignment, keep the existing one
+      }
+
+      setCurrentAssignment(finalAssignment || null);
+
+      // Track if we have a completed assignment
+      if (finalAssignment?.status === ASSIGNMENT_STATUS.COMPLETED) {
+        setHasCompletedAssignment(true);
+      } else if (finalAssignment?.status !== ASSIGNMENT_STATUS.COMPLETED) {
+        setHasCompletedAssignment(false);
+      }
     } catch (error: any) {
       console.error("Error fetching assignments:", error);
       if (error.response?.status !== 404) {
@@ -306,18 +549,158 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     if (!currentAssignment) return;
 
     try {
+      console.log(`📱 Updating assignment status to: ${newStatus}`);
+      console.log(
+        `📱 Current vehicle status before update: ${vehicle?.status?.currentStatus}`
+      );
+
       await apiClient.updateAssignmentStatus(currentAssignment._id, newStatus);
 
       // Update local state
-      setCurrentAssignment({
+      const updatedAssignment = {
         ...currentAssignment,
         status: newStatus,
-      });
+      };
+      setCurrentAssignment(updatedAssignment);
+
+      console.log(`📱 Assignment status updated locally to: ${newStatus}`);
+
+      // Fetch updated vehicle data to get the new status from backend
+      // This is crucial for status transitions like "completed" -> "returning"
+      try {
+        const vehicleResponse = await apiClient.getCrewVehicle(crew._id);
+        const updatedVehicle = vehicleResponse.data.data;
+        setVehicle(updatedVehicle);
+
+        console.log(
+          `📱 Vehicle data fetched after status update. New vehicle status: ${updatedVehicle?.status?.currentStatus}`
+        );
+
+        // Special handling for completed status to ensure UI updates properly
+        if (newStatus === ASSIGNMENT_STATUS.COMPLETED) {
+          console.log(
+            `📱 Assignment completed. Vehicle should be returning. Vehicle status: ${updatedVehicle?.status?.currentStatus}`
+          );
+        }
+      } catch (vehicleError) {
+        console.error("Failed to fetch updated vehicle data:", vehicleError);
+      }
 
       Alert.alert("Success", `Status updated to ${newStatus}`);
     } catch (error) {
       console.error("Error updating status:", error);
       Alert.alert("Error", "Failed to update status");
+    }
+  };
+
+  // Mark vehicle returned to station (October 20, 2025)
+  const markReturnedToStation = async () => {
+    if (!vehicle || !currentAssignment) return;
+
+    try {
+      // FIRST: Update assignment status to "returned" - this sets response.returnedAt
+      // This is critical - the backend query excludes assignments with returnedAt set
+      await apiClient.updateAssignmentStatus(currentAssignment._id, "returned");
+
+      console.log("✅ Assignment status updated to 'returned'");
+
+      // The backend will automatically:
+      // 1. Set vehicle status to "available"
+      // 2. Emit WebSocket events (assignment_status_update, vehicle_status_update)
+
+      // Clear local state immediately for better UX
+      setCurrentAssignment(null);
+      setHasCompletedAssignment(false);
+
+      // Refresh to ensure we're in sync
+      await Promise.all([fetchVehicle(), fetchCurrentAssignment()]);
+
+      Alert.alert("Success", "Vehicle marked as returned to station and ready");
+    } catch (error) {
+      console.error("Error marking returned to station:", error);
+      Alert.alert("Error", "Failed to mark vehicle as returned");
+    }
+  };
+
+  // Toggle vehicle readiness (October 20, 2025)
+  const toggleVehicleReadiness = async () => {
+    if (!vehicle) return;
+
+    // If during active assignment, show warning
+    if (currentAssignment) {
+      Alert.alert(
+        "Readiness Unavailable",
+        "Vehicle readiness cannot be changed during an active assignment.\n\nIf you are experiencing an emergency, vehicle malfunction, or any situation requiring immediate attention, please contact the dispatch center immediately via radio or phone.",
+        [{ text: "Understood", style: "default" }]
+      );
+      return;
+    }
+
+    const currentReadiness = vehicle.readiness?.isReady ?? false;
+    const newReadiness = !currentReadiness;
+
+    // If marking not ready, ask for reason
+    if (!newReadiness) {
+      Alert.prompt(
+        "Mark Vehicle Not Ready",
+        "Please provide a reason:",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Submit",
+            onPress: async (reason: string | undefined) => {
+              if (!reason || reason.trim() === "") {
+                Alert.alert("Error", "Please provide a reason");
+                return;
+              }
+              await updateVehicleReadiness(false, reason.trim());
+            },
+          },
+        ],
+        "plain-text"
+      );
+    } else {
+      // Marking ready - no reason needed
+      await updateVehicleReadiness(true, null);
+    }
+  };
+
+  // Update vehicle readiness via API
+  const updateVehicleReadiness = async (
+    isReady: boolean,
+    notReadyReason: string | null
+  ) => {
+    if (!vehicle) return;
+
+    setReadinessLoading(true);
+    try {
+      await apiClient.updateVehicleReadiness(vehicle._id, {
+        isReady,
+        notReadyReason,
+      });
+
+      // Update local vehicle state
+      setVehicle({
+        ...vehicle,
+        readiness: {
+          isReady,
+          notReadyReason,
+          lastReadyUpdate: new Date().toISOString(),
+        },
+      });
+
+      Alert.alert(
+        "Success",
+        `Vehicle marked ${isReady ? "ready" : "not ready"}`
+      );
+    } catch (error) {
+      console.error("Error updating vehicle readiness:", error);
+      Alert.alert("Error", "Failed to update vehicle readiness");
+    } finally {
+      setReadinessLoading(false);
     }
   };
 
@@ -396,12 +779,42 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   // Get next status button
   const getNextStatusButton = () => {
-    if (!currentAssignment) return null;
+    console.log(
+      `📱 🔄 getNextStatusButton called - currentAssignment:`,
+      currentAssignment
+        ? {
+            id: currentAssignment._id,
+            status: currentAssignment.status,
+            responseStatus: currentAssignment.response?.status,
+          }
+        : "null"
+    );
 
+    if (!currentAssignment) {
+      console.log(`📱 No currentAssignment - returning null`);
+      return null;
+    }
+
+    // Use response.status as primary (more up-to-date), fallback to top-level status
     const status =
       currentAssignment.response?.status || currentAssignment.status;
 
+    console.log(
+      `📱 getNextStatusButton - derived status: '${status}', type: ${typeof status}`
+    );
+    console.log(`📱 getNextStatusButton - assignment fields:`, {
+      status: currentAssignment.status,
+      "response.status": currentAssignment.response?.status,
+    });
+    console.log(`📱 getNextStatusButton - ASSIGNMENT_STATUS constants:`, {
+      ACCEPTED: ASSIGNMENT_STATUS.ACCEPTED,
+      EN_ROUTE: ASSIGNMENT_STATUS.EN_ROUTE,
+      ON_SCENE: ASSIGNMENT_STATUS.ON_SCENE,
+      COMPLETED: ASSIGNMENT_STATUS.COMPLETED,
+    });
+
     if (status === ASSIGNMENT_STATUS.ACCEPTED) {
+      console.log(`📱 Returning "Start En Route" button for status: ${status}`);
       return (
         <TouchableOpacity
           style={[styles.statusButton, { backgroundColor: colors.warning }]}
@@ -418,6 +831,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
 
     if (status === ASSIGNMENT_STATUS.EN_ROUTE) {
+      console.log(
+        `📱 Returning "Arrived On Scene" button for status: ${status}`
+      );
       return (
         <TouchableOpacity
           style={[styles.statusButton, { backgroundColor: colors.primary }]}
@@ -430,6 +846,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
 
     if (status === ASSIGNMENT_STATUS.ON_SCENE) {
+      console.log(
+        `📱 Returning "Complete Assignment" button for status: ${status}`
+      );
       return (
         <TouchableOpacity
           style={[styles.statusButton, { backgroundColor: colors.success }]}
@@ -445,23 +864,138 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       );
     }
 
-    // After completion, show "Arrived at Station" button when vehicle is returning
-    if (
-      status === ASSIGNMENT_STATUS.COMPLETED &&
-      vehicle?.status?.currentStatus === "returning"
-    ) {
-      return (
-        <TouchableOpacity
-          style={[styles.statusButton, { backgroundColor: colors.success }]}
-          onPress={() => updateStatus(ASSIGNMENT_STATUS.RETURNED)}
-        >
-          <MaterialIcons name="home" size={20} color={colors.textOnPrimary} />
-          <Text style={styles.statusButtonText}>Arrived at Station</Text>
-        </TouchableOpacity>
+    // Check if assignment is completed to show "Returned to Station" button
+    console.log(
+      `📱 Checking for completed status - current status: '${status}', COMPLETED constant: '${ASSIGNMENT_STATUS.COMPLETED}'`
+    );
+
+    if (status === ASSIGNMENT_STATUS.COMPLETED) {
+      console.log(`📱 Assignment is completed! Checking vehicle status...`);
+
+      // After completion, show "Returned to Station" button when vehicle is returning
+      console.log(
+        `📱 Button check: Assignment status='${status}', Vehicle status='${vehicle?.status?.currentStatus}', COMPLETED constant='${ASSIGNMENT_STATUS.COMPLETED}'`
+      );
+      console.log(
+        `📱 Current assignment object:`,
+        currentAssignment
+          ? {
+              id: currentAssignment._id,
+              status: currentAssignment.status,
+              incidentId: currentAssignment.incident?.incidentId?._id || "N/A",
+            }
+          : "null"
+      );
+
+      // Check both conditions explicitly for debugging
+      const assignmentIsCompleted = status === ASSIGNMENT_STATUS.COMPLETED;
+      const vehicleIsReturning = vehicle?.status?.currentStatus === "returning";
+
+      console.log(
+        `📱 Condition check: assignmentIsCompleted=${assignmentIsCompleted}, vehicleIsReturning=${vehicleIsReturning}`
+      );
+      console.log(
+        `📱 Vehicle object status:`,
+        vehicle?.status || "Vehicle status undefined"
+      );
+
+      if (assignmentIsCompleted && vehicleIsReturning) {
+        console.log(
+          `📱 ✅ Showing "Returned to Station" button - Assignment: ${status}, Vehicle: ${vehicle?.status?.currentStatus}`
+        );
+        return (
+          <TouchableOpacity
+            style={[styles.statusButton, { backgroundColor: colors.success }]}
+            onPress={markReturnedToStation}
+          >
+            <MaterialIcons name="home" size={20} color={colors.textOnPrimary} />
+            <Text style={styles.statusButtonText}>Returned to Station</Text>
+          </TouchableOpacity>
+        );
+      }
+
+      console.log(
+        `📱 ❌ "Returned to Station" button not shown. Conditions not met.`
+      );
+      console.log(
+        `📱 Missing conditions: assignmentIsCompleted=${assignmentIsCompleted}, vehicleIsReturning=${vehicleIsReturning}`
+      );
+    } else {
+      console.log(
+        `📱 Assignment not completed yet. Current status: '${status}', needed: '${ASSIGNMENT_STATUS.COMPLETED}'`
       );
     }
 
     return null;
+  };
+
+  // Handle logout with validation (October 20, 2025)
+  const handleLogoutPress = () => {
+    // Check if there's an active assignment
+    if (currentAssignment) {
+      Alert.alert(
+        "Active Assignment",
+        "You cannot logout while you have an active assignment. Please complete or cancel your assignment first.",
+        [{ text: "OK", style: "default" }]
+      );
+      return;
+    }
+
+    // Check if vehicle is returning to station
+    if (vehicle?.status?.currentStatus === "returning") {
+      Alert.alert(
+        "Return to Station Required",
+        "You must mark your vehicle as 'Returned to Station' before logging out.",
+        [{ text: "OK", style: "default" }]
+      );
+      return;
+    }
+
+    // Confirm logout
+    Alert.alert(
+      "Confirm Logout",
+      "Are you sure you want to logout? Your vehicle will be marked as 'Not Ready'.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: handleConfirmedLogout,
+        },
+      ]
+    );
+  };
+
+  // Handle confirmed logout with vehicle readiness update (October 21, 2025)
+  const handleConfirmedLogout = async () => {
+    try {
+      // Mark vehicle as not ready before logout if vehicle exists
+      if (vehicle?._id) {
+        console.log(
+          `🚗 Marking vehicle ${vehicle._id} as not ready before logout`
+        );
+        console.log(
+          `🚗 Current vehicle readiness before logout: ${vehicle.readiness?.isReady}`
+        );
+
+        const result = await apiClient.updateVehicleReadiness(vehicle._id, {
+          isReady: false,
+          notReadyReason: "Crew logged out - Vehicle not ready",
+        });
+
+        console.log("✅ Vehicle readiness update result:", result);
+        console.log("✅ Vehicle marked as not ready on logout");
+      } else {
+        console.log("⚠️ No vehicle found to mark as not ready during logout");
+      }
+    } catch (error: any) {
+      console.error("❌ Failed to mark vehicle not ready on logout:", error);
+      console.error("Error details:", error.response?.data || error.message);
+      // Continue with logout even if this fails
+    }
+
+    // Call parent logout function
+    onLogout();
   };
 
   if (loading) {
@@ -494,7 +1028,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </View>
           </View>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogoutPress}
+        >
           <MaterialIcons name="logout" size={22} color={colors.textOnPrimary} />
         </TouchableOpacity>
       </View>
@@ -579,6 +1116,45 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   {vehicle.status?.currentStatus?.toUpperCase() || "UNKNOWN"}
                 </Text>
               </View>
+
+              {/* Vehicle Readiness Controls (October 20, 2025) */}
+              <TouchableOpacity
+                style={[
+                  styles.readinessButton,
+                  {
+                    backgroundColor: vehicle.readiness?.isReady
+                      ? colors.success
+                      : colors.error,
+                  },
+                ]}
+                onPress={toggleVehicleReadiness}
+                disabled={readinessLoading || !!currentAssignment}
+              >
+                <MaterialIcons
+                  name={vehicle.readiness?.isReady ? "check-circle" : "error"}
+                  size={16}
+                  color={colors.textOnPrimary}
+                />
+                <Text style={styles.readinessButtonText}>
+                  {readinessLoading
+                    ? "Updating..."
+                    : vehicle.readiness?.isReady
+                    ? "Ready"
+                    : "Not Ready"}
+                </Text>
+              </TouchableOpacity>
+
+              {!vehicle.readiness?.isReady &&
+                vehicle.readiness?.notReadyReason && (
+                  <Text
+                    style={[
+                      styles.vehicleText,
+                      { color: colors.error, marginTop: spacing.xs },
+                    ]}
+                  >
+                    Reason: {vehicle.readiness.notReadyReason}
+                  </Text>
+                )}
             </View>
           </View>
         )}
@@ -666,23 +1242,28 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {/* Status Update Button */}
             {getNextStatusButton()}
 
-            {/* Get Directions Button */}
-            {currentAssignment.incident?.incidentId?.location?.coordinates && (
-              <TouchableOpacity
-                style={[
-                  styles.statusButton,
-                  { backgroundColor: colors.secondary, marginTop: spacing.sm },
-                ]}
-                onPress={() => openNavigation()}
-              >
-                <MaterialIcons
-                  name="directions"
-                  size={20}
-                  color={colors.textOnPrimary}
-                />
-                <Text style={styles.statusButtonText}>Get Directions</Text>
-              </TouchableOpacity>
-            )}
+            {/* Get Directions Button - Only show if assignment is not completed */}
+            {currentAssignment.incident?.incidentId?.location?.coordinates &&
+              (currentAssignment.response?.status ||
+                currentAssignment.status) !== ASSIGNMENT_STATUS.COMPLETED && (
+                <TouchableOpacity
+                  style={[
+                    styles.statusButton,
+                    {
+                      backgroundColor: colors.secondary,
+                      marginTop: spacing.sm,
+                    },
+                  ]}
+                  onPress={() => openNavigation()}
+                >
+                  <MaterialIcons
+                    name="directions"
+                    size={20}
+                    color={colors.textOnPrimary}
+                  />
+                  <Text style={styles.statusButtonText}>Get Directions</Text>
+                </TouchableOpacity>
+              )}
           </View>
         ) : (
           <View style={styles.card}>
@@ -946,6 +1527,23 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: "center",
     paddingVertical: spacing.lg,
+  },
+  // October 20, 2025 - Readiness toggle button styles
+  readinessButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+    ...shadows.sm,
+  },
+  readinessButtonText: {
+    color: colors.textOnPrimary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
   },
 });
 

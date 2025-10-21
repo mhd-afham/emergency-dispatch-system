@@ -1482,6 +1482,111 @@ class VehicleController {
   }
 
   /**
+   * Update vehicle readiness status (October 20, 2025)
+   * PUT /api/vehicles/:id/readiness
+   * Crew leader control - separate from GPS tracking
+   */
+  static async updateVehicleReadiness(req, res) {
+    try {
+      const { id } = req.params;
+      const { isReady, notReadyReason } = req.body;
+
+      console.log(
+        `🚗 Updating vehicle ${id} readiness - Requested by:`,
+        req.user.personal?.firstName || req.user.firstName,
+        req.user.personal?.lastName || req.user.lastName
+      );
+
+      // Validate ObjectId
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid vehicle ID format",
+        });
+      }
+
+      // Validate isReady is boolean
+      if (typeof isReady !== "boolean") {
+        return res.status(400).json({
+          success: false,
+          message: "isReady must be a boolean value",
+        });
+      }
+
+      // If marking not ready, reason should be provided
+      if (!isReady && !notReadyReason) {
+        return res.status(400).json({
+          success: false,
+          message: "notReadyReason is required when marking vehicle not ready",
+        });
+      }
+
+      const vehicle = await Vehicle.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          message: "Vehicle not found",
+        });
+      }
+
+      const updateData = {
+        "readiness.isReady": isReady,
+        "readiness.lastReadyUpdate": new Date(),
+        "readiness.updatedBy": req.user._id,
+        "readiness.notReadyReason": isReady ? null : notReadyReason,
+        "audit.updatedAt": new Date(),
+      };
+
+      const updatedVehicle = await Vehicle.findByIdAndUpdate(
+        id,
+        { $set: updateData },
+        { new: true, runValidators: true }
+      ).populate("readiness.updatedBy", "firstName lastName");
+
+      console.log(
+        `✅ Vehicle readiness updated: ${
+          updatedVehicle.registration.plateNumber
+        } - ${isReady ? "READY" : "NOT READY"}${
+          !isReady ? ` (${notReadyReason})` : ""
+        }`
+      );
+
+      // Emit WebSocket event for real-time updates
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("vehicle_readiness_update", {
+          vehicleId: updatedVehicle._id,
+          plateNumber: updatedVehicle.registration.plateNumber,
+          isReady: isReady,
+          notReadyReason: notReadyReason || null,
+          timestamp: new Date().toISOString(),
+        });
+        console.log("📡 WebSocket event emitted: vehicle_readiness_update");
+      }
+
+      res.status(200).json({
+        success: true,
+        message: `Vehicle marked ${
+          isReady ? "ready" : "not ready"
+        } successfully`,
+        data: {
+          vehicle: updatedVehicle,
+        },
+      });
+    } catch (error) {
+      console.error("❌ Update vehicle readiness error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update vehicle readiness",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
+      });
+    }
+  }
+
+  /**
    * Assign or unassign vehicle to/from an incident
    * PUT /api/vehicles/:id/assignment
    */

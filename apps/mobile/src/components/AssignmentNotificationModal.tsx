@@ -92,6 +92,9 @@ export default function AssignmentNotificationModal({
       );
 
       if (response.data.success) {
+        // Reset processing state before calling callback (October 20, 2025)
+        setIsProcessing(false);
+        
         Alert.alert(
           "Assignment Accepted",
           "You have accepted the assignment. Please proceed to the incident location.",
@@ -142,6 +145,12 @@ export default function AssignmentNotificationModal({
       );
 
       if (response.data.success) {
+        // Reset processing state and decline form before calling callback
+        setIsProcessing(false);
+        setShowDeclineReason(false);
+        setDeclineReason("vehicle_issue");
+        setDeclineNotes("");
+
         Alert.alert(
           "Assignment Declined",
           "The dispatcher has been notified. Another crew will be assigned.",

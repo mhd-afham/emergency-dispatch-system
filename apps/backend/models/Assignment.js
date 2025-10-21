@@ -65,6 +65,7 @@ const assignmentSchema = new mongoose.Schema(
           "en_route",
           "on_scene",
           "completed",
+          "returned", // October 21, 2025 - When crew marks vehicle as returned to station
           "cancelled",
         ],
         default: "assigned",

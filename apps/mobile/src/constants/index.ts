@@ -44,7 +44,7 @@ export const ASSIGNMENT_STATUS = {
   EN_ROUTE: "en_route",
   ON_SCENE: "on_scene",
   COMPLETED: "completed",
-  RETURNED: "returned",
+  RETURNED: "returned", // October 21, 2025 - When crew marks "Returned to Station"
   CANCELLED: "cancelled",
 } as const;
 
@@ -56,6 +56,15 @@ export const DECLINE_REASONS = [
 ] as const;
 
 export const GPS_UPDATE_INTERVAL = 15000; // 15 seconds when en_route
+
+// October 20, 2025 - Vehicle Status (separate from assignment status)
+export const VEHICLE_STATUS = {
+  AVAILABLE: "available",
+  ASSIGNED: "assigned",
+  EN_ROUTE: "en_route",
+  ON_SCENE: "on_scene",
+  RETURNING: "returning", // Vehicle returning to station after completing assignment
+} as const;
 
 export const INCIDENT_TYPES = {
   FIRE: "Fire",
@@ -74,13 +83,7 @@ export const INCIDENT_SEVERITY = {
   EMERGENCY: 5,
 } as const;
 
-export const VEHICLE_STATUS = {
-  AVAILABLE: "Available",
-  ASSIGNED: "Assigned",
-  EN_ROUTE: "En Route",
-  ON_SCENE: "On Scene",
-  OUT_OF_SERVICE: "Out of Service",
-} as const;
+// October 20, 2025 - Vehicle Status removed from here (defined above with correct values)
 
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 export type IncidentType = (typeof INCIDENT_TYPES)[keyof typeof INCIDENT_TYPES];

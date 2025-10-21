@@ -135,10 +135,12 @@ class AssignmentController {
         });
       }
 
-      // Check if vehicle has any pending or active assignments (not declined/completed/cancelled)
+      // Check if vehicle has any pending or active assignments (not declined/completed/cancelled/returned)
       const existingAssignment = await Assignment.findOne({
         "resource.vehicleId": vehicleId,
-        "response.status": { $nin: ["completed", "cancelled", "declined"] },
+        "response.status": {
+          $nin: ["completed", "cancelled", "declined", "returned"],
+        },
       });
 
       if (existingAssignment) {
@@ -481,6 +483,10 @@ class AssignmentController {
           case "completed":
             // Vehicle is returning to station after completion
             vehicle.status.currentStatus = "returning";
+            // Set readiness to true - vehicle available for new assignments (Oct 20, 2025)
+            vehicle.readiness.isReady = true;
+            vehicle.readiness.lastReadyUpdate = new Date();
+            vehicle.readiness.notReadyReason = null;
             // Clear incident assignment but keep crew assigned to vehicle
             vehicle.assignment.currentIncidentId = null;
             vehicle.assignment.assignedAt = null;
@@ -493,7 +499,11 @@ class AssignmentController {
             break;
           case "declined":
           case "cancelled":
-            vehicle.status.currentStatus = "available";
+            // Only change status to "available" if vehicle is not currently "returning"
+            // If vehicle is returning from a previous assignment, preserve that status
+            if (vehicle.status.currentStatus !== "returning") {
+              vehicle.status.currentStatus = "available";
+            }
             // Clear incident assignment but keep crew assigned to vehicle
             vehicle.assignment.currentIncidentId = null;
             vehicle.assignment.assignedAt = null;
@@ -514,13 +524,17 @@ class AssignmentController {
 
         if (resourceIndex !== -1) {
           // Map assignment status to incident resource status
-          // Assignment statuses: assigned, accepted, declined, en_route, on_scene, completed, cancelled
-          // Incident resource statuses: pending, assigned, en_route, on_scene, completed
+          // Assignment statuses: assigned, accepted, declined, en_route, on_scene, completed, returned, cancelled
+          // Incident resource statuses: pending, assigned, en_route, on_scene, completed, returned
           let incidentResourceStatus = status;
 
           if (status === "accepted") {
             // When crew accepts, change incident resource from "pending" to "assigned"
             incidentResourceStatus = "assigned";
+          } else if (status === "returned") {
+            // When crew returns to station, keep incident resource as "completed"
+            // The incident is already resolved, we just track that the vehicle has returned
+            incidentResourceStatus = "completed";
           } else if (status === "declined" || status === "cancelled") {
             // These will be removed from array below, no need to update status
             incidentResourceStatus = status; // doesn't matter, will be removed
@@ -623,6 +637,32 @@ class AssignmentController {
           },
           timestamp: new Date().toISOString(),
         });
+
+        // Emit vehicle readiness update when assignment completed (October 21, 2025)
+        if (status === "completed") {
+          io.emit("vehicle_readiness_update", {
+            vehicleId: vehicle._id,
+            plateNumber: vehicle.registration.plateNumber,
+            isReady: true,
+            notReadyReason: null,
+            timestamp: new Date().toISOString(),
+          });
+          console.log(
+            "📡 WebSocket event emitted: vehicle_readiness_update (assignment completed)"
+          );
+        }
+
+        // Emit vehicle status update for real-time mobile app updates (October 21, 2025)
+        io.emit("vehicle_status_update", {
+          vehicleId: vehicle._id,
+          status: vehicle.status.currentStatus,
+          operational: vehicle.status.operational,
+          assignedIncidentId: vehicle.assignment?.currentIncidentId,
+          timestamp: new Date().toISOString(),
+        });
+        console.log(
+          `📡 WebSocket event emitted: vehicle_status_update (${vehicle.status.currentStatus})`
+        );
 
         // Emit incident update event for real-time incident queue updates
         io.emit("incident:updated", {

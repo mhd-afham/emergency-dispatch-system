@@ -281,6 +281,26 @@ router.put("/:id/location", (req, res, next) => {
 });
 
 /**
+ * @route   PUT /api/vehicles/:id/readiness
+ * @desc    Update vehicle readiness status (crew leader control)
+ * @access  Field Crew (Leader), Dispatchers, Supervisors, Admins
+ * @note    October 20, 2025 - Separate readiness from GPS tracking
+ */
+router.put("/:id/readiness", (req, res, next) => {
+  const allowedRoles = ["Field Crew", "Dispatcher", "Supervisor", "Admin"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to update vehicle readiness",
+      requiredRoles: allowedRoles,
+    });
+  }
+
+  VehicleController.updateVehicleReadiness(req, res, next);
+});
+
+/**
  * @route   PUT /api/vehicles/:id/assignment
  * @desc    Assign or unassign vehicle to/from an incident
  * @access  Dispatchers, Supervisors, Admins

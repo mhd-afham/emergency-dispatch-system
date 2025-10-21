@@ -33,6 +33,13 @@ export interface Vehicle {
     };
     lastLocationUpdate: string;
   };
+  // Vehicle Readiness (October 20, 2025 - Crew Control)
+  readiness?: {
+    isReady: boolean;
+    lastReadyUpdate?: string;
+    notReadyReason?: string | null;
+    updatedBy?: string;
+  };
   // Current Assignment Information
   assignment: {
     currentIncidentId?: string;

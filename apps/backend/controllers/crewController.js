@@ -102,7 +102,9 @@ class CrewController {
       // Find active assignments where crew is primary crew leader
       const assignments = await Assignment.find({
         "resource.primaryCrewId": crewId,
-        "response.status": { $nin: ["completed", "cancelled", "declined"] }, // Exclude completed/cancelled/declined
+        "response.status": { $nin: ["cancelled", "declined", "returned"] }, // Include completed assignments until crew marks "returned"
+        // Double-check: Don't show assignments where crew has already returned to station
+        "response.returnedAt": { $exists: false },
       })
         .populate(
           "incident.incidentId",
@@ -155,7 +157,7 @@ class CrewController {
       const crew = await Crew.findById(crewId)
         .populate({
           path: "currentStatus.assignedVehicleId",
-          select: "registration status equipment station assignment",
+          select: "registration status equipment station assignment readiness", // October 21, 2025 - Added readiness field
           populate: [
             {
               path: "assignment.crew",
@@ -254,7 +256,7 @@ class CrewController {
         },
         { new: true, runValidators: true }
       ).select(
-        "currentStatus.location currentStatus.lastLocationUpdate personal.firstName personal.lastName"
+        "currentStatus.location currentStatus.lastLocationUpdate currentStatus.assignedVehicleId personal.firstName personal.lastName"
       );
 
       if (!crew) {
@@ -265,6 +267,45 @@ class CrewController {
       }
 
       console.log(`✅ [CrewController] Location updated successfully`);
+
+      // Sync vehicle location if crew is assigned to a vehicle (October 20, 2025)
+      if (crew.currentStatus?.assignedVehicleId) {
+        const Vehicle = require("../models/Vehicle");
+        try {
+          await Vehicle.findByIdAndUpdate(
+            crew.currentStatus.assignedVehicleId,
+            {
+              "status.currentLocation": {
+                type: "Point",
+                coordinates: [lng, lat],
+              },
+              "status.lastLocationUpdate": new Date(),
+            },
+            { runValidators: true }
+          );
+          console.log(
+            `🚗 [CrewController] Vehicle location synced: ${crew.currentStatus.assignedVehicleId}`
+          );
+
+          // Emit vehicle location update event
+          if (io) {
+            io.emit("vehicle_location_update", {
+              vehicleId: crew.currentStatus.assignedVehicleId,
+              location: {
+                type: "Point",
+                coordinates: [lng, lat],
+              },
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } catch (vehicleError) {
+          console.error(
+            `⚠️ [CrewController] Failed to sync vehicle location:`,
+            vehicleError.message
+          );
+          // Don't fail the request if vehicle sync fails
+        }
+      }
 
       // Emit WebSocket event for real-time GPS tracking on dispatcher map
       const io = req.app.get("io");

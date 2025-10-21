@@ -181,6 +181,21 @@ class ApiClient {
       notes,
     });
   }
+
+  // Vehicle endpoints (October 20, 2025)
+  public async updateVehicleReadiness(
+    vehicleId: string,
+    data: { isReady: boolean; notReadyReason?: string | null }
+  ): Promise<AxiosResponse> {
+    return this.put(`/vehicles/${vehicleId}/readiness`, data);
+  }
+
+  public async updateVehicleStatus(
+    vehicleId: string,
+    data: { currentStatus: string }
+  ): Promise<AxiosResponse> {
+    return this.put(`/vehicles/${vehicleId}/status`, data);
+  }
 }
 
 // Create and export a default instance

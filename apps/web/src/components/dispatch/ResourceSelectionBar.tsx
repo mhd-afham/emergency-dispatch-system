@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Vehicle } from "../../utils/vehicleUtils";
 import { ResourceSuggestion } from "../../utils/resourceMatrix";
+import { useWebSocket } from "../../contexts/WebSocketContext"; // October 20, 2025
 import {
   MapPin,
   Clock,
@@ -72,6 +73,7 @@ interface VehicleWithDetails extends Vehicle {
   reasoning?: string;
   requiredCount?: number;
   requiredIndex?: number;
+  isReady?: boolean; // October 20, 2025 - Readiness flag
 }
 
 const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
@@ -86,6 +88,7 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
   onCancelAssignment,
   assignmentLoading,
 }) => {
+  const { subscribe } = useWebSocket(); // October 20, 2025
   const [vehicles, setVehicles] = useState<VehicleWithDetails[]>([]);
   const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(
     new Set()
@@ -133,6 +136,40 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
     setSelectedVehicles(new Set());
     setShowWarning(null);
   }, [incidentId]);
+
+  // Subscribe to vehicle readiness updates (October 20, 2025)
+  useEffect(() => {
+    const handleReadinessUpdate = (data: any) => {
+      console.log("📡 Vehicle readiness update received:", data);
+      // Update the vehicle in the list
+      // Backend sends: { vehicleId, plateNumber, isReady, notReadyReason, timestamp }
+      setVehicles((prevVehicles) =>
+        prevVehicles.map((v) =>
+          v._id === data.vehicleId
+            ? {
+                ...v,
+                readiness: {
+                  isReady: data.isReady,
+                  lastReadyUpdate: data.timestamp,
+                  notReadyReason: data.notReadyReason || null,
+                },
+                isReady: data.isReady,
+              }
+            : v
+        )
+      );
+    };
+
+    // subscribe returns an unsubscribe function
+    const unsubscribe = subscribe(
+      "vehicle_readiness_update",
+      handleReadinessUpdate
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribe]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -197,8 +234,8 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
               .map((a) => a.resource.vehicleId._id)
           );
 
-          // Filter to available vehicles that don't have pending/active assignments
-          // Include "returning" vehicles since they're available for new assignments
+          // Filter to available/returning vehicles that don't have pending/active assignments
+          // Show all vehicles (ready + not ready) - October 20, 2025
           const availableVehicles = result.data.filter(
             (v: Vehicle) =>
               (v.status.currentStatus === "available" ||
@@ -233,6 +270,9 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
               const priority = suggestion?.priority || 999;
               const reasoning = suggestion?.reasoning;
 
+              // Check if vehicle is ready (October 20, 2025)
+              const isReady = vehicle.readiness?.isReady === true;
+
               return {
                 ...vehicle,
                 distance,
@@ -241,6 +281,7 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                 isRequired: false,
                 priority,
                 reasoning,
+                isReady, // Add readiness flag
               };
             }
           );
@@ -828,19 +869,29 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
               {vehicles.map((vehicle) => {
                 const isSelected = selectedVehicles.has(vehicle._id);
                 const crewCount = vehicle.assignment?.crew?.length || 0;
+                const isReady = vehicle.isReady !== false; // Default true if undefined for backward compatibility
+                const isReturning =
+                  vehicle.status.currentStatus === "returning";
 
                 return (
                   <div
                     key={vehicle._id}
-                    onClick={() => toggleVehicle(vehicle._id)}
-                    className={`flex-shrink-0 w-64 p-2 rounded-md border-2 cursor-pointer transition-all ${
-                      isSelected
-                        ? "border-blue-600 bg-blue-50"
+                    onClick={() => {
+                      // Only allow selection if vehicle is ready
+                      if (isReady) {
+                        toggleVehicle(vehicle._id);
+                      }
+                    }}
+                    className={`flex-shrink-0 w-64 p-2 rounded-md border-2 transition-all ${
+                      !isReady
+                        ? "opacity-50 border-gray-300 bg-gray-100 cursor-not-allowed"
+                        : isSelected
+                        ? "border-blue-600 bg-blue-50 cursor-pointer"
                         : vehicle.isRequired
-                        ? "border-red-400 bg-red-50 hover:border-red-500"
+                        ? "border-red-400 bg-red-50 hover:border-red-500 cursor-pointer"
                         : vehicle.isRecommended
-                        ? "border-green-400 bg-green-50 hover:border-green-500"
-                        : "border-gray-300 bg-white hover:border-gray-400"
+                        ? "border-green-400 bg-green-50 hover:border-green-500 cursor-pointer"
+                        : "border-gray-300 bg-white hover:border-gray-400 cursor-pointer"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1.5">
@@ -848,8 +899,9 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                         <input
                           type="checkbox"
                           checked={isSelected}
+                          disabled={!isReady}
                           onChange={() => {}}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
                         />
                         {React.createElement(
                           getVehicleIcon(vehicle.registration.vehicleType),
@@ -867,16 +919,28 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                         </div>
                       </div>
                       <div className="flex flex-col gap-0.5">
-                        {vehicle.isRequired && (
+                        {!isReady && (
+                          <span className="px-1.5 py-0.5 bg-gray-500 text-white text-[10px] font-bold rounded uppercase">
+                            Not Ready
+                          </span>
+                        )}
+                        {isReady && isReturning && (
+                          <span className="px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded uppercase">
+                            Returning
+                          </span>
+                        )}
+                        {isReady && vehicle.isRequired && (
                           <span className="px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded uppercase">
                             Required
                           </span>
                         )}
-                        {vehicle.isRecommended && !vehicle.isRequired && (
-                          <span className="px-1.5 py-0.5 bg-green-600 text-white text-[10px] font-bold rounded uppercase">
-                            Suggested
-                          </span>
-                        )}
+                        {isReady &&
+                          vehicle.isRecommended &&
+                          !vehicle.isRequired && (
+                            <span className="px-1.5 py-0.5 bg-green-600 text-white text-[10px] font-bold rounded uppercase">
+                              Suggested
+                            </span>
+                          )}
                       </div>
                     </div>
 

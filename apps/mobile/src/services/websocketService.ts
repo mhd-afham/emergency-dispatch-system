@@ -130,6 +130,30 @@ class WebSocketService {
   }
 
   /**
+   * Listen for vehicle readiness updates (October 21, 2025)
+   */
+  public onVehicleReadinessUpdate(callback: (data: any) => void): void {
+    if (!this.socket) return;
+
+    this.socket.on("vehicle_readiness_update", (data) => {
+      console.log("🚗 [WebSocket] Vehicle readiness update:", data);
+      callback(data);
+    });
+  }
+
+  /**
+   * Listen for vehicle status updates (October 21, 2025)
+   */
+  public onVehicleStatusUpdate(callback: (data: any) => void): void {
+    if (!this.socket) return;
+
+    this.socket.on("vehicle_status_update", (data) => {
+      console.log("🚛 [WebSocket] Vehicle status update:", data);
+      callback(data);
+    });
+  }
+
+  /**
    * Listen for messages from dispatcher
    */
   public onMessageReceived(callback: (data: any) => void): void {

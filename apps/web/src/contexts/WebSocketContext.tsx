@@ -313,6 +313,26 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         }
       });
 
+      // Handle vehicle_readiness_update event (October 20, 2025)
+      newSocket.on("vehicle_readiness_update", (data: any) => {
+        console.log("Socket.IO: Vehicle readiness update:", data);
+        const subscribers = subscribersRef.current.get(
+          "vehicle_readiness_update"
+        );
+        if (subscribers) {
+          subscribers.forEach((callback) => {
+            try {
+              callback(data);
+            } catch (error) {
+              console.error(
+                "Socket.IO: Error in vehicle_readiness_update subscriber",
+                error
+              );
+            }
+          });
+        }
+      });
+
       newSocket.on("connect_error", (error: Error) => {
         console.error("Socket.IO: Connection error", error);
         setIsConnected(false);

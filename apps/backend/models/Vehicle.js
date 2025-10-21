@@ -93,6 +93,29 @@ const vehicleSchema = new mongoose.Schema(
       },
     },
 
+    // Vehicle Readiness (Crew Control - October 20, 2025)
+    readiness: {
+      isReady: {
+        type: Boolean,
+        default: false, // Crew must explicitly mark vehicle ready
+      },
+      lastReadyUpdate: {
+        type: Date,
+        default: Date.now,
+      },
+      notReadyReason: {
+        type: String,
+        trim: true,
+        maxlength: [200, "Not ready reason cannot exceed 200 characters"],
+        default: null,
+      },
+      updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+    },
+
     // Current Assignment Information
     assignment: {
       currentIncidentId: {
@@ -263,6 +286,7 @@ vehicleSchema.index({ "assignment.currentIncidentId": 1 });
 vehicleSchema.index({ "station.homeStationId": 1 });
 vehicleSchema.index({ isActive: 1 });
 vehicleSchema.index({ "registrationStatus.status": 1 }); // Registration status index
+vehicleSchema.index({ "readiness.isReady": 1 }); // Readiness index (October 20, 2025)
 
 // Pre-save middleware to update timestamps
 vehicleSchema.pre("save", function (next) {
@@ -280,7 +304,9 @@ vehicleSchema.methods.isAvailableForDispatch = function () {
   return (
     this.isActive &&
     this.status.operational === "active" &&
-    this.status.currentStatus === "available"
+    (this.status.currentStatus === "available" ||
+      this.status.currentStatus === "returning") &&
+    this.readiness.isReady === true
   );
 };
 
@@ -290,7 +316,8 @@ vehicleSchema.statics.findAvailableByType = function (vehicleType) {
     "registration.vehicleType": vehicleType,
     isActive: true,
     "status.operational": "active",
-    "status.currentStatus": "available",
+    "status.currentStatus": { $in: ["available", "returning"] },
+    "readiness.isReady": true,
   });
 };
 
