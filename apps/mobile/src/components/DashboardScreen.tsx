@@ -1,317 +1,952 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
+  TouchableOpacity,
+  ScrollView,
   RefreshControl,
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Platform,
 } from "react-native";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { websocketService } from "../services/websocketService";
 import { apiClient } from "../services/apiClient";
-import { USER_ROLES, INCIDENT_TYPES } from "../constants";
+import { locationService } from "../services/locationService";
+import { ASSIGNMENT_STATUS } from "../constants";
+import {
+  colors,
+  spacing,
+  borderRadius,
+  typography,
+  shadows,
+} from "../styles/theme";
+import AssignmentNotificationModal from "./AssignmentNotificationModal";
 
 interface DashboardScreenProps {
   user: any;
+  crew: any;
   onLogout: () => void;
 }
 
-export default function DashboardScreen({
-  user,
-  onLogout,
-}: DashboardScreenProps) {
-  const [incidents, setIncidents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const loadIncidents = async (showLoader = true) => {
-    if (showLoader) setLoading(true);
-    try {
-      const response = await apiClient.getIncidents();
-      if (response.data.success) {
-        setIncidents(response.data.data.slice(0, 10)); // Show latest 10
-      }
-    } catch (error: any) {
-      Alert.alert("Error", "Failed to load incidents");
-    } finally {
-      if (showLoader) setLoading(false);
-      setRefreshing(false);
-    }
+interface Assignment {
+  _id: string;
+  incident: {
+    incidentId: {
+      _id: string;
+      incidentId: string;
+      classification?: {
+        incidentType: string;
+        category: string;
+      };
+      location?: {
+        address: string;
+        city: string;
+        province: string;
+        coordinates?: {
+          type: string;
+          coordinates: [number, number];
+        };
+      };
+      description?: string;
+      priority?: string;
+      status?: string;
+    };
   };
+  response?: {
+    status: string;
+  };
+  status: string;
+  dispatch?: {
+    assignedAt: string;
+  };
+}
 
+interface Vehicle {
+  _id: string;
+  registration: {
+    plateNumber: string;
+    vehicleType: string;
+  };
+  status: {
+    operational: string;
+    currentStatus: string;
+  };
+  equipment?: any;
+  assignment?: {
+    crew: any[];
+  };
+}
+
+const DashboardScreen: React.FC<DashboardScreenProps> = ({
+  user,
+  crew,
+  onLogout,
+}) => {
+  // State management
+  const [currentAssignment, setCurrentAssignment] = useState<Assignment | null>(
+    null
+  );
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Assignment notification state
+  const [showNotification, setShowNotification] = useState(false);
+  const [pendingAssignment, setPendingAssignment] = useState<any>(null);
+
+  // WebSocket connection status check
   useEffect(() => {
-    loadIncidents();
+    const checkConnection = () => {
+      const status = websocketService.getConnectionStatus();
+      setIsConnected(status);
+    };
+
+    // Check immediately
+    checkConnection();
+
+    // Check every 5 seconds
+    const interval = setInterval(checkConnection, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadIncidents(false);
+  // WebSocket event listeners
+  useEffect(() => {
+    console.log("🎧 Setting up WebSocket listeners for crew:", crew._id);
+
+    // Listen for new assignment notifications
+    websocketService.onAssignmentNotification((data) => {
+      console.log("[ASSIGNMENT] New assignment notification received:", data);
+      setPendingAssignment(data);
+      setShowNotification(true);
+    });
+
+    // Listen for assignment status updates
+    websocketService.onAssignmentStatusUpdate((data) => {
+      console.log("📊 Assignment status update:", data);
+
+      // Refresh current assignment if it's the one that was updated
+      if (currentAssignment && currentAssignment._id === data.assignmentId) {
+        fetchCurrentAssignment();
+      }
+    });
+
+    // Listen for assignment cancellation
+    websocketService.onAssignmentCancelled((data) => {
+      console.log("🚫 Assignment cancelled:", data);
+
+      // Check if it's the current assignment that was cancelled
+      if (currentAssignment && currentAssignment._id === data.assignmentId) {
+        Alert.alert(
+          "Assignment Cancelled",
+          `Your assignment has been cancelled by dispatch.\n\nReason: ${
+            data.reason || "No reason provided"
+          }`,
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                // Clear current assignment and reload dashboard
+                setCurrentAssignment(null);
+                loadDashboardData();
+              },
+            },
+          ]
+        );
+      }
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      console.log("🧹 Cleaning up WebSocket listeners");
+    };
+  }, [crew._id, currentAssignment]);
+
+  // Load initial data
+  useEffect(() => {
+    loadDashboardData();
+    // Request location permissions on mount
+    requestLocationPermissions();
+  }, []);
+
+  // Request location permissions
+  const requestLocationPermissions = async () => {
+    const granted = await locationService.requestPermissions();
+    if (!granted) {
+      Alert.alert(
+        "Location Permission Required",
+        "This app needs location access to track your position during assignments. Please enable location permissions in settings.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
-  const handleLogout = async () => {
+  // Manage GPS tracking based on assignment status
+  useEffect(() => {
+    const manageLocationTracking = async () => {
+      if (!currentAssignment) {
+        // No assignment - stop tracking if active
+        if (locationService.isCurrentlyTracking()) {
+          locationService.stopTracking();
+          console.log("🛑 Stopped location tracking (no assignment)");
+        }
+        return;
+      }
+
+      const status =
+        currentAssignment.response?.status || currentAssignment.status;
+
+      // Start tracking when en_route, stop otherwise
+      if (status === ASSIGNMENT_STATUS.EN_ROUTE) {
+        if (!locationService.isCurrentlyTracking()) {
+          const started = await locationService.startTracking(crew._id);
+          if (started) {
+            console.log("🎯 Started location tracking (en route)");
+          } else {
+            Alert.alert(
+              "Location Tracking Failed",
+              "Unable to start location tracking. Please check your location permissions.",
+              [{ text: "OK" }]
+            );
+          }
+        }
+      } else {
+        // Stop tracking for other statuses
+        if (locationService.isCurrentlyTracking()) {
+          locationService.stopTracking();
+          console.log("🛑 Stopped location tracking (status changed)");
+        }
+      }
+    };
+
+    manageLocationTracking();
+  }, [currentAssignment, crew._id]);
+
+  // Fetch current assignment
+  const fetchCurrentAssignment = async () => {
     try {
-      await apiClient.logout();
-    } catch (error) {
-      // Continue with logout even if API call fails
+      const response = await apiClient.getCrewAssignments(crew._id);
+      const assignments = response.data.data;
+
+      // Find first active assignment (exclude completed, cancelled, and declined)
+      const activeAssignment = assignments.find(
+        (a: Assignment) =>
+          a.status !== ASSIGNMENT_STATUS.COMPLETED &&
+          a.status !== ASSIGNMENT_STATUS.CANCELLED &&
+          a.status !== ASSIGNMENT_STATUS.DECLINED
+      );
+
+      setCurrentAssignment(activeAssignment || null);
+    } catch (error: any) {
+      console.error("Error fetching assignments:", error);
+      if (error.response?.status !== 404) {
+        Alert.alert("Error", "Failed to load assignments");
+      }
+    }
+  };
+
+  // Fetch vehicle info
+  const fetchVehicle = async () => {
+    try {
+      const response = await apiClient.getCrewVehicle(crew._id);
+      setVehicle(response.data.data);
+    } catch (error: any) {
+      console.error("Error fetching vehicle:", error);
+      if (error.response?.status !== 404) {
+        Alert.alert("Error", "Failed to load vehicle information");
+      }
+    }
+  };
+
+  // Load all dashboard data
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([fetchCurrentAssignment(), fetchVehicle()]);
     } finally {
-      onLogout();
+      setLoading(false);
     }
   };
 
-  const getIncidentTypeColor = (type: string) => {
-    switch (type) {
-      case INCIDENT_TYPES.FIRE:
-        return "#dc2626";
-      case INCIDENT_TYPES.MEDICAL:
-        return "#059669";
-      case INCIDENT_TYPES.TRAFFIC:
-        return "#2563eb";
-      default:
-        return "#6b7280";
-    }
+  // Pull to refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadDashboardData();
+    setRefreshing(false);
   };
 
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return (
-      date.toLocaleDateString() +
-      " " +
-      date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  // Handle assignment notification responses
+  const handleAcceptAssignment = async () => {
+    setShowNotification(false);
+    await fetchCurrentAssignment(); // Refresh to show new assignment
+  };
+
+  const handleDeclineAssignment = async () => {
+    setShowNotification(false);
+    // Clear current assignment and refresh to check for any other assignments
+    setCurrentAssignment(null);
+    await fetchCurrentAssignment();
+  };
+
+  const handleNotificationTimeout = () => {
+    setShowNotification(false);
+    Alert.alert(
+      "Assignment Timeout",
+      "You did not respond in time. The dispatcher has been notified.",
+      [{ text: "OK" }]
     );
   };
+
+  // Update assignment status
+  const updateStatus = async (newStatus: string) => {
+    if (!currentAssignment) return;
+
+    try {
+      await apiClient.updateAssignmentStatus(currentAssignment._id, newStatus);
+
+      // Update local state
+      setCurrentAssignment({
+        ...currentAssignment,
+        status: newStatus,
+      });
+
+      Alert.alert("Success", `Status updated to ${newStatus}`);
+    } catch (error) {
+      console.error("Error updating status:", error);
+      Alert.alert("Error", "Failed to update status");
+    }
+  };
+
+  // Get status badge color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case ASSIGNMENT_STATUS.ASSIGNED:
+        return colors.statusAssigned;
+      case ASSIGNMENT_STATUS.ACCEPTED:
+        return colors.statusAccepted;
+      case ASSIGNMENT_STATUS.EN_ROUTE:
+        return colors.statusEnRoute;
+      case ASSIGNMENT_STATUS.ON_SCENE:
+        return colors.statusOnScene;
+      case ASSIGNMENT_STATUS.COMPLETED:
+        return colors.statusCompleted;
+      case ASSIGNMENT_STATUS.CANCELLED:
+        return colors.error; // Red for cancelled
+      default:
+        return colors.textMuted;
+    }
+  };
+
+  // Get priority badge color (priority, not severity)
+  const getSeverityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case "critical":
+        return colors.priorityCritical;
+      case "high":
+        return colors.priorityHigh;
+      case "medium":
+        return colors.priorityMedium;
+      case "low":
+        return colors.priorityLow;
+      default:
+        return colors.textSecondary;
+    }
+  };
+
+  // Open navigation to incident location
+  const openNavigation = async () => {
+    if (!currentAssignment?.incident?.incidentId?.location?.coordinates) {
+      Alert.alert("Error", "Incident location not available");
+      return;
+    }
+
+    const coords =
+      currentAssignment.incident.incidentId.location.coordinates.coordinates;
+    const [longitude, latitude] = coords; // GeoJSON format
+
+    // Build Google Maps URL
+    const label = encodeURIComponent(
+      currentAssignment.incident.incidentId.location.address ||
+        "Incident Location"
+    );
+    const url = Platform.select({
+      ios: `maps://app?daddr=${latitude},${longitude}&q=${label}`,
+      android: `google.navigation:q=${latitude},${longitude}&label=${label}`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`,
+    });
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        // Fallback to web browser
+        const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+        await Linking.openURL(webUrl);
+      }
+    } catch (error) {
+      console.error("Error opening navigation:", error);
+      Alert.alert("Error", "Unable to open navigation app");
+    }
+  };
+
+  // Get next status button
+  const getNextStatusButton = () => {
+    if (!currentAssignment) return null;
+
+    const status =
+      currentAssignment.response?.status || currentAssignment.status;
+
+    if (status === ASSIGNMENT_STATUS.ACCEPTED) {
+      return (
+        <TouchableOpacity
+          style={[styles.statusButton, { backgroundColor: colors.warning }]}
+          onPress={() => updateStatus(ASSIGNMENT_STATUS.EN_ROUTE)}
+        >
+          <MaterialCommunityIcons
+            name="truck-fast"
+            size={20}
+            color={colors.textOnPrimary}
+          />
+          <Text style={styles.statusButtonText}>Start En Route</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if (status === ASSIGNMENT_STATUS.EN_ROUTE) {
+      return (
+        <TouchableOpacity
+          style={[styles.statusButton, { backgroundColor: colors.primary }]}
+          onPress={() => updateStatus(ASSIGNMENT_STATUS.ON_SCENE)}
+        >
+          <MaterialIcons name="place" size={20} color={colors.textOnPrimary} />
+          <Text style={styles.statusButtonText}>Arrived On Scene</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if (status === ASSIGNMENT_STATUS.ON_SCENE) {
+      return (
+        <TouchableOpacity
+          style={[styles.statusButton, { backgroundColor: colors.success }]}
+          onPress={() => updateStatus(ASSIGNMENT_STATUS.COMPLETED)}
+        >
+          <MaterialIcons
+            name="check-circle"
+            size={20}
+            color={colors.textOnPrimary}
+          />
+          <Text style={styles.statusButtonText}>Complete Assignment</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    // After completion, show "Arrived at Station" button when vehicle is returning
+    if (
+      status === ASSIGNMENT_STATUS.COMPLETED &&
+      vehicle?.status?.currentStatus === "returning"
+    ) {
+      return (
+        <TouchableOpacity
+          style={[styles.statusButton, { backgroundColor: colors.success }]}
+          onPress={() => updateStatus(ASSIGNMENT_STATUS.RETURNED)}
+        >
+          <MaterialIcons name="home" size={20} color={colors.textOnPrimary} />
+          <Text style={styles.statusButtonText}>Arrived at Station</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return null;
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userRole}>{user.role}</Text>
+        <View style={styles.headerLeft}>
+          <View>
+            <Text style={styles.welcomeText}>
+              {crew.personal.firstName} {crew.personal.lastName}
+            </Text>
+            <View style={styles.roleContainer}>
+              <MaterialCommunityIcons
+                name="shield-star"
+                size={14}
+                color={colors.secondary100}
+              />
+              <Text style={styles.roleText}>
+                Crew Leader • {crew.professional.specialization}
+              </Text>
+            </View>
+          </View>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+          <MaterialIcons name="logout" size={22} color={colors.textOnPrimary} />
         </TouchableOpacity>
       </View>
 
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: "#dc2626" }]}>
-          <Text style={styles.statNumber}>
-            {incidents.filter((i) => i.status === "active").length}
+      {/* WebSocket Connection Status */}
+      <View style={styles.connectionStatus}>
+        <View style={styles.connectionIndicator}>
+          <MaterialIcons
+            name={isConnected ? "wifi" : "wifi-off"}
+            size={16}
+            color={isConnected ? colors.success : colors.error}
+          />
+          <Text
+            style={[
+              styles.connectionText,
+              { color: isConnected ? colors.success : colors.error },
+            ]}
+          >
+            {isConnected ? "Connected to Dispatch" : "Connection Lost"}
           </Text>
-          <Text style={styles.statLabel}>Active</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: "#059669" }]}>
-          <Text style={styles.statNumber}>
-            {incidents.filter((i) => i.status === "resolved").length}
-          </Text>
-          <Text style={styles.statLabel}>Resolved</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: "#2563eb" }]}>
-          <Text style={styles.statNumber}>{incidents.length}</Text>
-          <Text style={styles.statLabel}>Total</Text>
         </View>
       </View>
 
-      {/* Recent Incidents */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Incidents</Text>
-        <ScrollView
-          style={styles.incidentsList}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          {loading ? (
-            <Text style={styles.loadingText}>Loading incidents...</Text>
-          ) : incidents.length === 0 ? (
-            <Text style={styles.emptyText}>No incidents found</Text>
-          ) : (
-            incidents.map((incident: any) => (
-              <View key={incident._id} style={styles.incidentCard}>
-                <View style={styles.incidentHeader}>
-                  <View
-                    style={[
-                      styles.incidentTypeIndicator,
-                      { backgroundColor: getIncidentTypeColor(incident.type) },
-                    ]}
-                  />
-                  <View style={styles.incidentInfo}>
-                    <Text style={styles.incidentType}>{incident.type}</Text>
-                    <Text style={styles.incidentTime}>
-                      {formatDateTime(incident.createdAt)}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor:
-                          incident.status === "active" ? "#dc2626" : "#059669",
-                      },
-                    ]}
-                  >
-                    <Text style={styles.statusText}>{incident.status}</Text>
-                  </View>
-                </View>
-                <Text style={styles.incidentDescription} numberOfLines={2}>
-                  {incident.description}
-                </Text>
-                <Text style={styles.incidentLocation}>
-                  📍 {incident.location}
+      <ScrollView
+        style={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Vehicle Information */}
+        {vehicle && (
+          <View style={styles.card}>
+            <View style={styles.cardTitleContainer}>
+              <MaterialCommunityIcons
+                name="car-emergency"
+                size={22}
+                color={colors.primary}
+              />
+              <Text style={styles.cardTitle}>Assigned Vehicle</Text>
+            </View>
+            <View style={styles.vehicleInfo}>
+              <Text style={styles.vehicleText}>
+                <Text style={styles.label}>Plate:</Text>{" "}
+                {vehicle.registration?.plateNumber || "N/A"}
+              </Text>
+              <Text style={styles.vehicleText}>
+                <Text style={styles.label}>Type:</Text>{" "}
+                {vehicle.registration?.vehicleType || "N/A"}
+              </Text>
+              <View
+                style={[
+                  styles.vehicleStatusBadge,
+                  {
+                    backgroundColor:
+                      vehicle.status?.currentStatus === "available"
+                        ? "#d1fae5"
+                        : vehicle.status?.currentStatus === "assigned" ||
+                          vehicle.status?.currentStatus === "en_route"
+                        ? "#fef3c7"
+                        : "#fee2e2",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.vehicleStatusText,
+                    {
+                      color:
+                        vehicle.status?.currentStatus === "available"
+                          ? "#065f46"
+                          : vehicle.status?.currentStatus === "assigned" ||
+                            vehicle.status?.currentStatus === "en_route"
+                          ? "#92400e"
+                          : "#991b1b",
+                    },
+                  ]}
+                >
+                  {vehicle.status?.currentStatus?.toUpperCase() || "UNKNOWN"}
                 </Text>
               </View>
-            ))
-          )}
-        </ScrollView>
-      </View>
+            </View>
+          </View>
+        )}
+
+        {/* Current Assignment */}
+        {currentAssignment ? (
+          <View style={styles.card}>
+            <View style={styles.cardTitleContainer}>
+              <MaterialCommunityIcons
+                name="clipboard-alert"
+                size={22}
+                color={colors.primary}
+              />
+              <Text style={styles.cardTitle}>Current Assignment</Text>
+            </View>
+
+            {/* Status Badge */}
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: getStatusColor(
+                    currentAssignment.response?.status ||
+                      currentAssignment.status ||
+                      "assigned"
+                  ),
+                },
+              ]}
+            >
+              <Text style={styles.statusBadgeText}>
+                {(
+                  currentAssignment.response?.status || currentAssignment.status
+                )?.toUpperCase() || "ASSIGNED"}
+              </Text>
+            </View>
+
+            {/* Incident Details */}
+            <View style={styles.incidentDetails}>
+              <Text style={styles.incidentId}>
+                {currentAssignment.incident?.incidentId?.incidentId || "N/A"}
+              </Text>
+
+              <Text style={styles.incidentType}>
+                {currentAssignment.incident?.incidentId?.classification
+                  ?.incidentType || "Unknown Incident"}
+              </Text>
+
+              <View style={styles.incidentLocationContainer}>
+                <MaterialIcons
+                  name="place"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.incidentLocation}>
+                  {currentAssignment.incident?.incidentId?.location?.address ||
+                    "Location not available"}
+                </Text>
+              </View>
+
+              {currentAssignment.incident?.incidentId?.description && (
+                <Text style={styles.incidentDescription}>
+                  {currentAssignment.incident.incidentId.description}
+                </Text>
+              )}
+
+              {/* Priority Badge */}
+              <View
+                style={[
+                  styles.severityBadge,
+                  {
+                    backgroundColor: getSeverityColor(
+                      currentAssignment.incident?.incidentId?.priority ||
+                        "medium"
+                    ),
+                  },
+                ]}
+              >
+                <Text style={styles.severityText}>
+                  {currentAssignment.incident?.incidentId?.priority?.toUpperCase() ||
+                    "MEDIUM"}
+                </Text>
+              </View>
+            </View>
+
+            {/* Status Update Button */}
+            {getNextStatusButton()}
+
+            {/* Get Directions Button */}
+            {currentAssignment.incident?.incidentId?.location?.coordinates && (
+              <TouchableOpacity
+                style={[
+                  styles.statusButton,
+                  { backgroundColor: colors.secondary, marginTop: spacing.sm },
+                ]}
+                onPress={() => openNavigation()}
+              >
+                <MaterialIcons
+                  name="directions"
+                  size={20}
+                  color={colors.textOnPrimary}
+                />
+                <Text style={styles.statusButtonText}>Get Directions</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <View style={styles.cardTitleContainer}>
+              <MaterialCommunityIcons
+                name="clipboard-text-outline"
+                size={22}
+                color={colors.primary}
+              />
+              <Text style={styles.cardTitle}>Assignment Status</Text>
+            </View>
+            <View style={styles.noAssignment}>
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={64}
+                color={colors.textMuted}
+              />
+              <Text style={styles.noAssignmentText}>No Active Assignment</Text>
+              <Text style={styles.noAssignmentSubtext}>
+                Waiting for dispatcher assignment...
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Assignment History Placeholder */}
+        <View style={styles.card}>
+          <View style={styles.cardTitleContainer}>
+            <MaterialCommunityIcons
+              name="history"
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={styles.cardTitle}>Recent Activity</Text>
+          </View>
+          <Text style={styles.placeholderText}>
+            Assignment history will appear here
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* Assignment Notification Modal */}
+      {pendingAssignment && (
+        <AssignmentNotificationModal
+          visible={showNotification}
+          assignment={pendingAssignment}
+          onAccept={handleAcceptAssignment}
+          onDecline={handleDeclineAssignment}
+          onTimeout={handleNotificationTimeout}
+        />
+      )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.background,
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
   },
   header: {
-    backgroundColor: "white",
-    padding: 24,
-    paddingTop: 60,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.xxl + spacing.md,
+    ...shadows.md,
   },
-  greeting: {
-    fontSize: 16,
-    color: "#6b7280",
+  headerLeft: {
+    flex: 1,
   },
-  userName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#111827",
+  welcomeText: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textOnPrimary,
   },
-  userRole: {
-    fontSize: 14,
-    color: "#2563eb",
-    textTransform: "capitalize",
+  roleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  roleText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.secondary100,
+    fontWeight: typography.fontWeight.medium,
   },
   logoutButton: {
-    backgroundColor: "#dc2626",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  logoutButtonText: {
-    color: "white",
-    fontWeight: "600",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    padding: 20,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "white",
+  connectionStatus: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  statLabel: {
-    fontSize: 12,
-    color: "white",
-    opacity: 0.9,
-    marginTop: 4,
-  },
-  section: {
-    flex: 1,
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#111827",
-    marginBottom: 16,
-  },
-  incidentsList: {
-    flex: 1,
-  },
-  loadingText: {
-    textAlign: "center",
-    color: "#6b7280",
-    marginTop: 20,
-  },
-  emptyText: {
-    textAlign: "center",
-    color: "#6b7280",
-    marginTop: 20,
-  },
-  incidentCard: {
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  incidentHeader: {
+  connectionIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    gap: spacing.sm,
   },
-  incidentTypeIndicator: {
-    width: 4,
-    height: 40,
-    borderRadius: 2,
-    marginRight: 12,
+  connectionText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.medium,
   },
-  incidentInfo: {
+  content: {
+    flex: 1,
+    padding: spacing.md,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.md,
+  },
+  cardTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  cardTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
     flex: 1,
   },
-  incidentType: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    textTransform: "capitalize",
+  vehicleInfo: {
+    gap: spacing.sm,
   },
-  incidentTime: {
-    fontSize: 12,
-    color: "#6b7280",
-    marginTop: 2,
+  vehicleText: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+  },
+  label: {
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text,
+  },
+  vehicleStatusBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.xs,
+  },
+  vehicleStatusText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    marginBottom: spacing.md,
   },
-  statusText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "capitalize",
+  statusBadgeText: {
+    color: colors.textOnPrimary,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
   },
-  incidentDescription: {
-    fontSize: 14,
-    color: "#374151",
-    lineHeight: 20,
-    marginBottom: 8,
+  incidentDetails: {
+    gap: spacing.sm,
+  },
+  incidentId: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  incidentType: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.primary,
+  },
+  incidentLocationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
   incidentLocation: {
-    fontSize: 14,
-    color: "#6b7280",
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  incidentDescription: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    lineHeight: typography.lineHeight.relaxed * typography.fontSize.sm,
+    marginTop: spacing.xs,
+  },
+  severityBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.sm,
+  },
+  severityText: {
+    color: colors.textOnPrimary,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+  },
+  statusButton: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  statusButtonText: {
+    color: colors.textOnPrimary,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+  },
+  noAssignment: {
+    alignItems: "center",
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
+  },
+  noAssignmentText: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text,
+    marginTop: spacing.sm,
+  },
+  noAssignmentSubtext: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+  },
+  placeholderText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textMuted,
+    textAlign: "center",
+    paddingVertical: spacing.lg,
   },
 });
+
+export default DashboardScreen;

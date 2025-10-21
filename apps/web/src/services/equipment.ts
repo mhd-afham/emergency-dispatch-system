@@ -1,9 +1,10 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 export interface EquipmentCheckResult {
   categoryName: string;
   itemName: string;
-  status: 'pass' | 'fail' | 'warning' | 'not_applicable' | 'skipped';
+  status: "pass" | "fail" | "warning" | "not_applicable" | "skipped";
   actualValue?: string;
   notes?: string;
   photos?: string[];
@@ -41,7 +42,7 @@ export interface EquipmentCheck {
   };
   inspection: {
     checkResults: EquipmentCheckResult[];
-    overallStatus: 'passed' | 'minor_issues' | 'critical_failure';
+    overallStatus: "passed" | "minor_issues" | "critical_failure";
     criticalFailures: any[];
     passCount: number;
     failCount: number;
@@ -115,45 +116,54 @@ export interface ChecklistTemplate {
 
 class EquipmentService {
   private getAuthToken(): string | null {
-    return localStorage.getItem('token');
+    return localStorage.getItem("token");
   }
 
   private getAuthHeaders(): HeadersInit {
     const token = this.getAuthToken();
     return {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
     };
   }
 
-  async getEquipmentStatistics(timeframe: string = 'week'): Promise<EquipmentStatistics> {
-    const response = await fetch(`${API_BASE_URL}/equipment/statistics?timeframe=${timeframe}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
+  async getEquipmentStatistics(
+    timeframe: string = "week"
+  ): Promise<EquipmentStatistics> {
+    const response = await fetch(
+      `${API_BASE_URL}/equipment/statistics?timeframe=${timeframe}`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`Failed to get equipment statistics: ${response.statusText}`);
+      throw new Error(
+        `Failed to get equipment statistics: ${response.statusText}`
+      );
     }
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.message || 'Failed to get equipment statistics');
+      throw new Error(data.message || "Failed to get equipment statistics");
     }
 
     return data.data;
   }
 
-  async getAllEquipmentChecks(params: {
-    page?: number;
-    limit?: number;
-    status?: string;
-    vehicleType?: string;
-    startDate?: string;
-    endDate?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-  } = {}): Promise<{
+  async getAllEquipmentChecks(
+    params: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      vehicleType?: string;
+      startDate?: string;
+      endDate?: string;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    } = {}
+  ): Promise<{
     equipmentChecks: EquipmentCheck[];
     pagination: {
       currentPage: number;
@@ -164,17 +174,20 @@ class EquipmentService {
     };
   }> {
     const queryParams = new URLSearchParams();
-    
+
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== '') {
+      if (value !== undefined && value !== "") {
         queryParams.append(key, value.toString());
       }
     });
 
-    const response = await fetch(`${API_BASE_URL}/equipment/checks?${queryParams}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/equipment/checks?${queryParams}`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to get equipment checks: ${response.statusText}`);
@@ -182,21 +195,24 @@ class EquipmentService {
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.message || 'Failed to get equipment checks');
+      throw new Error(data.message || "Failed to get equipment checks");
     }
 
     return data.data;
   }
 
-  async getVehicleEquipmentChecks(vehicleId: string, params: {
-    page?: number;
-    limit?: number;
-    status?: string;
-    startDate?: string;
-    endDate?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-  } = {}): Promise<{
+  async getVehicleEquipmentChecks(
+    vehicleId: string,
+    params: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      startDate?: string;
+      endDate?: string;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    } = {}
+  ): Promise<{
     equipmentChecks: EquipmentCheck[];
     pagination: {
       currentPage: number;
@@ -207,53 +223,66 @@ class EquipmentService {
     };
   }> {
     const queryParams = new URLSearchParams();
-    
+
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== '') {
+      if (value !== undefined && value !== "") {
         queryParams.append(key, value.toString());
       }
     });
 
-    const response = await fetch(`${API_BASE_URL}/equipment/checks/vehicle/${vehicleId}?${queryParams}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/equipment/checks/vehicle/${vehicleId}?${queryParams}`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`Failed to get vehicle equipment checks: ${response.statusText}`);
+      throw new Error(
+        `Failed to get vehicle equipment checks: ${response.statusText}`
+      );
     }
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.message || 'Failed to get vehicle equipment checks');
+      throw new Error(data.message || "Failed to get vehicle equipment checks");
     }
 
     return data.data;
   }
 
   async getLatestEquipmentCheck(vehicleId: string): Promise<EquipmentCheck> {
-    const response = await fetch(`${API_BASE_URL}/equipment/checks/vehicle/${vehicleId}/latest`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/equipment/checks/vehicle/${vehicleId}/latest`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`Failed to get latest equipment check: ${response.statusText}`);
+      throw new Error(
+        `Failed to get latest equipment check: ${response.statusText}`
+      );
     }
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.message || 'Failed to get latest equipment check');
+      throw new Error(data.message || "Failed to get latest equipment check");
     }
 
     return data.data.equipmentCheck;
   }
 
   async getEquipmentCheck(checkId: string): Promise<EquipmentCheck> {
-    const response = await fetch(`${API_BASE_URL}/equipment/checks/${checkId}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/equipment/checks/${checkId}`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to get equipment check: ${response.statusText}`);
@@ -261,7 +290,7 @@ class EquipmentService {
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.message || 'Failed to get equipment check');
+      throw new Error(data.message || "Failed to get equipment check");
     }
 
     return data.data.equipmentCheck;
@@ -277,18 +306,23 @@ class EquipmentService {
       year: number;
     };
   }> {
-    const response = await fetch(`${API_BASE_URL}/equipment/templates/${vehicleId}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/equipment/templates/${vehicleId}`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`Failed to get checklist template: ${response.statusText}`);
+      throw new Error(
+        `Failed to get checklist template: ${response.statusText}`
+      );
     }
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.message || 'Failed to get checklist template');
+      throw new Error(data.message || "Failed to get checklist template");
     }
 
     return data.data;
@@ -315,216 +349,127 @@ class EquipmentService {
     };
   }> {
     const response = await fetch(`${API_BASE_URL}/equipment/checks`, {
-      method: 'POST',
+      method: "POST",
       headers: this.getAuthHeaders(),
       body: JSON.stringify(checkData),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to create equipment check: ${response.statusText}`);
+      throw new Error(
+        `Failed to create equipment check: ${response.statusText}`
+      );
     }
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.message || 'Failed to create equipment check');
+      throw new Error(data.message || "Failed to create equipment check");
     }
 
     return data.data;
   }
 
-  /**
-   * Get equipment status overview for supervisor dashboard (UC-005)
-   * @returns Promise<{ success: boolean, data: EquipmentStatus }>
-   */
-  async getEquipmentStatus(): Promise<{ success: boolean; data: any }> {
+  // Vehicle Management Methods
+  async getAllVehicles(): Promise<any[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/equipment/status`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.getAuthToken()}`,
-        },
-      });
+      // For now, return mock data since the backend endpoint doesn't exist yet
+      // TODO: Implement backend endpoint /api/vehicles
+      console.warn(
+        "getAllVehicles: Using mock data - backend endpoint not implemented"
+      );
+      return [];
+    } catch (error) {
+      console.error("Failed to get vehicles:", error);
+      return [];
+    }
+  }
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+  // Maintenance Record Methods
+  async getAllMaintenanceRecords(
+    params: {
+      page?: number;
+      limit?: number;
+      vehicleId?: string;
+      status?: string;
+      startDate?: string;
+      endDate?: string;
+    } = {}
+  ): Promise<{
+    maintenanceRecords: any[];
+    pagination?: {
+      currentPage: number;
+      totalPages: number;
+      totalRecords: number;
+    };
+  }> {
+    try {
+      // For now, return mock data since the backend endpoint doesn't exist yet
+      // TODO: Implement backend endpoint /api/equipment/maintenance
+      console.warn(
+        "getAllMaintenanceRecords: Using mock data - backend endpoint not implemented"
+      );
       return {
-        success: result.success,
-        data: result.data,
+        maintenanceRecords: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 0,
+          totalRecords: 0,
+        },
       };
     } catch (error) {
-      console.error("❌ Equipment status fetch error:", error);
+      console.error("Failed to get maintenance records:", error);
+      return {
+        maintenanceRecords: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 0,
+          totalRecords: 0,
+        },
+      };
+    }
+  }
+
+  async createMaintenanceRecord(recordData: any): Promise<any> {
+    try {
+      // For now, just log and return mock data
+      // TODO: Implement backend endpoint POST /api/equipment/maintenance
+      console.warn(
+        "createMaintenanceRecord: Using mock implementation - backend endpoint not implemented"
+      );
+      console.log("Would create maintenance record:", recordData);
+      return { _id: "mock-id", ...recordData };
+    } catch (error) {
+      console.error("Failed to create maintenance record:", error);
       throw error;
     }
   }
 
-  // ========== MAINTENANCE RECORDS METHODS ==========
-
-  /**
-   * Get all maintenance records with optional filters
-   */
-  async getAllMaintenanceRecords(params?: {
-    vehicleId?: string;
-    status?: string;
-    recordType?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<any> {
-    const queryParams = new URLSearchParams();
-    if (params?.vehicleId) queryParams.append('vehicleId', params.vehicleId);
-    if (params?.status) queryParams.append('status', params.status);
-    if (params?.recordType) queryParams.append('recordType', params.recordType);
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-
-    const response = await fetch(`${API_BASE_URL}/equipment/maintenance?${queryParams}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get maintenance records: ${response.statusText}`);
+  async updateMaintenanceRecord(id: string, recordData: any): Promise<any> {
+    try {
+      // For now, just log and return mock data
+      // TODO: Implement backend endpoint PUT /api/equipment/maintenance/:id
+      console.warn(
+        "updateMaintenanceRecord: Using mock implementation - backend endpoint not implemented"
+      );
+      console.log("Would update maintenance record:", id, recordData);
+      return { _id: id, ...recordData };
+    } catch (error) {
+      console.error("Failed to update maintenance record:", error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.data;
   }
 
-  /**
-   * Create a new maintenance record
-   */
-  async createMaintenanceRecord(recordData: {
-    vehicleId: string;
-    recordType: 'ROUTINE' | 'CORRECTIVE' | 'EMERGENCY';
-    description: string;
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
-    createdBy: string;
-  }): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/equipment/maintenance`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(recordData),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to create maintenance record: ${response.statusText}`);
+  async deleteMaintenanceRecord(id: string): Promise<void> {
+    try {
+      // For now, just log
+      // TODO: Implement backend endpoint DELETE /api/equipment/maintenance/:id
+      console.warn(
+        "deleteMaintenanceRecord: Using mock implementation - backend endpoint not implemented"
+      );
+      console.log("Would delete maintenance record:", id);
+    } catch (error) {
+      console.error("Failed to delete maintenance record:", error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  /**
-   * Update an existing maintenance record
-   */
-  async updateMaintenanceRecord(id: string, updateData: {
-    vehicleId?: string;
-    recordType?: 'ROUTINE' | 'CORRECTIVE' | 'EMERGENCY';
-    description?: string;
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
-    status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  }): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/equipment/maintenance/${id}`, {
-      method: 'PUT',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(updateData),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to update maintenance record: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  /**
-   * Delete a maintenance record
-   */
-  async deleteMaintenanceRecord(id: string): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/equipment/maintenance/${id}`, {
-      method: 'DELETE',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete maintenance record: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  // ========== CHECKLIST TEMPLATES METHODS ==========
-
-  /**
-   * Get all checklist templates with optional filters
-   */
-  async getChecklistTemplates(params?: {
-    vehicleType?: string;
-    isActive?: boolean;
-  }): Promise<{ templates: any[]; count: number }> {
-    const queryParams = new URLSearchParams();
-    if (params?.vehicleType) queryParams.append('vehicleType', params.vehicleType);
-    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
-
-    const response = await fetch(`${API_BASE_URL}/equipment/checklist-templates?${queryParams}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get checklist templates: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  // ========== VEHICLES METHODS ==========
-
-  /**
-   * Get all vehicles for selection in forms
-   */
-  async getAllVehicles(): Promise<any[]> {
-    const response = await fetch(`${API_BASE_URL}/equipment/test-vehicles`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get vehicles: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  // ========== MAINTENANCE SUMMARY METHODS ==========
-
-  /**
-   * Get maintenance summary statistics including count of vehicles in maintenance
-   */
-  async getMaintenanceSummary(): Promise<{
-    maintenanceVehiclesCount: number;
-    activeMaintenanceRecords: number;
-    completedThisWeek: number;
-    highPriorityCount: number;
-  }> {
-    const response = await fetch(`${API_BASE_URL}/equipment/maintenance/summary`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get maintenance summary: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.data;
   }
 
   // ========== MAINTENANCE SEARCH METHODS ==========

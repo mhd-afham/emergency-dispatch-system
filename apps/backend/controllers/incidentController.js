@@ -1,5 +1,5 @@
-const Incident = require('../models/Incident');
-const mongoose = require('mongoose');
+const Incident = require("../models/Incident");
+const mongoose = require("mongoose");
 
 /**
  * Incident Controller for Emergency Dispatch System
@@ -7,16 +7,19 @@ const mongoose = require('mongoose');
  * Implements the core functionality for US-002, US-003, US-004
  */
 class IncidentController {
-  
   /**
    * Create a new incident (Emergency Call Logging - US-002)
    * POST /api/incidents
    */
   static async createIncident(req, res) {
     try {
-      console.log('📞 Creating new incident - Call logged by:', req.user.firstName, req.user.lastName);
-      console.log('🔍 Raw request body:', JSON.stringify(req.body, null, 2));
-      
+      console.log(
+        "📞 Creating new incident - Call logged by:",
+        req.user.firstName,
+        req.user.lastName
+      );
+      console.log("🔍 Raw request body:", JSON.stringify(req.body, null, 2));
+
       const {
         callerInfo,
         incidentType,
@@ -24,10 +27,10 @@ class IncidentController {
         severity,
         description,
         location,
-        estimatedResponseTime
+        estimatedResponseTime,
       } = req.body;
 
-      console.log('🔍 Extracted fields:', {
+      console.log("🔍 Extracted fields:", {
         hasCallerInfo: !!callerInfo,
         hasIncidentType: !!incidentType,
         hasIncidentCategory: !!incidentCategory,
@@ -37,17 +40,23 @@ class IncidentController {
         incidentType,
         incidentCategory,
         severity,
-        location
+        location,
       });
 
       // Validate required fields
-      const requiredFields = ['callerInfo', 'incidentType', 'incidentCategory', 'description', 'location'];
+      const requiredFields = [
+        "callerInfo",
+        "incidentType",
+        "incidentCategory",
+        "description",
+        "location",
+      ];
       for (const field of requiredFields) {
         if (!req.body[field]) {
           return res.status(400).json({
             success: false,
             message: `Missing required field: ${field}`,
-            field: field
+            field: field,
           });
         }
       }
@@ -56,8 +65,8 @@ class IncidentController {
       if (!callerInfo.name || !callerInfo.contactNumber) {
         return res.status(400).json({
           success: false,
-          message: 'Caller name and contact number are required',
-          field: 'callerInfo'
+          message: "Caller name and contact number are required",
+          field: "callerInfo",
         });
       }
 
@@ -65,8 +74,8 @@ class IncidentController {
       if (!location.address || !location.city || !location.province) {
         return res.status(400).json({
           success: false,
-          message: 'Address, city, and province are required',
-          field: 'location'
+          message: "Address, city, and province are required",
+          field: "location",
         });
       }
 
@@ -74,10 +83,17 @@ class IncidentController {
       let possibleDuplicates = [];
       if (location.coordinates && location.coordinates.coordinates) {
         const [longitude, latitude] = location.coordinates.coordinates;
-        
+
         // Find nearby incidents within 1km and 30 minutes (US-004 - Duplicate Detection)
-        possibleDuplicates = await Incident.findNearbyIncidents(longitude, latitude, 1, 30);
-        console.log(`🔍 Found ${possibleDuplicates.length} potential duplicate incidents nearby`);
+        possibleDuplicates = await Incident.findNearbyIncidents(
+          longitude,
+          latitude,
+          1,
+          30
+        );
+        console.log(
+          `🔍 Found ${possibleDuplicates.length} potential duplicate incidents nearby`
+        );
       }
 
       // Create the incident
@@ -85,14 +101,17 @@ class IncidentController {
         address: location.address.trim(),
         city: location.city.trim(),
         province: location.province,
-        locationAccuracy: location.locationAccuracy || 'approximate',
-        landmarks: location.landmarks?.trim()
+        locationAccuracy: location.locationAccuracy || "approximate",
+        landmarks: location.landmarks?.trim(),
       };
 
       // Only add coordinates if they are properly provided
-      if (location.coordinates && location.coordinates.coordinates && 
-          Array.isArray(location.coordinates.coordinates) && 
-          location.coordinates.coordinates.length === 2) {
+      if (
+        location.coordinates &&
+        location.coordinates.coordinates &&
+        Array.isArray(location.coordinates.coordinates) &&
+        location.coordinates.coordinates.length === 2
+      ) {
         locationData.coordinates = location.coordinates;
       }
 
@@ -101,57 +120,64 @@ class IncidentController {
           name: callerInfo.name.trim(),
           contactNumber: callerInfo.contactNumber.trim(),
           alternateContact: callerInfo.alternateContact?.trim(),
-          reportingMethod: callerInfo.reportingMethod || 'phone_call'
+          reportingMethod: callerInfo.reportingMethod || "phone_call",
         },
         incidentType,
         incidentCategory,
-        severity: severity || 'medium',
+        severity: severity || "medium",
         description: description.trim(),
         location: locationData,
         loggedBy: req.user._id,
-        possibleDuplicates: possibleDuplicates.map(dup => dup._id),
+        possibleDuplicates: possibleDuplicates.map((dup) => dup._id),
         estimatedResponseTime,
-        status: 'pending'
+        status: "pending",
       });
 
       await incident.save();
 
       // Populate the logged by user info for response
-      await incident.populate('loggedBy', 'firstName lastName role');
+      await incident.populate("loggedBy", "firstName lastName role");
 
-      console.log('✅ Incident created successfully:', incident.incidentId);
+      console.log("✅ Incident created successfully:", incident.incidentId);
+
+      // Emit real-time event for new incident
+      if (global.emitIncidentCreated) {
+        global.emitIncidentCreated(incident);
+      }
 
       res.status(201).json({
         success: true,
-        message: 'Incident logged successfully',
+        message: "Incident logged successfully",
         data: {
           incident,
           duplicateWarning: possibleDuplicates.length > 0,
-          possibleDuplicatesCount: possibleDuplicates.length
-        }
+          possibleDuplicatesCount: possibleDuplicates.length,
+        },
       });
-
     } catch (error) {
-      console.error('❌ Error creating incident:', error);
-      
+      console.error("❌ Error creating incident:", error);
+
       // Handle validation errors
-      if (error.name === 'ValidationError') {
+      if (error.name === "ValidationError") {
         const validationErrors = {};
-        Object.keys(error.errors).forEach(key => {
+        Object.keys(error.errors).forEach((key) => {
           validationErrors[key] = error.errors[key].message;
         });
-        
+
         return res.status(400).json({
           success: false,
-          message: 'Validation failed',
-          errors: validationErrors
+          message: "Validation failed",
+          errors: validationErrors,
         });
       }
 
       res.status(500).json({
         success: false,
-        message: 'Failed to create incident',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to create incident",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -169,13 +195,18 @@ class IncidentController {
         incidentType,
         severity,
         search,
-        sortBy = 'createdAt',
-        sortOrder = 'desc',
+        sortBy = "createdAt",
+        sortOrder = "desc",
         startDate,
-        endDate
+        endDate,
       } = req.query;
 
-      console.log('📋 Fetching incidents with filters:', { status, incidentType, severity, search });
+      console.log("📋 Fetching incidents with filters:", {
+        status,
+        incidentType,
+        severity,
+        search,
+      });
 
       // Build query object
       const query = {};
@@ -209,10 +240,10 @@ class IncidentController {
       // Search in incident ID, caller name, or description
       if (search) {
         query.$or = [
-          { incidentId: { $regex: search, $options: 'i' } },
-          { 'callerInfo.name': { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
-          { 'location.address': { $regex: search, $options: 'i' } }
+          { incidentId: { $regex: search, $options: "i" } },
+          { "callerInfo.name": { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+          { "location.address": { $regex: search, $options: "i" } },
         ];
       }
 
@@ -221,16 +252,18 @@ class IncidentController {
 
       // Execute query with pagination
       const incidents = await Incident.find(query)
-        .populate('loggedBy', 'firstName lastName role')
-        .populate('assignedDispatcher', 'firstName lastName role')
-        .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+        .populate("loggedBy", "firstName lastName role")
+        .populate("assignedDispatcher", "firstName lastName role")
+        .sort({ [sortBy]: sortOrder === "desc" ? -1 : 1 })
         .skip(skip)
         .limit(parseInt(limit));
 
       // Get total count for pagination
       const total = await Incident.countDocuments(query);
 
-      console.log(`📊 Found ${incidents.length} incidents out of ${total} total`);
+      console.log(
+        `📊 Found ${incidents.length} incidents out of ${total} total`
+      );
 
       res.json({
         success: true,
@@ -241,17 +274,19 @@ class IncidentController {
             totalPages: Math.ceil(total / parseInt(limit)),
             totalIncidents: total,
             hasNextPage: skip + incidents.length < total,
-            hasPrevPage: parseInt(page) > 1
-          }
-        }
+            hasPrevPage: parseInt(page) > 1,
+          },
+        },
       });
-
     } catch (error) {
-      console.error('❌ Error fetching incidents:', error);
+      console.error("❌ Error fetching incidents:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch incidents',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to fetch incidents",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -263,39 +298,44 @@ class IncidentController {
   static async getIncidentById(req, res) {
     try {
       const { id } = req.params;
-      
-      console.log('🔍 Fetching incident by ID:', id);
+
+      console.log("🔍 Fetching incident by ID:", id);
 
       // Support both MongoDB ObjectId and custom incident ID
-      const query = mongoose.isValidObjectId(id) 
+      const query = mongoose.isValidObjectId(id)
         ? { _id: id }
         : { incidentId: id };
 
       const incident = await Incident.findOne(query)
-        .populate('loggedBy', 'firstName lastName role email')
-        .populate('assignedDispatcher', 'firstName lastName role email')
-        .populate('possibleDuplicates', 'incidentId callerInfo.name description location.address createdAt');
+        .populate("loggedBy", "firstName lastName role email")
+        .populate("assignedDispatcher", "firstName lastName role email")
+        .populate(
+          "possibleDuplicates",
+          "incidentId callerInfo.name description location.address createdAt"
+        );
 
       if (!incident) {
         return res.status(404).json({
           success: false,
-          message: 'Incident not found'
+          message: "Incident not found",
         });
       }
 
-      console.log('✅ Incident found:', incident.incidentId);
+      console.log("✅ Incident found:", incident.incidentId);
 
       res.json({
         success: true,
-        data: { incident }
+        data: { incident },
       });
-
     } catch (error) {
-      console.error('❌ Error fetching incident:', error);
+      console.error("❌ Error fetching incident:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch incident',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to fetch incident",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -308,11 +348,11 @@ class IncidentController {
     try {
       const { id } = req.params;
       const updates = req.body;
-      
-      console.log('📝 Updating incident:', id);
+
+      console.log("📝 Updating incident:", id);
 
       // Support both MongoDB ObjectId and custom incident ID
-      const query = mongoose.isValidObjectId(id) 
+      const query = mongoose.isValidObjectId(id)
         ? { _id: id }
         : { incidentId: id };
 
@@ -321,54 +361,67 @@ class IncidentController {
       if (!incident) {
         return res.status(404).json({
           success: false,
-          message: 'Incident not found'
+          message: "Incident not found",
         });
       }
 
       // Update allowed fields
       const allowedUpdates = [
-        'incidentType', 'incidentCategory', 'severity', 'description',
-        'location', 'status', 'assignedDispatcher', 'estimatedResponseTime'
+        "incidentType",
+        "incidentCategory",
+        "severity",
+        "description",
+        "location",
+        "status",
+        "assignedDispatcher",
+        "estimatedResponseTime",
       ];
 
-      allowedUpdates.forEach(field => {
+      allowedUpdates.forEach((field) => {
         if (updates[field] !== undefined) {
           incident[field] = updates[field];
         }
       });
 
       await incident.save();
-      await incident.populate('loggedBy', 'firstName lastName role');
-      await incident.populate('assignedDispatcher', 'firstName lastName role');
+      await incident.populate("loggedBy", "firstName lastName role");
+      await incident.populate("assignedDispatcher", "firstName lastName role");
 
-      console.log('✅ Incident updated successfully');
+      console.log("✅ Incident updated successfully");
+
+      // Emit real-time event for incident update
+      if (global.emitIncidentUpdated) {
+        global.emitIncidentUpdated(incident);
+      }
 
       res.json({
         success: true,
-        message: 'Incident updated successfully',
-        data: { incident }
+        message: "Incident updated successfully",
+        data: { incident },
       });
-
     } catch (error) {
-      console.error('❌ Error updating incident:', error);
-      
-      if (error.name === 'ValidationError') {
+      console.error("❌ Error updating incident:", error);
+
+      if (error.name === "ValidationError") {
         const validationErrors = {};
-        Object.keys(error.errors).forEach(key => {
+        Object.keys(error.errors).forEach((key) => {
           validationErrors[key] = error.errors[key].message;
         });
-        
+
         return res.status(400).json({
           success: false,
-          message: 'Validation failed',
-          errors: validationErrors
+          message: "Validation failed",
+          errors: validationErrors,
         });
       }
 
       res.status(500).json({
         success: false,
-        message: 'Failed to update incident',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to update incident",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -380,11 +433,11 @@ class IncidentController {
   static async deleteIncident(req, res) {
     try {
       const { id } = req.params;
-      
-      console.log('🗑️ Permanently deleting incident:', id);
+
+      console.log("🗑️ Permanently deleting incident:", id);
 
       // Support both MongoDB ObjectId and custom incident ID
-      const query = mongoose.isValidObjectId(id) 
+      const query = mongoose.isValidObjectId(id)
         ? { _id: id }
         : { incidentId: id };
 
@@ -393,33 +446,41 @@ class IncidentController {
       if (!incident) {
         return res.status(404).json({
           success: false,
-          message: 'Incident not found'
+          message: "Incident not found",
         });
       }
 
       // Store incident ID for logging before deletion
       const incidentId = incident.incidentId;
+      const deletedIncidentObjectId = incident._id;
 
       // Permanently delete the incident from database
       await Incident.deleteOne(query);
 
-      console.log('✅ Incident permanently deleted:', incidentId);
+      console.log("✅ Incident permanently deleted:", incidentId);
+
+      // Emit real-time event for incident deletion
+      if (global.emitIncidentDeleted) {
+        global.emitIncidentDeleted(deletedIncidentObjectId);
+      }
 
       res.json({
         success: true,
-        message: 'Incident permanently deleted from database',
-        data: { 
+        message: "Incident permanently deleted from database",
+        data: {
           deletedIncidentId: incidentId,
-          deletedAt: new Date().toISOString()
-        }
+          deletedAt: new Date().toISOString(),
+        },
       });
-
     } catch (error) {
-      console.error('❌ Error deleting incident:', error);
+      console.error("❌ Error deleting incident:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to delete incident',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to delete incident",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -436,13 +497,13 @@ class IncidentController {
       if (!note || note.trim().length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'Note content is required'
+          message: "Note content is required",
         });
       }
 
-      console.log('📝 Adding note to incident:', id);
+      console.log("📝 Adding note to incident:", id);
 
-      const query = mongoose.isValidObjectId(id) 
+      const query = mongoose.isValidObjectId(id)
         ? { _id: id }
         : { incidentId: id };
 
@@ -451,30 +512,37 @@ class IncidentController {
       if (!incident) {
         return res.status(404).json({
           success: false,
-          message: 'Incident not found'
+          message: "Incident not found",
         });
       }
 
       await incident.addNote(note.trim(), req.user._id);
-      await incident.populate('notes.addedBy', 'firstName lastName role');
+      await incident.populate("notes.addedBy", "firstName lastName role");
 
-      console.log('✅ Note added successfully');
+      console.log("✅ Note added successfully");
+
+      // Emit real-time event for incident update (note added)
+      if (global.emitIncidentUpdated) {
+        global.emitIncidentUpdated(incident);
+      }
 
       res.json({
         success: true,
-        message: 'Note added successfully',
-        data: { 
+        message: "Note added successfully",
+        data: {
           incident,
-          latestNote: incident.notes[incident.notes.length - 1]
-        }
+          latestNote: incident.notes[incident.notes.length - 1],
+        },
       });
-
     } catch (error) {
-      console.error('❌ Error adding note:', error);
+      console.error("❌ Error adding note:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to add note',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to add note",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -485,21 +553,29 @@ class IncidentController {
    */
   static async findPotentialDuplicates(req, res) {
     try {
-      const { longitude, latitude, radiusKm = 1, timeWindowMinutes = 30 } = req.body;
+      const {
+        longitude,
+        latitude,
+        radiusKm = 1,
+        timeWindowMinutes = 30,
+      } = req.body;
 
       if (!longitude || !latitude) {
         return res.status(400).json({
           success: false,
-          message: 'Longitude and latitude are required'
+          message: "Longitude and latitude are required",
         });
       }
 
-      console.log('🔍 Searching for duplicate incidents near:', { longitude, latitude });
+      console.log("🔍 Searching for duplicate incidents near:", {
+        longitude,
+        latitude,
+      });
 
       const duplicates = await Incident.findNearbyIncidents(
-        longitude, 
-        latitude, 
-        radiusKm, 
+        longitude,
+        latitude,
+        radiusKm,
         timeWindowMinutes
       );
 
@@ -511,17 +587,19 @@ class IncidentController {
           searchCriteria: {
             location: [longitude, latitude],
             radiusKm,
-            timeWindowMinutes
-          }
-        }
+            timeWindowMinutes,
+          },
+        },
       });
-
     } catch (error) {
-      console.error('❌ Error finding duplicates:', error);
+      console.error("❌ Error finding duplicates:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to find potential duplicates',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to find potential duplicates",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -535,18 +613,18 @@ class IncidentController {
       const { id, targetId } = req.params;
       const { mergeNotes } = req.body;
 
-      console.log('🔄 Merging incidents:', id, 'into', targetId);
+      console.log("🔄 Merging incidents:", id, "into", targetId);
 
       // Find both incidents
       const [sourceIncident, targetIncident] = await Promise.all([
         Incident.findById(id),
-        Incident.findById(targetId)
+        Incident.findById(targetId),
       ]);
 
       if (!sourceIncident || !targetIncident) {
         return res.status(404).json({
           success: false,
-          message: 'One or both incidents not found'
+          message: "One or both incidents not found",
         });
       }
 
@@ -562,31 +640,36 @@ class IncidentController {
       );
 
       // Mark source incident as merged
-      sourceIncident.status = 'cancelled';
+      sourceIncident.status = "cancelled";
       sourceIncident.mergedWith = targetIncident._id;
 
-      await Promise.all([
-        sourceIncident.save(),
-        targetIncident.save()
-      ]);
+      await Promise.all([sourceIncident.save(), targetIncident.save()]);
 
-      console.log('✅ Incidents merged successfully');
+      console.log("✅ Incidents merged successfully");
+
+      // Emit real-time events for both incident updates
+      if (global.emitIncidentUpdated) {
+        global.emitIncidentUpdated(targetIncident); // Target incident was updated with merge
+        global.emitIncidentUpdated(sourceIncident); // Source incident status changed to cancelled
+      }
 
       res.json({
         success: true,
-        message: 'Incidents merged successfully',
+        message: "Incidents merged successfully",
         data: {
           mergedIncident: targetIncident,
-          cancelledIncident: sourceIncident
-        }
+          cancelledIncident: sourceIncident,
+        },
       });
-
     } catch (error) {
-      console.error('❌ Error merging incidents:', error);
+      console.error("❌ Error merging incidents:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to merge incidents',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to merge incidents",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -597,55 +680,56 @@ class IncidentController {
    */
   static async getIncidentStatistics(req, res) {
     try {
-      const { timeframe = 'today' } = req.query;
+      const { timeframe = "today" } = req.query;
 
-      console.log('📊 Generating incident statistics for:', timeframe);
+      console.log("📊 Generating incident statistics for:", timeframe);
 
       let dateFilter = {};
       const now = new Date();
 
       switch (timeframe) {
-        case 'today':
+        case "today":
           const startOfDay = new Date(now);
           startOfDay.setHours(0, 0, 0, 0);
           dateFilter = { createdAt: { $gte: startOfDay } };
           break;
-        case 'week':
-          const weekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+        case "week":
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           dateFilter = { createdAt: { $gte: weekAgo } };
           break;
-        case 'month':
-          const monthAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+        case "month":
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           dateFilter = { createdAt: { $gte: monthAgo } };
           break;
       }
 
       // Aggregate statistics
-      const [statusStats, typeStats, severityStats, totalCount] = await Promise.all([
-        // Count by status
-        Incident.aggregate([
-          { $match: dateFilter },
-          { $group: { _id: '$status', count: { $sum: 1 } } },
-          { $sort: { _id: 1 } }
-        ]),
+      const [statusStats, typeStats, severityStats, totalCount] =
+        await Promise.all([
+          // Count by status
+          Incident.aggregate([
+            { $match: dateFilter },
+            { $group: { _id: "$status", count: { $sum: 1 } } },
+            { $sort: { _id: 1 } },
+          ]),
 
-        // Count by incident type
-        Incident.aggregate([
-          { $match: dateFilter },
-          { $group: { _id: '$incidentType', count: { $sum: 1 } } },
-          { $sort: { count: -1 } }
-        ]),
+          // Count by incident type
+          Incident.aggregate([
+            { $match: dateFilter },
+            { $group: { _id: "$incidentType", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+          ]),
 
-        // Count by severity
-        Incident.aggregate([
-          { $match: dateFilter },
-          { $group: { _id: '$severity', count: { $sum: 1 } } },
-          { $sort: { _id: 1 } }
-        ]),
+          // Count by severity
+          Incident.aggregate([
+            { $match: dateFilter },
+            { $group: { _id: "$severity", count: { $sum: 1 } } },
+            { $sort: { _id: 1 } },
+          ]),
 
-        // Total count
-        Incident.countDocuments(dateFilter)
-      ]);
+          // Total count
+          Incident.countDocuments(dateFilter),
+        ]);
 
       const statistics = {
         totalIncidents: totalCount,
@@ -661,20 +745,22 @@ class IncidentController {
           acc[stat._id] = stat.count;
           return acc;
         }, {}),
-        timeframe
+        timeframe,
       };
 
       res.json({
         success: true,
-        data: statistics
+        data: statistics,
       });
-
     } catch (error) {
-      console.error('❌ Error generating statistics:', error);
+      console.error("❌ Error generating statistics:", error);
       res.status(500).json({
         success: false,
-        message: 'Failed to generate statistics',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        message: "Failed to generate statistics",
+        error:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Internal server error",
       });
     }
   }
@@ -688,54 +774,54 @@ class IncidentController {
 
     const categories = {
       medical: [
-        { value: 'cardiac_arrest', label: 'Cardiac Arrest' },
-        { value: 'respiratory_emergency', label: 'Respiratory Emergency' },
-        { value: 'trauma', label: 'Trauma/Injury' },
-        { value: 'unconscious', label: 'Unconscious Person' },
-        { value: 'allergic_reaction', label: 'Allergic Reaction' },
-        { value: 'other_medical', label: 'Other Medical Emergency' }
+        { value: "cardiac_arrest", label: "Cardiac Arrest" },
+        { value: "respiratory_emergency", label: "Respiratory Emergency" },
+        { value: "trauma", label: "Trauma/Injury" },
+        { value: "unconscious", label: "Unconscious Person" },
+        { value: "allergic_reaction", label: "Allergic Reaction" },
+        { value: "other_medical", label: "Other Medical Emergency" },
       ],
       fire: [
-        { value: 'structure_fire', label: 'Structure Fire' },
-        { value: 'vehicle_fire', label: 'Vehicle Fire' },
-        { value: 'wildfire', label: 'Wildfire' },
-        { value: 'explosion', label: 'Explosion' },
-        { value: 'smoke_investigation', label: 'Smoke Investigation' },
-        { value: 'other_fire', label: 'Other Fire Emergency' }
+        { value: "structure_fire", label: "Structure Fire" },
+        { value: "vehicle_fire", label: "Vehicle Fire" },
+        { value: "wildfire", label: "Wildfire" },
+        { value: "explosion", label: "Explosion" },
+        { value: "smoke_investigation", label: "Smoke Investigation" },
+        { value: "other_fire", label: "Other Fire Emergency" },
       ],
       rescue: [
-        { value: 'vehicle_accident', label: 'Vehicle Accident' },
-        { value: 'water_rescue', label: 'Water Rescue' },
-        { value: 'confined_space', label: 'Confined Space Rescue' },
-        { value: 'height_rescue', label: 'Height/Fall Rescue' },
-        { value: 'animal_rescue', label: 'Animal Rescue' },
-        { value: 'other_rescue', label: 'Other Rescue' }
+        { value: "vehicle_accident", label: "Vehicle Accident" },
+        { value: "water_rescue", label: "Water Rescue" },
+        { value: "confined_space", label: "Confined Space Rescue" },
+        { value: "height_rescue", label: "Height/Fall Rescue" },
+        { value: "animal_rescue", label: "Animal Rescue" },
+        { value: "other_rescue", label: "Other Rescue" },
       ],
       hazmat: [
-        { value: 'chemical_spill', label: 'Chemical Spill' },
-        { value: 'gas_leak', label: 'Gas Leak' },
-        { value: 'toxic_exposure', label: 'Toxic Exposure' },
-        { value: 'environmental', label: 'Environmental Hazard' },
-        { value: 'other_hazmat', label: 'Other Hazmat' }
+        { value: "chemical_spill", label: "Chemical Spill" },
+        { value: "gas_leak", label: "Gas Leak" },
+        { value: "toxic_exposure", label: "Toxic Exposure" },
+        { value: "environmental", label: "Environmental Hazard" },
+        { value: "other_hazmat", label: "Other Hazmat" },
       ],
       traffic: [
-        { value: 'collision', label: 'Traffic Collision' },
-        { value: 'road_obstruction', label: 'Road Obstruction' },
-        { value: 'traffic_control', label: 'Traffic Control' },
-        { value: 'other_traffic', label: 'Other Traffic Issue' }
+        { value: "collision", label: "Traffic Collision" },
+        { value: "road_obstruction", label: "Road Obstruction" },
+        { value: "traffic_control", label: "Traffic Control" },
+        { value: "other_traffic", label: "Other Traffic Issue" },
       ],
       other: [
-        { value: 'public_service', label: 'Public Service' },
-        { value: 'assist_police', label: 'Assist Police' },
-        { value: 'false_alarm', label: 'False Alarm' },
-        { value: 'other', label: 'Other' }
-      ]
+        { value: "public_service", label: "Public Service" },
+        { value: "assist_police", label: "Assist Police" },
+        { value: "false_alarm", label: "False Alarm" },
+        { value: "other", label: "Other" },
+      ],
     };
 
     if (!categories[type]) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid incident type'
+        message: "Invalid incident type",
       });
     }
 
@@ -743,8 +829,8 @@ class IncidentController {
       success: true,
       data: {
         type,
-        categories: categories[type]
-      }
+        categories: categories[type],
+      },
     });
   }
 }

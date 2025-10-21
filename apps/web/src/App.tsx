@@ -6,10 +6,11 @@ import {
   Navigate,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { WebSocketProvider } from "./contexts/WebSocketContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import AuthRoute from "./components/common/AuthRoute";
 import RoleBasedDashboard from "./components/common/RoleBasedDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
+import ModularAdminDashboard from "./pages/ModularAdminDashboard";
 import CallTakerDashboard from "./pages/CallTakerDashboard";
 import DispatcherDashboard from "./pages/DispatcherDashboard";
 import ModularSupervisorDashboard from "./pages/ModularSupervisorDashboard";
@@ -57,108 +58,110 @@ const LandingRedirect: React.FC = () => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-            {/* Landing page - redirect based on auth status */}
-            <Route path="/" element={<LandingRedirect />} />
+      <WebSocketProvider>
+        <Router>
+          <div className="App">
+            <Routes>
+              {/* Landing page - redirect based on auth status */}
+              <Route path="/" element={<LandingRedirect />} />
 
-            {/* Auth routes - redirect to dashboard if already logged in */}
-            <Route
-              path="/login"
-              element={
-                <AuthRoute>
-                  <LoginForm />
-                </AuthRoute>
-              }
-            />
-            <Route
-              path="/forgot-password"
-              element={
-                <AuthRoute>
-                  <ForgotPasswordForm />
-                </AuthRoute>
-              }
-            />
-            <Route
-              path="/reset-password/:token"
-              element={
-                <AuthRoute>
-                  <ResetPasswordForm />
-                </AuthRoute>
-              }
-            />
+              {/* Auth routes - redirect to dashboard if already logged in */}
+              <Route
+                path="/login"
+                element={
+                  <AuthRoute>
+                    <LoginForm />
+                  </AuthRoute>
+                }
+              />
+              <Route
+                path="/forgot-password"
+                element={
+                  <AuthRoute>
+                    <ForgotPasswordForm />
+                  </AuthRoute>
+                }
+              />
+              <Route
+                path="/reset-password/:token"
+                element={
+                  <AuthRoute>
+                    <ResetPasswordForm />
+                  </AuthRoute>
+                }
+              />
 
-            {/* Protected routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <RoleBasedDashboard />
-                </ProtectedRoute>
-              }
-            />
+              {/* Protected routes */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <RoleBasedDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Role-specific dashboard routes */}
-            <Route
-              path="/dashboard/admin"
-              element={
-                <ProtectedRoute requiredRoles={["Admin"]}>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard/call-taker"
-              element={
-                <ProtectedRoute requiredRoles={["Call Taker"]}>
-                  <CallTakerDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard/dispatcher"
-              element={
-                <ProtectedRoute requiredRoles={["Dispatcher"]}>
-                  <DispatcherDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard/supervisor"
-              element={
-                <ProtectedRoute requiredRoles={["Supervisor"]}>
-                  <ModularSupervisorDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard/supervisor-legacy"
-              element={
-                <ProtectedRoute requiredRoles={["Supervisor"]}>
-                  <ModularSupervisorDashboard />
-                </ProtectedRoute>
-              }
-            />
+              {/* Role-specific dashboard routes */}
+              <Route
+                path="/dashboard/admin"
+                element={
+                  <ProtectedRoute requiredRoles={["Admin"]}>
+                    <ModularAdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/call-taker"
+                element={
+                  <ProtectedRoute requiredRoles={["Call Taker"]}>
+                    <CallTakerDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/dispatcher"
+                element={
+                  <ProtectedRoute requiredRoles={["Dispatcher"]}>
+                    <DispatcherDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/supervisor"
+                element={
+                  <ProtectedRoute requiredRoles={["Supervisor"]}>
+                    <ModularSupervisorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/supervisor-legacy"
+                element={
+                  <ProtectedRoute requiredRoles={["Supervisor"]}>
+                    <ModularSupervisorDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Admin only routes example */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute requiredRoles={["Admin"]}>
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">Admin Panel</h1>
-                    <p>This page is only accessible to Admins.</p>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
+              {/* Admin only routes example */}
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute requiredRoles={["Admin"]}>
+                    <div className="p-8">
+                      <h1 className="text-2xl font-bold">Admin Panel</h1>
+                      <p>This page is only accessible to Admins.</p>
+                    </div>
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Catch all - redirect to landing */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </Router>
+              {/* Catch all - redirect to landing */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </Router>
+      </WebSocketProvider>
     </AuthProvider>
   );
 }

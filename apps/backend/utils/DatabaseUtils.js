@@ -6,7 +6,6 @@ const Station = require("../models/Station");
 
 /**
  * Database utility functions for optimized queries and analytics
- * Based on design document Section 5.4 Performance Optimization
  */
 
 class DatabaseUtils {
@@ -79,6 +78,7 @@ class DatabaseUtils {
 
       return await Vehicle.find({
         "status.operational": "Available",
+        "registrationStatus.status": "approved", // Only approved vehicles
         "status.currentLocation.coordinates": {
           $near: {
             $geometry: {
@@ -126,6 +126,7 @@ class DatabaseUtils {
       const query = {
         "currentStatus.availability": "available",
         "assignment.currentStation": stationId,
+        "registrationStatus.status": "approved", // Only approved crew
       };
 
       // Add certification filter if specified
