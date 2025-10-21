@@ -325,9 +325,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     if (!granted) {
       Alert.alert(
         "Location Permission Required",
-        "This app needs location access to track your position during assignments. Please enable location permissions in settings.",
-        [{ text: "OK" }]
+        "This app needs location access to track your position during assignments. Please enable 'While Using App' location permissions in iOS Settings.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Open Settings",
+            onPress: () => {
+              // iOS settings deep link
+              if (Platform.OS === "ios") {
+                Linking.openURL("app-settings:");
+              }
+            },
+          },
+        ]
       );
+    } else {
+      console.log("✅ Location permissions granted successfully");
     }
   };
 
