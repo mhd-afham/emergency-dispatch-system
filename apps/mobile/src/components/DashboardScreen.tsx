@@ -556,14 +556,28 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       await apiClient.updateAssignmentStatus(currentAssignment._id, newStatus);
 
-      // Update local state
+      // Update local state - IMPORTANT: Update both status fields
       const updatedAssignment = {
         ...currentAssignment,
         status: newStatus,
+        response: {
+          ...currentAssignment.response,
+          status: newStatus, // ← FIX: Update response.status too!
+        },
       };
       setCurrentAssignment(updatedAssignment);
 
-      console.log(`📱 Assignment status updated locally to: ${newStatus}`);
+      console.log(
+        `📱 Assignment status updated locally to: ${newStatus} (both status fields)`
+      );
+
+      // Set completion flag immediately for "Returned to Station" button
+      if (newStatus === ASSIGNMENT_STATUS.COMPLETED) {
+        setHasCompletedAssignment(true);
+        console.log(
+          `📱 ✅ Setting hasCompletedAssignment=true for immediate button display`
+        );
+      }
 
       // Fetch updated vehicle data to get the new status from backend
       // This is crucial for status transitions like "completed" -> "returning"
