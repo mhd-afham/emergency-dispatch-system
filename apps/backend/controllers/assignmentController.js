@@ -135,6 +135,35 @@ class AssignmentController {
         });
       }
 
+      // Check if vehicle is operationally ready (October 22, 2025)
+      if (vehicle.status.operational !== "active") {
+        return res.status(400).json({
+          success: false,
+          message: `Vehicle cannot be assigned. Operational status: ${vehicle.status.operational}`,
+          details: {
+            vehicleId: vehicle._id,
+            plateNumber: vehicle.registration.plateNumber,
+            operational: vehicle.status.operational,
+            currentStatus: vehicle.status.currentStatus,
+          },
+        });
+      }
+
+      // Check if crew has marked vehicle as ready (October 22, 2025)
+      if (vehicle.readiness?.isReady === false) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Vehicle is not ready. Crew has marked vehicle as not ready.",
+          details: {
+            vehicleId: vehicle._id,
+            plateNumber: vehicle.registration.plateNumber,
+            notReadyReason: vehicle.readiness.notReadyReason,
+            lastReadyUpdate: vehicle.readiness.lastReadyUpdate,
+          },
+        });
+      }
+
       // Check if vehicle has any pending or active assignments (not declined/completed/cancelled/returned)
       const existingAssignment = await Assignment.findOne({
         "resource.vehicleId": vehicleId,
@@ -496,6 +525,26 @@ class AssignmentController {
             // Vehicle has arrived back at station - now available
             vehicle.status.currentStatus = "available";
             // Incident already cleared when status was "completed"
+
+            // Reset vehicle location to home station coordinates (Issue #25 fix - Oct 22, 2025)
+            // Need to populate station to get coordinates
+            await vehicle.populate("station.homeStationId");
+            if (vehicle.station?.homeStationId?.coordinates?.coordinates) {
+              const stationCoords =
+                vehicle.station.homeStationId.coordinates.coordinates;
+              vehicle.status.currentLocation = {
+                type: "Point",
+                coordinates: stationCoords, // [longitude, latitude]
+              };
+              vehicle.status.lastLocationUpdate = new Date();
+              console.log(
+                `✅ Vehicle ${vehicle.registration.plateNumber} location reset to station: [${stationCoords}]`
+              );
+            } else {
+              console.warn(
+                `⚠️ Could not reset location for vehicle ${vehicle._id} - station coordinates not found`
+              );
+            }
             break;
           case "declined":
           case "cancelled":
@@ -503,6 +552,27 @@ class AssignmentController {
             // If vehicle is returning from a previous assignment, preserve that status
             if (vehicle.status.currentStatus !== "returning") {
               vehicle.status.currentStatus = "available";
+
+              // Reset location to station if vehicle was en_route or on_scene (Issue #25 - Oct 22, 2025)
+              // If just assigned/declined before leaving, location should already be at station
+              const wasInField = ["en_route", "on_scene"].includes(
+                vehicle.status.currentStatus
+              );
+              if (wasInField) {
+                await vehicle.populate("station.homeStationId");
+                if (vehicle.station?.homeStationId?.coordinates?.coordinates) {
+                  const stationCoords =
+                    vehicle.station.homeStationId.coordinates.coordinates;
+                  vehicle.status.currentLocation = {
+                    type: "Point",
+                    coordinates: stationCoords,
+                  };
+                  vehicle.status.lastLocationUpdate = new Date();
+                  console.log(
+                    `✅ Vehicle ${vehicle.registration.plateNumber} location reset to station after cancellation: [${stationCoords}]`
+                  );
+                }
+              }
             }
             // Clear incident assignment but keep crew assigned to vehicle
             vehicle.assignment.currentIncidentId = null;

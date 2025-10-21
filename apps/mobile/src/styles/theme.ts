@@ -64,26 +64,26 @@ export const colors = {
   accent900: "#47191a",
 
   // Assignment Status Colors
-  statusAssigned: "#3b82f6", // Blue
+  statusAssigned: "#EAB308", // Yellow (matches web app)
   statusAccepted: "#10b981", // Green
-  statusEnRoute: "#f59e0b", // Orange
-  statusOnScene: "#ff4238", // Primary Red
+  statusEnRoute: "#FB923C", // Orange (matches web app)
+  statusOnScene: "#ef4444", // Red (matches web app)
   statusCompleted: "#6b7280", // Gray
   statusDeclined: "#ef4444", // Error Red
 
-  // Priority Colors
-  priorityCritical: "#dc2626",
-  priorityHigh: "#f59e0b",
-  priorityMedium: "#3b82f6",
-  priorityLow: "#10b981",
+  // Priority Colors (Incident Severity)
+  priorityCritical: "#dc2626", // red-600 (matches web app)
+  priorityHigh: "#ea580c", // orange-600 (matches web app)
+  priorityMedium: "#d97706", // amber-600 (matches web app)
+  priorityLow: "#059669", // emerald-600 (matches web app)
 
   // Vehicle Status Colors
-  vehicleAvailable: "#10b981",
-  vehicleAssigned: "#f59e0b",
-  vehicleEnRoute: "#ff4238",
-  vehicleOnScene: "#93413e",
-  vehicleReturning: "#3b82f6",
-  vehicleOutOfService: "#6b7280",
+  vehicleAvailable: "#10b981", // green (matches web app)
+  vehicleAssigned: "#EAB308", // yellow (matches web app)
+  vehicleEnRoute: "#FB923C", // orange (matches web app)
+  vehicleOnScene: "#ef4444", // red (matches web app)
+  vehicleReturning: "#3b82f6", // blue (matches web app)
+  vehicleOutOfService: "#6b7280", // gray
 };
 
 export const spacing = {

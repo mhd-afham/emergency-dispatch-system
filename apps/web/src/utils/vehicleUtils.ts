@@ -99,73 +99,75 @@ export interface VehicleMarkerConfig {
 }
 
 // Vehicle Status Color Mapping (using currentStatus)
+// October 22, 2025: Redesigned to prioritize currentStatus over operational
+// Color represents workflow position, pattern overlay indicates maintenance
 export const getVehicleStatusColors = (
   currentStatus: Vehicle["status"]["currentStatus"],
   operational: Vehicle["status"]["operational"]
 ) => {
-  // If not operational, override with operational status colors
-  if (operational === "maintenance") {
-    return {
-      backgroundColor: "#EF4444", // red-500
-      borderColor: "#DC2626", // red-600
-      textColor: "#ffffff",
-      badgeColor: "bg-red-100 text-red-800",
-    };
-  }
-  if (operational === "out_of_service") {
-    return {
-      backgroundColor: "#6B7280", // gray-500
-      borderColor: "#4B5563", // gray-600
-      textColor: "#ffffff",
-      badgeColor: "bg-gray-100 text-gray-800",
-    };
-  }
+  // Base colors from currentStatus (PRIMARY indicator - workflow position)
+  let colors = {
+    backgroundColor: "#6B7280",
+    borderColor: "#4B5563",
+    textColor: "#ffffff",
+    badgeColor: "bg-gray-100 text-gray-800",
+  };
 
-  // Use currentStatus for operational vehicles
   switch (currentStatus) {
     case "available":
-      return {
+      colors = {
         backgroundColor: "#10B981", // green-500
         borderColor: "#059669", // green-600
         textColor: "#ffffff",
         badgeColor: "bg-green-100 text-green-800",
       };
+      break;
     case "assigned":
-      return {
-        backgroundColor: "#3B82F6", // blue-500
+      colors = {
+        backgroundColor: "#EAB308", // yellow-500 (true yellow, more distinct from orange)
+        borderColor: "#CA8A04", // yellow-600
+        textColor: "#ffffff",
+        badgeColor: "bg-yellow-100 text-yellow-800",
+      };
+      break;
+    case "en_route":
+      colors = {
+        backgroundColor: "#FB923C", // orange-400
+        borderColor: "#F97316", // orange-500
+        textColor: "#ffffff",
+        badgeColor: "bg-orange-100 text-orange-800",
+      };
+      break;
+    case "on_scene":
+      colors = {
+        backgroundColor: "#EF4444", // red-500
+        borderColor: "#DC2626", // red-600
+        textColor: "#ffffff",
+        badgeColor: "bg-red-100 text-red-800",
+      };
+      break;
+    case "returning":
+      colors = {
+        backgroundColor: "#3B82F6", // blue-500 (changed from violet)
         borderColor: "#2563EB", // blue-600
         textColor: "#ffffff",
         badgeColor: "bg-blue-100 text-blue-800",
       };
-    case "en_route":
-      return {
-        backgroundColor: "#8B5CF6", // violet-500
-        borderColor: "#7C3AED", // violet-600
-        textColor: "#ffffff",
-        badgeColor: "bg-purple-100 text-purple-800",
-      };
-    case "on_scene":
-      return {
-        backgroundColor: "#F59E0B", // amber-500
-        borderColor: "#D97706", // amber-600
-        textColor: "#ffffff",
-        badgeColor: "bg-orange-100 text-orange-800",
-      };
-    case "returning":
-      return {
-        backgroundColor: "#8B5CF6", // violet-500
-        borderColor: "#7C3AED", // violet-600
-        textColor: "#ffffff",
-        badgeColor: "bg-purple-100 text-purple-800",
-      };
-    default:
-      return {
-        backgroundColor: "#6B7280",
-        borderColor: "#4B5563",
-        textColor: "#ffffff",
-        badgeColor: "bg-gray-100 text-gray-800",
-      };
+      break;
   }
+
+  // Add maintenance/out_of_service indicator (SECONDARY - should rarely be seen)
+  // Note: Out-of-service vehicles should be filtered out, but included for safety
+  if (operational === "maintenance" || operational === "out_of_service") {
+    return {
+      ...colors,
+      // Flag for pattern overlay (to be implemented in marker generation)
+      maintenanceOverlay: true,
+      operational: operational, // Pass through for marker generation
+    };
+  }
+
+  return colors;
 };
 
 // Incident Severity Color Mapping (color-coded by severity, not status)
@@ -209,37 +211,37 @@ export const getIncidentStatusColors = (status: string) => {
   switch (status) {
     case "pending":
       return {
-        backgroundColor: "#F59E0B", // amber-500
-        borderColor: "#D97706", // amber-600
+        backgroundColor: "#06B6D4", // � cyan-500 - Waiting for assignment (distinct from assigned)
+        borderColor: "#0891B2", // cyan-600
         textColor: "#ffffff",
       };
     case "assigned":
       return {
-        backgroundColor: "#3B82F6", // blue-500
-        borderColor: "#2563EB", // blue-600
+        backgroundColor: "#EAB308", // 🟡 yellow-500 - Resources assigned (crew notified)
+        borderColor: "#CA8A04", // yellow-600
         textColor: "#ffffff",
       };
     case "en_route":
       return {
-        backgroundColor: "#8B5CF6", // violet-500
-        borderColor: "#7C3AED", // violet-600
+        backgroundColor: "#FB923C", // 🟠 orange-400 - Resources traveling to scene
+        borderColor: "#F97316", // orange-500
         textColor: "#ffffff",
       };
     case "on_scene":
       return {
-        backgroundColor: "#F59E0B", // amber-500
-        borderColor: "#D97706", // amber-600
+        backgroundColor: "#EF4444", // 🔴 red-500 - Resources at emergency
+        borderColor: "#DC2626", // red-600
         textColor: "#ffffff",
       };
     case "resolved":
       return {
-        backgroundColor: "#10B981", // green-500
+        backgroundColor: "#10B981", // 🟢 green-500 - Incident resolved
         borderColor: "#059669", // green-600
         textColor: "#ffffff",
       };
     case "cancelled":
       return {
-        backgroundColor: "#6B7280", // gray-500
+        backgroundColor: "#6B7280", // ⚫ gray-500 - Cancelled
         borderColor: "#4B5563", // gray-600
         textColor: "#ffffff",
       };
@@ -297,19 +299,34 @@ export const getVehicleTypeIcon = (
 };
 
 // Generate SVG marker for vehicles
+// October 22, 2025: Added striped pattern overlay for maintenance vehicles
 export const generateVehicleMarkerSVG = (
   vehicleType: Vehicle["registration"]["vehicleType"],
   currentStatus: Vehicle["status"]["currentStatus"],
   operational: Vehicle["status"]["operational"],
   isSelected: boolean = false
 ): string => {
-  const colors = getVehicleStatusColors(currentStatus, operational);
+  const colors: any = getVehicleStatusColors(currentStatus, operational);
   const vehiclePath = getVehicleTypePath(vehicleType);
   const size = isSelected ? 40 : 32;
   const strokeWidth = isSelected ? 3 : 2;
+  const hasMaintenance = colors.maintenanceOverlay === true;
+
+  // Generate diagonal stripe pattern for maintenance overlay
+  // October 22, 2025: Made stripes more visible (darker, thicker)
+  const maintenancePattern = hasMaintenance
+    ? `
+      <defs>
+        <pattern id="diagonalStripes" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+          <rect width="3" height="6" fill="rgba(0, 0, 0, 0.5)"/>
+        </pattern>
+      </defs>
+    `
+    : "";
 
   const svg = `
     <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${maintenancePattern}
       <circle 
         cx="${size / 2}" 
         cy="${size / 2}" 
@@ -318,6 +335,16 @@ export const generateVehicleMarkerSVG = (
         stroke="${colors.borderColor}" 
         stroke-width="${strokeWidth}"
       />
+      ${
+        hasMaintenance
+          ? `<circle 
+        cx="${size / 2}" 
+        cy="${size / 2}" 
+        r="${size / 2 - strokeWidth}" 
+        fill="url(#diagonalStripes)" 
+      />`
+          : ""
+      }
       <g transform="translate(${size / 2 - 12}, ${
     size / 2 - 12
   }) scale(1)" fill="${colors.textColor}">

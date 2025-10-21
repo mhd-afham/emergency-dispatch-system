@@ -52,6 +52,26 @@
 
 24. The resource bar is set to show the assigned and available number of units, but this is very incosistence. So should we remove this entirely also because the map component is set to show the available and assigned no of units. Since we added readiness this should be also used.
 
-25. **Map Issue - Vehicle Location Not Resetting**: When crew clicks "Returned to Station" button, the vehicle marker on the web map stays at the crew's actual GPS location instead of snapping back to the station coordinates. Expected behavior: Vehicle marker should move to station location when status = `available`.
+25. ✅ **FIXED** - Map Issue - Vehicle Location Not Resetting (October 22, 2025)
 
-26. **Map Issue - Vehicle Marker Color Incorrect**: Vehicle markers show RED color even when status = `available` (should show GREEN). The color logic in `getVehicleStatusColors()` function seems to be prioritizing `operational` status (maintenance) over `currentStatus` (available), causing incorrect marker colors. Expected colors: 🟢 Green=available, 🟡 Yellow=assigned, 🟠 Orange=en_route, 🔴 Red=on_scene, 🔵 Blue=returning.
+- **Issue**: When crew clicked "Returned to Station" button, vehicle marker stayed at GPS location instead of snapping back to station coordinates.
+- **Fix**: Added location reset logic in `assignmentController.js`
+  - Line 530-543: When status = "returned", populate home station and reset `currentLocation` to station coordinates
+  - Line 547-565: When status = "cancelled" after being in field, also reset location to station
+  - Updates `lastLocationUpdate` timestamp for WebSocket sync
+- **Result**: Vehicle markers now automatically snap to station position when crew returns or assignment is cancelled after deployment
+
+26. ✅ **FIXED** - Map Issue - Vehicle Marker Color Incorrect (October 22, 2025)
+
+- **Issue**: Vehicle markers showed RED color even when status = `available` (should show GREEN). Color logic prioritized `operational` status (maintenance) over `currentStatus` (available).
+- **Fix**: Redesigned color system in `vehicleUtils.ts`
+  - Lines 100-170: `getVehicleStatusColors()` now checks `currentStatus` FIRST
+  - `currentStatus` determines marker color (Green/Yellow/Orange/Red/Blue)
+  - `operational === "maintenance"` adds diagonal stripe pattern overlay (6px width, 50% opacity)
+- **Additional Fixes**:
+  - Backend validation added (assignmentController.js lines 138-167) - prevents assigning maintenance/not-ready vehicles
+  - Resource bar updated (ResourceSelectionBar.tsx) - shows maintenance vehicles grayed out with orange "🛠️ Maintenance" badge, not selectable
+  - Out-of-service vehicles filtered completely from all views
+- **Result**: Clear visual system - color represents workflow position, stripes represent maintenance status
+
+27. Resource algorithm for required and suggestions?

@@ -108,7 +108,7 @@ class CrewController {
       })
         .populate(
           "incident.incidentId",
-          "incidentId classification location caller status priority"
+          "incidentId incidentType incidentCategory severity description location callerInfo.name status"
         )
         .populate(
           "resource.vehicleId",
@@ -134,6 +134,71 @@ class CrewController {
       res.status(500).json({
         success: false,
         message: "Error fetching crew assignments",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * @desc    Get crew member's assignment history (completed/returned)
+   * @route   GET /api/crews/:crewId/assignments/history
+   * @access  Private (Field Crew)
+   * @returns List of completed/returned assignments for the crew member
+   */
+  static async getCrewAssignmentHistory(req, res) {
+    try {
+      const { crewId } = req.params;
+      const { limit = 10 } = req.query;
+
+      console.log(
+        `📱 [CrewController] Fetching assignment history for crew: ${crewId}`
+      );
+
+      // Verify crew exists
+      const crew = await Crew.findById(crewId);
+      if (!crew) {
+        return res.status(404).json({
+          success: false,
+          message: "Crew member not found",
+        });
+      }
+
+      // Find completed/returned assignments where crew was primary crew leader
+      const history = await Assignment.find({
+        "resource.primaryCrewId": crewId,
+        $or: [
+          { "response.status": "returned" },
+          { "response.returnedAt": { $exists: true } },
+        ],
+      })
+        .populate(
+          "incident.incidentId",
+          "incidentId incidentType incidentCategory severity description location status"
+        )
+        .populate(
+          "resource.vehicleId",
+          "registration.plateNumber registration.vehicleType"
+        )
+        .sort({ "response.returnedAt": -1, "response.completedAt": -1 })
+        .limit(parseInt(limit));
+
+      console.log(
+        `✅ [CrewController] Found ${history.length} completed assignments`
+      );
+
+      res.status(200).json({
+        success: true,
+        count: history.length,
+        data: history,
+      });
+    } catch (error) {
+      console.error(
+        `❌ [CrewController] Error fetching crew assignment history:`,
+        error.message
+      );
+      res.status(500).json({
+        success: false,
+        message: "Error fetching crew assignment history",
         error: error.message,
       });
     }

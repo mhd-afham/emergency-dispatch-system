@@ -117,63 +117,73 @@ readiness: {
 
 ## 3. Color Coding System
 
-### 3.1 Current Color Logic (in `vehicleUtils.ts`)
+### 3.1 Current Color Logic (in `vehicleUtils.ts`) ✅ FIXED
 
-**Priority Order (CRITICAL ISSUE):**
+**Priority Order (REDESIGNED - October 22, 2025):**
 
-1. ✅ Check `operational` **FIRST** (lines 102-115)
-   - `maintenance` → 🔴 RED
-   - `out_of_service` → ⚫ GRAY
-2. ✅ Then check `currentStatus` (lines 118-166)
-   - `available` → 🟢 GREEN
-   - `assigned` → 🔵 BLUE
-   - `en_route` → 🟣 VIOLET
-   - `on_scene` → 🟠 AMBER
-   - `returning` → 🟣 VIOLET
+1. ✅ Check `currentStatus` **FIRST** (primary color indicator)
+   - `available` → � GREEN (#10B981)
+   - `assigned` → 🟡 YELLOW (#F59E0B)
+   - `en_route` → 🟠 ORANGE (#FB923C)
+   - `on_scene` → � RED (#EF4444)
+   - `returning` → 🔵 BLUE (#3B82F6)
+2. ✅ Then check `operational` (adds pattern overlay if needed)
+   - `maintenance` → Diagonal stripe pattern overlay (6px width, 50% opacity)
+   - `out_of_service` → Filtered out completely (not shown)
 
-**Current Logic:**
+**Fixed Logic:**
 
 ```typescript
-if (operational === "maintenance") {
-  return { backgroundColor: "#EF4444" }; // RED - overrides everything
+// Priority: currentStatus determines COLOR, operational adds PATTERN
+const colors = getColorForCurrentStatus(currentStatus);
+const showMaintenancePattern = operational === "maintenance";
+
+// In SVG generation
+if (showMaintenancePattern) {
+  // Add diagonal stripe pattern over the colored circle
+  svg += `<pattern id="stripes">...</pattern>`;
 }
-// ... currentStatus checks never reached if maintenance
 ```
 
-### 3.2 Problems with Current System
+### 3.2 Problems with Original System ✅ ALL FIXED
 
-❌ **Problem 1: Confusing Color Overlap**
+✅ **FIXED - Problem 1: Confusing Color Overlap**
 
-- Vehicle under maintenance (`operational: "maintenance"`) → Shows RED
-- Vehicle on scene at emergency (`currentStatus: "on_scene"`) → Shows RED
-- **Dispatcher cannot distinguish between:**
-  - "Vehicle is broken and shouldn't be assigned" (maintenance)
-  - "Vehicle is actively handling an emergency" (on scene)
+- **Original Issue:** Both maintenance and on_scene showed RED
+- **Solution Implemented:** Separated concerns - color shows workflow position, pattern shows maintenance
+- **Result:** Maintenance vehicle at station shows GREEN with stripes, on_scene shows RED (with stripes if also in maintenance)
 
-❌ **Problem 2: Maintenance Vehicles Still Assignable**
+✅ **FIXED - Problem 2: Maintenance Vehicles Still Assignable**
 
-- Color shows RED to warn dispatcher
-- **BUT** backend allows assignment (no `operational` check in `createAssignment()`)
-- Maintenance vehicles can be assigned and sent to emergencies!
+- **Original Issue:** Backend had no `operational` check in assignment creation
+- **Solution Implemented:** Added validation in `assignmentController.js` (lines 138-167)
+  - Checks `operational === "active"` (line 142)
+  - Checks `readiness.isReady === true` (line 153)
+  - Returns 400 error with detailed message
+- **Result:** Maintenance vehicles cannot be assigned via API
 
-❌ **Problem 3: Returning and En Route Same Color**
+✅ **FIXED - Problem 3: Returning and En Route Same Color**
 
-- Both show VIOLET (purple)
-- Hard to distinguish "heading to incident" from "heading back to station"
+- **Original Issue:** Both showed VIOLET (purple)
+- **Solution Implemented:** Unique colors for each status
+  - `en_route` → 🟠 ORANGE (#FB923C)
+  - `returning` → 🔵 BLUE (#3B82F6)
+- **Result:** Clear visual distinction between "going to incident" and "coming back"
 
 ---
 
 ## 4. Vehicle Filtering Logic
 
-### 4.1 Resource Selection Bar Filtering
+### 4.1 Resource Selection Bar Filtering ✅ FIXED
 
-**Current Filter (ResourceSelectionBar.tsx line 238-243):**
+**Fixed Filter (ResourceSelectionBar.tsx line 240):**
 
 ```typescript
 const availableVehicles = result.data.filter(
   (v: Vehicle) =>
     (v.status.currentStatus === "available" ||
       v.status.currentStatus === "returning") &&
+    v.status.operational !== "out_of_service" && // ✅ NEW - Filter out decommissioned
     !assignedVehicleIds.has(v._id)
 );
 ```
@@ -182,60 +192,92 @@ const availableVehicles = result.data.filter(
 
 - ✅ Shows vehicles with `currentStatus = available OR returning`
 - ✅ Excludes vehicles with active assignments
-- ❌ **IGNORES `operational` status** (maintenance vehicles shown!)
-- ❌ **IGNORES `readiness.isReady`** (not-ready vehicles shown!)
+- ✅ Shows maintenance vehicles (grayed out with orange badge, not selectable)
+- ✅ Filters out `out_of_service` vehicles completely
+- ✅ Handles `readiness.isReady` in card rendering logic (lines 874-925)
 
-### 4.2 Backend Assignment Creation Check
+### 4.2 Backend Assignment Creation Check ✅ FIXED
 
-**Current Check (assignmentController.js line 131-136):**
+**Fixed Validation (assignmentController.js lines 131-167):**
 
 ```javascript
+// Check 1: Current status busy check
 const busyStatuses = ["assigned", "en_route", "on_scene"];
 if (busyStatuses.includes(vehicle.status.currentStatus)) {
   return res.status(400).json({ message: "Vehicle is not available" });
+}
+
+// Check 2: Operational status check (NEW - line 142)
+if (vehicle.status.operational !== "active") {
+  return res.status(400).json({
+    success: false,
+    message: `Vehicle is not operational. Status: ${vehicle.status.operational}`,
+  });
+}
+
+// Check 3: Readiness check (NEW - line 153)
+if (vehicle.readiness?.isReady === false) {
+  return res.status(400).json({
+    success: false,
+    message: "Crew has marked vehicle as not ready",
+    notReadyReason: vehicle.readiness.notReadyReason,
+  });
 }
 ```
 
 **What it checks:**
 
 - ✅ Prevents assigning if `currentStatus` is busy
-- ❌ **IGNORES `operational` status** (allows assigning maintenance vehicles!)
-- ❌ **IGNORES `readiness.isReady`** (allows assigning not-ready vehicles!)
+- ✅ Prevents assigning if `operational` is not "active"
+- ✅ Prevents assigning if `readiness.isReady` is false
+- ✅ Returns detailed error messages for each rejection reason
 
 ---
 
 ## 5. Critical Issues Identified
 
-### Issue #1: Maintenance Vehicles Assignable (NEW - Critical)
+### ✅ Issue #1: Maintenance Vehicles Assignable - FIXED (October 22, 2025)
 
-**Problem:** Vehicles with `operational: "maintenance"` can be assigned to emergencies
-**Root Cause:** Backend `createAssignment()` doesn't check `operational` field
+**Problem:** Vehicles with `operational: "maintenance"` could be assigned to emergencies
+**Root Cause:** Backend `createAssignment()` didn't check `operational` field
 **Impact:** Broken vehicles sent to emergencies, safety risk
-**Solution Needed:** Add `operational` check to backend validation
+**Solution Implemented:** Added `operational` check to backend validation (assignmentController.js line 142)
 
-### Issue #2: Color System Confusing (User Reported)
+### ✅ Issue #2: Color System Confusing - FIXED (October 22, 2025)
 
 **Problem:** RED used for both maintenance and on_scene status
 **Impact:** Dispatcher cannot distinguish vehicle states
-**Solution Needed:** Redesign color system with clear visual hierarchy
+**Solution Implemented:** Redesigned color system - `currentStatus` determines color, `operational` adds stripe pattern overlay
+**Result:** Clear visual hierarchy with 5 distinct colors + maintenance pattern
 
-### Issue #3: Not-Ready Vehicles Shown (October 20 Feature Incomplete)
+### ✅ Issue #3: Not-Ready Vehicles Assignable - FIXED (October 22, 2025)
 
-**Problem:** Vehicles with `isReady: false` appear in resource selection
+**Problem:** Vehicles with `isReady: false` could be assigned
 **Impact:** Dispatcher can assign vehicles crew marked as not ready
-**Solution Needed:** Filter by `readiness.isReady` in frontend and backend
+**Solution Implemented:**
 
-### Issue #4: Vehicle Location Not Reset (User Reported - Issue #25)
+- Backend validation check (assignmentController.js line 153)
+- Frontend shows not-ready vehicles grayed out with badge (ResourceSelectionBar.tsx lines 874-925)
+
+### ✅ Issue #4: Vehicle Location Not Reset - FIXED (October 22, 2025)
 
 **Problem:** When crew clicks "Returned to Station", vehicle marker stays at GPS location
 **Expected:** Vehicle marker should snap to station coordinates when `currentStatus: "available"`
-**Solution Needed:** Backend should reset `currentLocation` to station on "returned" status
+**Solution Implemented:** Added location reset logic in assignmentController.js
 
-### Issue #5: Returning and En Route Same Color
+- Lines 530-543: When status = "returned", populate home station and copy coordinates
+- Lines 547-565: When status = "cancelled" after field deployment, also reset location
+- Updates `status.currentLocation` and `lastLocationUpdate` for WebSocket sync
+  **Result:** Vehicle markers automatically move to station position on return
 
-**Problem:** Both show violet/purple
+### ✅ Issue #5: Returning and En Route Same Color - FIXED (October 22, 2025)
+
+**Problem:** Both showed violet/purple
 **Impact:** Cannot distinguish "going to" vs "coming back"
-**Solution Needed:** Assign unique color to `returning` status
+**Solution Implemented:** Unique colors assigned
+
+- `en_route` → 🟠 ORANGE (#FB923C)
+- `returning` → 🔵 BLUE (#3B82F6)
 
 ---
 
@@ -312,25 +354,24 @@ if (busyStatuses.includes(vehicle.status.currentStatus)) {
 
 ## 7. Proposed Solutions
 
-### 7.1 Immediate Fixes (Critical)
+### 7.1 Immediate Fixes (Critical) ✅ ALL COMPLETED
 
-#### Fix #1: Backend Assignment Validation
+#### ✅ Fix #1: Backend Assignment Validation - IMPLEMENTED
 
 **File:** `apps/backend/controllers/assignmentController.js`
-**Location:** Line 131 (after currentStatus check)
-**Add:**
+**Location:** Lines 138-167
+**Implementation:**
 
 ```javascript
-// Check if vehicle is operationally ready
+// Check if vehicle is operationally ready (line 142)
 if (vehicle.status.operational !== "active") {
   return res.status(400).json({
     success: false,
     message: `Vehicle is not operational. Status: ${vehicle.status.operational}`,
-    operational: vehicle.status.operational,
   });
 }
 
-// Check if crew has marked vehicle as ready
+// Check if crew has marked vehicle as ready (line 153)
 if (vehicle.readiness?.isReady === false) {
   return res.status(400).json({
     success: false,
@@ -340,45 +381,84 @@ if (vehicle.readiness?.isReady === false) {
 }
 ```
 
-#### Fix #2: Frontend Resource Filtering
+**Result:** Triple validation prevents invalid assignments (currentStatus + operational + readiness)
+
+#### ✅ Fix #2: Frontend Resource Filtering - IMPLEMENTED
 
 **File:** `apps/web/src/components/dispatch/ResourceSelectionBar.tsx`
-**Location:** Line 238 (filter logic)
-**Update:**
+**Location:** Line 240 + lines 874-925
+**Implementation:**
 
 ```typescript
+// Filter: Show maintenance vehicles, hide only out_of_service
 const availableVehicles = result.data.filter(
   (v: Vehicle) =>
-    // Must be available or returning
     (v.status.currentStatus === "available" ||
       v.status.currentStatus === "returning") &&
-    // Must be operationally active
-    v.status.operational === "active" &&
-    // Must be marked ready by crew
-    v.readiness?.isReady === true &&
-    // Must not have active assignment
+    v.status.operational !== "out_of_service" &&
     !assignedVehicleIds.has(v._id)
 );
+
+// Card rendering: Disable maintenance and not-ready vehicles
+const isMaintenance = vehicle.status.operational === "maintenance";
+const isSelectable = isReady && !isMaintenance;
 ```
 
-#### Fix #3: Color System Redesign
+**Result:** Maintenance vehicles visible but grayed out with orange "🛠️ Maintenance" badge, not clickable
+
+#### ✅ Fix #3: Color System Redesign - IMPLEMENTED
 
 **File:** `apps/web/src/utils/vehicleUtils.ts`
-**Location:** Line 100-166 (`getVehicleStatusColors` function)
-**Strategy:** Check `currentStatus` FIRST, add maintenance indicator separately
+**Location:** Lines 100-170 (`getVehicleStatusColors`) + Lines 315-365 (`generateVehicleMarkerSVG`)
+**Implementation:**
 
-### 7.2 Medium Priority Fixes
+- `currentStatus` checked FIRST for color assignment
+- `operational === "maintenance"` triggers stripe pattern overlay
+- Pattern specs: 6px width, rgba(0,0,0,0.5) for 50% opacity
+- 5 distinct colors: Green/Yellow/Orange/Red/Blue for workflow stages
 
-#### Fix #4: Vehicle Location Reset
+**Result:** Clear visual distinction - color = workflow position, stripes = maintenance status
+
+### 7.2 Medium Priority Fixes ✅ COMPLETED
+
+#### ✅ Fix #4: Vehicle Location Reset - IMPLEMENTED (October 22, 2025)
 
 **File:** `apps/backend/controllers/assignmentController.js`
-**Location:** Line 497 (when status becomes "returned")
-**Add:** Fetch station coordinates and reset vehicle location
+**Locations:** Lines 530-543 (returned status), Lines 547-565 (cancelled status)
+**Implementation:**
 
-#### Fix #5: Enhanced InfoWindow
+```javascript
+case "returned":
+  vehicle.status.currentStatus = "available";
+  // Reset location to home station
+  await vehicle.populate("station.homeStationId");
+  if (vehicle.station?.homeStationId?.coordinates?.coordinates) {
+    const stationCoords = vehicle.station.homeStationId.coordinates.coordinates;
+    vehicle.status.currentLocation = {
+      type: "Point",
+      coordinates: stationCoords, // [longitude, latitude]
+    };
+    vehicle.status.lastLocationUpdate = new Date();
+  }
+  break;
+
+case "cancelled":
+  // Reset location if vehicle was deployed (en_route/on_scene)
+  const wasInField = ["en_route", "on_scene"].includes(vehicle.status.currentStatus);
+  if (wasInField && vehicle.status.currentStatus !== "returning") {
+    await vehicle.populate("station.homeStationId");
+    // ... reset coordinates to station
+  }
+  break;
+```
+
+**Result:** Vehicle markers snap to station coordinates when returning or cancelled after deployment
+
+#### Fix #5: Enhanced InfoWindow - FUTURE
 
 **File:** `apps/web/src/components/dispatch/DispatchWorkspace.tsx`
-**Add:** Display operational status, readiness status, crew leader name
+**Plan:** Display operational status, readiness status, crew leader name
+**Status:** Deferred pending user priority
 
 ### 7.3 Long-term Enhancements
 
@@ -421,14 +501,125 @@ Before implementing fixes, we need to decide:
 
 ---
 
-## 9. Next Steps
+## 9. Implementation Summary
 
-1. **User Decision:** Review this document and decide on design options
-2. **Implementation Plan:** Create detailed fix checklist with priorities
-3. **Testing Strategy:** Define test cases for each status combination
-4. **Documentation:** Update user manual with new color system
-5. **Training:** Brief dispatchers on new visual indicators
+✅ **Completed (October 22, 2025):**
+
+1. Backend assignment validation (operational + readiness checks)
+2. Frontend resource filtering (show maintenance grayed out)
+3. Color system redesign (currentStatus priority + stripe pattern overlay)
+4. Enhanced stripe pattern visibility (6px width, 50% opacity)
+5. Resource bar maintenance display (orange badge, not selectable)
+6. Out-of-service vehicle filtering (completely hidden)
+7. Vehicle location reset to station (on "returned" and "cancelled" after deployment)
+8. **Color consistency across web app (October 22, 2025)**
+   - Updated ResourceSelectionBar status card colors
+   - Updated IncidentQueue status badge colors
+   - Updated DispatchWorkspace map legend colors
+   - Updated vehicleUtils incident status colors
+   - All components now use unified color palette
+
+📋 **Pending:**
+
+- Mobile app color system updates (deferred to next phase)
+- Issue #18: Assignment cancellation mobile notifications (CRITICAL)
+- Issue #7: Cancel during pending modal (CRITICAL)
+- 20+ other issues from dispatch-system-issues.md
 
 ---
 
-**Ready for discussion!** 🎯
+## 10. Technical Implementation Details
+
+### Backend Changes
+
+**File:** `apps/backend/controllers/assignmentController.js`
+
+- Lines 138-167: Triple validation added
+  - Line 142: `operational !== "active"` check
+  - Line 153: `readiness.isReady === false` check
+  - Returns 400 with detailed error messages
+- Lines 530-543: Vehicle location reset on "returned" status
+  - Populates home station reference
+  - Copies station coordinates to vehicle.status.currentLocation
+  - Updates lastLocationUpdate timestamp
+- Lines 547-565: Vehicle location reset on "cancelled" status (if was in field)
+  - Checks if vehicle was en_route or on_scene before cancellation
+  - Resets location to station coordinates for proper map display
+
+**File:** `apps/backend/controllers/vehicleController.js`
+
+- Line 303: Added `filter["status.operational"] = { $ne: "out_of_service" }`
+- Excludes decommissioned vehicles from all listings
+
+### Frontend Changes
+
+**File:** `apps/web/src/components/dispatch/ResourceSelectionBar.tsx`
+
+- Line 240: Filter shows maintenance (excludes only out_of_service)
+- Lines 874-925: Card rendering logic
+  - `isMaintenance` variable for operational check
+  - `isSelectable` combines isReady && !isMaintenance
+  - Orange "🛠️ Maintenance" badge with priority over "Not Ready"
+  - Grayed styling, 50% opacity, disabled checkbox
+
+**File:** `apps/web/src/utils/vehicleUtils.ts`
+
+- Lines 100-170: `getVehicleStatusColors()` redesigned
+  - Checks `currentStatus` FIRST for color
+  - Returns `maintenanceOverlay: true` flag for pattern
+- Lines 315-365: `generateVehicleMarkerSVG()` with stripe pattern
+  - Pattern width/height: 6px
+  - Fill color: rgba(0,0,0,0.5)
+  - Diagonal stripes at 45° angle
+
+### Color Palette (Final)
+
+**Vehicle Status Colors (currentStatus):**
+
+| Status    | Color     | Hex Code | Tailwind   | Usage                   |
+| --------- | --------- | -------- | ---------- | ----------------------- |
+| available | 🟢 Green  | #10B981  | green-500  | At station, ready       |
+| assigned  | 🟡 Yellow | #EAB308  | yellow-500 | Crew notified           |
+| en_route  | 🟠 Orange | #FB923C  | orange-400 | Traveling to incident   |
+| on_scene  | 🔴 Red    | #EF4444  | red-500    | At emergency            |
+| returning | 🔵 Blue   | #3B82F6  | blue-500   | Heading back to station |
+
+**Vehicle Operational Status:**
+
+| Status         | Indicator               | Description                  |
+| -------------- | ----------------------- | ---------------------------- |
+| active         | (no indicator)          | Normal operation             |
+| maintenance    | Diagonal stripe pattern | Under repair, not assignable |
+| out_of_service | Hidden (filtered out)   | Decommissioned, not shown    |
+
+**Incident Severity Colors (separate system):**
+
+| Severity | Color     | Hex Code | Usage             |
+| -------- | --------- | -------- | ----------------- |
+| critical | 🔴 Red    | #DC2626  | Life-threatening  |
+| high     | 🟠 Orange | #EA580C  | Serious, urgent   |
+| medium   | 🟡 Yellow | #D97706  | Moderate priority |
+| low      | 🟢 Green  | #059669  | Non-urgent        |
+
+**Incident Status Colors (aligned with vehicle status):**
+
+| Status    | Color     | Hex Code | Meaning                |
+| --------- | --------- | -------- | ---------------------- |
+| pending   | 🔵 Cyan   | #06B6D4  | Waiting for assignment |
+| assigned  | 🟡 Yellow | #EAB308  | Resources assigned     |
+| en_route  | 🟠 Orange | #FB923C  | Resources traveling    |
+| on_scene  | 🔴 Red    | #EF4444  | Resources at location  |
+| resolved  | 🟢 Green  | #10B981  | Incident completed     |
+| cancelled | ⚫ Gray   | #6B7280  | Incident cancelled     |
+
+**Implementation Locations:**
+
+- Map markers: `vehicleUtils.ts` - `getVehicleStatusColors()` + `generateVehicleMarkerSVG()`
+- Resource cards: `ResourceSelectionBar.tsx` - `getStatusColor()` function
+- Incident cards: `IncidentQueue.tsx` - `statusStyles` object
+- Map legend: `DispatchWorkspace.tsx` - Status legend array
+- Utility functions: `vehicleUtils.ts` - `getIncidentStatusColors()`, `getIncidentSeverityColors()`
+
+---
+
+**Status: Analysis complete, critical fixes implemented, ready for Issue #25!** ✅

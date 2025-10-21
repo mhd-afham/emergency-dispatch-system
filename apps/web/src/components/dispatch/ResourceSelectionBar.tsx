@@ -235,11 +235,16 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
           );
 
           // Filter to available/returning vehicles that don't have pending/active assignments
-          // Show all vehicles (ready + not ready) - October 20, 2025
+          // Show all vehicles (ready + not ready + maintenance) - October 20, 2025
+          // Filter out ONLY out_of_service vehicles - October 22, 2025
           const availableVehicles = result.data.filter(
             (v: Vehicle) =>
+              // Exclude ONLY out_of_service (show active AND maintenance)
+              v.status.operational !== "out_of_service" &&
+              // Must be available or returning
               (v.status.currentStatus === "available" ||
                 v.status.currentStatus === "returning") &&
+              // Must not have active assignment
               !assignedVehicleIds.has(v._id)
           );
 
@@ -646,19 +651,19 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                 const getStatusColor = (status: string) => {
                   switch (status) {
                     case "assigned":
-                      return "bg-yellow-100 border-yellow-400";
+                      return "bg-yellow-100 border-yellow-400"; // 🟡 Yellow - Crew notified
                     case "accepted":
-                      return "bg-blue-100 border-blue-400";
+                      return "bg-yellow-100 border-yellow-400"; // 🟡 Yellow - Same as assigned (accepted is intermediate state)
                     case "en_route":
-                      return "bg-purple-100 border-purple-400";
+                      return "bg-orange-100 border-orange-400"; // 🟠 Orange - Traveling to incident
                     case "on_scene":
-                      return "bg-orange-100 border-orange-400";
+                      return "bg-red-100 border-red-400"; // 🔴 Red - At emergency
                     case "completed":
-                      return "bg-green-100 border-green-400";
+                      return "bg-blue-100 border-blue-400"; // 🔵 Blue - Heading back (returning)
                     case "declined":
-                      return "bg-red-100 border-red-400";
+                      return "bg-gray-100 border-gray-400"; // ⚫ Gray - Declined/rejected
                     case "cancelled":
-                      return "bg-red-100 border-red-400";
+                      return "bg-gray-100 border-gray-400"; // ⚫ Gray - Cancelled
                     default:
                       return "bg-gray-100 border-gray-400";
                   }
@@ -870,6 +875,9 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                 const isSelected = selectedVehicles.has(vehicle._id);
                 const crewCount = vehicle.assignment?.crew?.length || 0;
                 const isReady = vehicle.isReady !== false; // Default true if undefined for backward compatibility
+                const isMaintenance =
+                  vehicle.status.operational === "maintenance"; // October 22, 2025
+                const isSelectable = isReady && !isMaintenance; // Can only select if ready AND not maintenance
                 const isReturning =
                   vehicle.status.currentStatus === "returning";
 
@@ -877,13 +885,13 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                   <div
                     key={vehicle._id}
                     onClick={() => {
-                      // Only allow selection if vehicle is ready
-                      if (isReady) {
+                      // Only allow selection if vehicle is ready AND not under maintenance
+                      if (isSelectable) {
                         toggleVehicle(vehicle._id);
                       }
                     }}
                     className={`flex-shrink-0 w-64 p-2 rounded-md border-2 transition-all ${
-                      !isReady
+                      !isSelectable
                         ? "opacity-50 border-gray-300 bg-gray-100 cursor-not-allowed"
                         : isSelected
                         ? "border-blue-600 bg-blue-50 cursor-pointer"
@@ -899,7 +907,7 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          disabled={!isReady}
+                          disabled={!isSelectable}
                           onChange={() => {}}
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
                         />
@@ -919,22 +927,27 @@ const ResourceSelectionBar: React.FC<ResourceSelectionBarProps> = ({
                         </div>
                       </div>
                       <div className="flex flex-col gap-0.5">
-                        {!isReady && (
+                        {isMaintenance && (
+                          <span className="px-1.5 py-0.5 bg-orange-600 text-white text-[10px] font-bold rounded uppercase">
+                            Maintenance
+                          </span>
+                        )}
+                        {!isMaintenance && !isReady && (
                           <span className="px-1.5 py-0.5 bg-gray-500 text-white text-[10px] font-bold rounded uppercase">
                             Not Ready
                           </span>
                         )}
-                        {isReady && isReturning && (
+                        {isSelectable && isReturning && (
                           <span className="px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded uppercase">
                             Returning
                           </span>
                         )}
-                        {isReady && vehicle.isRequired && (
+                        {isSelectable && vehicle.isRequired && (
                           <span className="px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded uppercase">
                             Required
                           </span>
                         )}
-                        {isReady &&
+                        {isSelectable &&
                           vehicle.isRecommended &&
                           !vehicle.isRequired && (
                             <span className="px-1.5 py-0.5 bg-green-600 text-white text-[10px] font-bold rounded uppercase">

@@ -157,6 +157,13 @@ class ApiClient {
     return this.get(`/crews/${crewId}/assignments`);
   }
 
+  public async getCrewAssignmentHistory(
+    crewId: string,
+    limit: number = 10
+  ): Promise<AxiosResponse> {
+    return this.get(`/crews/${crewId}/assignments/history?limit=${limit}`);
+  }
+
   public async getCrewVehicle(crewId: string): Promise<AxiosResponse> {
     return this.get(`/crews/${crewId}/vehicle`);
   }

@@ -37,10 +37,9 @@ interface Assignment {
     incidentId: {
       _id: string;
       incidentId: string;
-      classification?: {
-        incidentType: string;
-        category: string;
-      };
+      incidentType?: string;
+      incidentCategory?: string;
+      severity?: string;
       location?: {
         address: string;
         city: string;
@@ -51,7 +50,6 @@ interface Assignment {
         };
       };
       description?: string;
-      priority?: string;
       status?: string;
     };
   };
@@ -101,6 +99,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     null
   );
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [assignmentHistory, setAssignmentHistory] = useState<Assignment[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
@@ -518,11 +517,31 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
+  // Fetch assignment history
+  const fetchAssignmentHistory = async () => {
+    try {
+      const response = await apiClient.getCrewAssignmentHistory(crew._id, 5);
+      setAssignmentHistory(response.data.data || []);
+      console.log(
+        `✅ [DashboardScreen] Loaded ${
+          response.data.data?.length || 0
+        } history items`
+      );
+    } catch (error: any) {
+      console.error("Error fetching assignment history:", error);
+      // Don't show error alert for history - it's not critical
+    }
+  };
+
   // Load all dashboard data
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      await Promise.all([fetchCurrentAssignment(), fetchVehicle()]);
+      await Promise.all([
+        fetchCurrentAssignment(),
+        fetchVehicle(),
+        fetchAssignmentHistory(),
+      ]);
     } finally {
       setLoading(false);
     }
@@ -639,8 +658,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       setCurrentAssignment(null);
       setHasCompletedAssignment(false);
 
-      // Refresh to ensure we're in sync
-      await Promise.all([fetchVehicle(), fetchCurrentAssignment()]);
+      // Refresh to ensure we're in sync AND update history to show the completed assignment
+      await Promise.all([
+        fetchVehicle(),
+        fetchCurrentAssignment(),
+        fetchAssignmentHistory(), // Auto-refresh history to show newly completed assignment
+      ]);
 
       Alert.alert("Success", "Vehicle marked as returned to station and ready");
     } catch (error) {
@@ -735,15 +758,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case ASSIGNMENT_STATUS.ASSIGNED:
-        return colors.statusAssigned;
+        return colors.statusAssigned; // Yellow
       case ASSIGNMENT_STATUS.ACCEPTED:
-        return colors.statusAccepted;
+        return colors.statusAccepted; // Green
       case ASSIGNMENT_STATUS.EN_ROUTE:
-        return colors.statusEnRoute;
+        return colors.statusEnRoute; // Orange
       case ASSIGNMENT_STATUS.ON_SCENE:
-        return colors.statusOnScene;
+        return colors.statusOnScene; // Red
       case ASSIGNMENT_STATUS.COMPLETED:
-        return colors.statusCompleted;
+        return colors.success; // Green (completed successfully)
+      case ASSIGNMENT_STATUS.RETURNED:
+        return colors.info; // Blue (returned to station)
       case ASSIGNMENT_STATUS.CANCELLED:
         return colors.error; // Red for cancelled
       default:
@@ -1121,11 +1146,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   {
                     backgroundColor:
                       vehicle.status?.currentStatus === "available"
-                        ? "#d1fae5"
-                        : vehicle.status?.currentStatus === "assigned" ||
-                          vehicle.status?.currentStatus === "en_route"
-                        ? "#fef3c7"
-                        : "#fee2e2",
+                        ? "#d1fae5" // green-100
+                        : vehicle.status?.currentStatus === "assigned"
+                        ? "#fef3c7" // yellow-100 (matches web app)
+                        : vehicle.status?.currentStatus === "en_route"
+                        ? "#fed7aa" // orange-100 (matches web app)
+                        : vehicle.status?.currentStatus === "on_scene"
+                        ? "#fee2e2" // red-100 (matches web app)
+                        : vehicle.status?.currentStatus === "returning"
+                        ? "#dbeafe" // blue-100 (matches web app)
+                        : "#f3f4f6", // gray-100 (default)
                   },
                 ]}
               >
@@ -1135,11 +1165,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     {
                       color:
                         vehicle.status?.currentStatus === "available"
-                          ? "#065f46"
-                          : vehicle.status?.currentStatus === "assigned" ||
-                            vehicle.status?.currentStatus === "en_route"
-                          ? "#92400e"
-                          : "#991b1b",
+                          ? "#065f46" // green-900
+                          : vehicle.status?.currentStatus === "assigned"
+                          ? "#92400e" // yellow-900 (matches web app)
+                          : vehicle.status?.currentStatus === "en_route"
+                          ? "#9a3412" // orange-900 (matches web app)
+                          : vehicle.status?.currentStatus === "on_scene"
+                          ? "#991b1b" // red-900 (matches web app)
+                          : vehicle.status?.currentStatus === "returning"
+                          ? "#1e3a8a" // blue-900 (matches web app)
+                          : "#1f2937", // gray-900 (default)
                     },
                   ]}
                 >
@@ -1170,21 +1205,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     ? "Updating..."
                     : vehicle.readiness?.isReady
                     ? "Ready"
-                    : "Not Ready"}
+                    : `Not Ready${
+                        vehicle.readiness?.notReadyReason
+                          ? `: ${vehicle.readiness.notReadyReason}`
+                          : ""
+                      }`}
                 </Text>
               </TouchableOpacity>
-
-              {!vehicle.readiness?.isReady &&
-                vehicle.readiness?.notReadyReason && (
-                  <Text
-                    style={[
-                      styles.vehicleText,
-                      { color: colors.error, marginTop: spacing.xs },
-                    ]}
-                  >
-                    Reason: {vehicle.readiness.notReadyReason}
-                  </Text>
-                )}
             </View>
           </View>
         )}
@@ -1228,8 +1255,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </Text>
 
               <Text style={styles.incidentType}>
-                {currentAssignment.incident?.incidentId?.classification
-                  ?.incidentType || "Unknown Incident"}
+                {currentAssignment.incident?.incidentId?.incidentType
+                  ? `${currentAssignment.incident.incidentId.incidentType
+                      .charAt(0)
+                      .toUpperCase()}${currentAssignment.incident.incidentId.incidentType.slice(
+                      1
+                    )}`
+                  : "Unknown"}
+                {currentAssignment.incident?.incidentId?.incidentCategory &&
+                  ` - ${currentAssignment.incident.incidentId.incidentCategory.replace(
+                    /_/g,
+                    " "
+                  )}`}
               </Text>
 
               <View style={styles.incidentLocationContainer}>
@@ -1250,21 +1287,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </Text>
               )}
 
-              {/* Priority Badge */}
+              {/* Severity Badge */}
               <View
                 style={[
                   styles.severityBadge,
                   {
                     backgroundColor: getSeverityColor(
-                      currentAssignment.incident?.incidentId?.priority ||
+                      currentAssignment.incident?.incidentId?.severity ||
                         "medium"
                     ),
                   },
                 ]}
               >
                 <Text style={styles.severityText}>
-                  {currentAssignment.incident?.incidentId?.priority?.toUpperCase() ||
-                    "MEDIUM"}
+                  {(
+                    currentAssignment.incident?.incidentId?.severity || "medium"
+                  ).toUpperCase()}
                 </Text>
               </View>
             </View>
@@ -1280,7 +1318,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   style={[
                     styles.statusButton,
                     {
-                      backgroundColor: colors.secondary,
+                      backgroundColor: colors.info,
                       marginTop: spacing.sm,
                     },
                   ]}
@@ -1319,7 +1357,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </View>
         )}
 
-        {/* Assignment History Placeholder */}
+        {/* Assignment History */}
         <View style={styles.card}>
           <View style={styles.cardTitleContainer}>
             <MaterialCommunityIcons
@@ -1329,9 +1367,68 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             />
             <Text style={styles.cardTitle}>Recent Activity</Text>
           </View>
-          <Text style={styles.placeholderText}>
-            Assignment history will appear here
-          </Text>
+          {assignmentHistory.length > 0 ? (
+            assignmentHistory.map((assignment, index) => (
+              <View
+                key={assignment._id}
+                style={[
+                  styles.historyItem,
+                  index !== assignmentHistory.length - 1 &&
+                    styles.historyItemBorder,
+                ]}
+              >
+                <View style={styles.historyHeader}>
+                  <Text style={styles.historyIncidentId}>
+                    {assignment.incident?.incidentId?.incidentId || "N/A"}
+                  </Text>
+                  <View
+                    style={[
+                      styles.historyStatusBadge,
+                      {
+                        backgroundColor: getSeverityColor(
+                          assignment.incident?.incidentId?.severity || "medium"
+                        ),
+                      },
+                    ]}
+                  >
+                    <Text style={styles.historyStatusText}>
+                      {(
+                        assignment.incident?.incidentId?.severity || "medium"
+                      ).toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.historyIncidentType}>
+                  {assignment.incident?.incidentId?.incidentType
+                    ? `${assignment.incident.incidentId.incidentType
+                        .charAt(0)
+                        .toUpperCase()}${assignment.incident.incidentId.incidentType.slice(
+                        1
+                      )}`
+                    : "Unknown"}
+                </Text>
+                <Text style={styles.historyLocation}>
+                  {assignment.incident?.incidentId?.location?.address ||
+                    "Location not available"}
+                </Text>
+                {assignment.response?.returnedAt && (
+                  <Text style={styles.historyDate}>
+                    Completed:{" "}
+                    {new Date(
+                      assignment.response.returnedAt
+                    ).toLocaleDateString()}{" "}
+                    {new Date(
+                      assignment.response.returnedAt
+                    ).toLocaleTimeString()}
+                  </Text>
+                )}
+              </View>
+            ))
+          ) : (
+            <Text style={styles.placeholderText}>
+              No recent activity to display
+            </Text>
+          )}
         </View>
       </ScrollView>
 
@@ -1574,6 +1671,50 @@ const styles = StyleSheet.create({
     color: colors.textOnPrimary,
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
+  },
+  // Assignment history styles
+  historyItem: {
+    paddingVertical: spacing.md,
+  },
+  historyItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.xs,
+  },
+  historyIncidentId: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text,
+  },
+  historyStatusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+  },
+  historyStatusText: {
+    color: colors.textOnPrimary,
+    fontSize: 10,
+    fontWeight: typography.fontWeight.bold,
+  },
+  historyIncidentType: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  historyLocation: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  historyDate: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textMuted,
   },
 });
 

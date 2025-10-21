@@ -94,7 +94,7 @@ export default function AssignmentNotificationModal({
       if (response.data.success) {
         // Reset processing state before calling callback (October 20, 2025)
         setIsProcessing(false);
-        
+
         Alert.alert(
           "Assignment Accepted",
           "You have accepted the assignment. Please proceed to the incident location.",
@@ -193,16 +193,16 @@ export default function AssignmentNotificationModal({
 
   const getTimerColor = () => {
     if (timeLeft > 20) return "#10b981"; // Green
-    if (timeLeft > 10) return "#f59e0b"; // Amber
+    if (timeLeft > 10) return "#EAB308"; // Yellow (matches web app assigned color)
     return "#ef4444"; // Red
   };
 
   const getSeverityColor = (severity: string) => {
     const severityMap: { [key: string]: string } = {
-      critical: "#dc2626",
-      high: "#f59e0b",
-      medium: "#3b82f6",
-      low: "#10b981",
+      critical: "#dc2626", // red-600 (matches web app)
+      high: "#ea580c", // orange-600 (matches web app)
+      medium: "#d97706", // amber-600 (matches web app)
+      low: "#059669", // emerald-600 (matches web app)
     };
     return severityMap[severity?.toLowerCase()] || "#6b7280";
   };

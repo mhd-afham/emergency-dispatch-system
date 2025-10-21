@@ -299,6 +299,10 @@ class VehicleController {
       // Build filter object
       const filter = {};
 
+      // Always exclude out_of_service vehicles from listings (October 22, 2025)
+      // Out-of-service vehicles should not appear in any operational views
+      filter["status.operational"] = { $ne: "out_of_service" };
+
       // Only show active vehicles for non-admin users
       if (req.user.auth?.role !== "Admin") {
         filter.isActive = true;
@@ -314,13 +318,15 @@ class VehicleController {
       // Handle status filtering (merged logic)
       if (status) {
         if (status === "available") {
+          // Override the default $ne filter when explicitly requesting available
           filter["status.operational"] = "active";
           filter["status.currentStatus"] = "available";
         } else if (status === "assigned") {
           filter["status.currentStatus"] = {
             $in: ["assigned", "en_route", "on_scene"],
           };
-        } else {
+        } else if (status === "active" || status === "maintenance") {
+          // Allow filtering by operational status (but still exclude out_of_service)
           filter["status.operational"] = status;
         }
       }
