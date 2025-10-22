@@ -46,7 +46,7 @@ router.get('/', (req, res, next) => {
 
 /**
  * @route   GET /api/incidents/statistics
- * @desc    Get incident statistics for dashboard analytics (US-020: Analytics Dashboard)
+ * @desc    Get incident statistics for dashboard analytics 
  * @access  Dispatchers, Supervisors, Admins, Data Analysts
  * @query   timeframe (today, week, month)
  */
