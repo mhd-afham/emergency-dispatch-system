@@ -18,6 +18,7 @@ import {
   MdWarning,
   MdNavigateBefore,
   MdNavigateNext,
+  MdClose,
   MdLocalHospital,
   MdFireTruck,
   MdLocationOn,
@@ -25,7 +26,6 @@ import {
   MdAccessTime,
   MdCalendarToday,
   MdSpeed,
-  MdClose,
 } from "react-icons/md";
 
 const AssignmentHistory: React.FC = () => {
@@ -49,6 +49,8 @@ const AssignmentHistory: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [searchFields, setSearchFields] = useState<string[]>([]);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     assignment: any | null;
@@ -132,6 +134,15 @@ const AssignmentHistory: React.FC = () => {
     fetchAssignments();
     fetchStatistics();
   }, [fetchAssignments, fetchStatistics]);
+
+  // Sync searchFields with filters
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      searchFields: searchFields.length > 0 ? searchFields : undefined,
+      page: 1, // Reset to first page when search scope changes
+    }));
+  }, [searchFields]);
 
   // Handle filter changes
   const handleFilterChange = (key: string, value: any) => {
@@ -510,17 +521,40 @@ const AssignmentHistory: React.FC = () => {
         <div className="bg-white rounded-xl shadow-md border border-gray-100 mb-6">
           <div className="p-6">
             <div className="flex flex-col md:flex-row gap-4">
-              {/* Search Bar with Icon */}
+              {/* Search Bar with Icon and Clear Button */}
               <div className="flex-1 relative">
                 <MdSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl" />
                 <input
                   type="text"
                   placeholder="Search by Assignment ID, Incident ID, Vehicle, Crew Leader, or Location..."
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   value={filters.search || ""}
                   onChange={(e) => handleFilterChange("search", e.target.value)}
                 />
+                {/* Clear Search Button */}
+                {filters.search && (
+                  <button
+                    onClick={() => handleFilterChange("search", "")}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Clear search"
+                  >
+                    <MdClose className="text-xl" />
+                  </button>
+                )}
               </div>
+
+              {/* Advanced Search Toggle Button */}
+              <button
+                onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+                  showAdvancedSearch
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <MdSearch className="text-xl" />
+                <span>{showAdvancedSearch ? "Hide" : "Advanced"} Search</span>
+              </button>
 
               {/* Filter Toggle Button */}
               <button
@@ -535,6 +569,116 @@ const AssignmentHistory: React.FC = () => {
                 <span>{showFilters ? "Hide" : "Show"} Filters</span>
               </button>
             </div>
+
+            {/* Advanced Search Scope Filters */}
+            {showAdvancedSearch && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <MdSearch className="text-lg text-blue-600" />
+                      Search Scope
+                    </label>
+                    {searchFields.length > 0 && (
+                      <button
+                        onClick={() => setSearchFields([])}
+                        className="text-xs text-red-600 hover:text-red-800 font-medium"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {[
+                      {
+                        value: "assignmentId",
+                        label: "Assignment ID",
+                        icon: MdAssignment,
+                      },
+                      {
+                        value: "incidentId",
+                        label: "Incident ID",
+                        icon: MdWarning,
+                      },
+                      {
+                        value: "vehiclePlate",
+                        label: "Vehicle Plate",
+                        icon: MdFireTruck,
+                      },
+                      {
+                        value: "crewLeader",
+                        label: "Crew Leader",
+                        icon: MdPerson,
+                      },
+                      {
+                        value: "location",
+                        label: "Location",
+                        icon: MdLocationOn,
+                      },
+                    ].map((field) => {
+                      const Icon = field.icon;
+                      const isSelected = searchFields.includes(field.value);
+                      return (
+                        <label
+                          key={field.value}
+                          className={`flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer transition-all ${
+                            isSelected
+                              ? "border-blue-500 bg-blue-50 shadow-sm"
+                              : "border-gray-300 hover:bg-blue-50 hover:border-blue-300"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSearchFields([...searchFields, field.value]);
+                              } else {
+                                setSearchFields(
+                                  searchFields.filter((f) => f !== field.value)
+                                );
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                          <Icon
+                            className={`text-lg ${
+                              isSelected ? "text-blue-600" : "text-gray-500"
+                            }`}
+                          />
+                          <span
+                            className={`text-sm font-medium ${
+                              isSelected ? "text-blue-700" : "text-gray-700"
+                            }`}
+                          >
+                            {field.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
+                    {searchFields.length === 0 ? (
+                      <>
+                        <MdCheckCircle className="text-green-600 text-base" />
+                        <span>
+                          No fields selected - searching in{" "}
+                          <strong>all fields</strong>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <MdFilterList className="text-blue-600 text-base" />
+                        <span>
+                          Searching in <strong>{searchFields.length}</strong>{" "}
+                          selected field{searchFields.length > 1 ? "s" : ""}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Extended Filters */}
             {showFilters && (

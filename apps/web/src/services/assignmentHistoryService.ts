@@ -7,6 +7,7 @@ const API_BASE_URL = "http://localhost:5000/api";
 
 export interface AssignmentHistoryFilters {
   search?: string;
+  searchFields?: string[]; // Advanced search: which fields to search in
   assignmentId?: string;
   incidentId?: string;
   vehiclePlateNumber?: string;

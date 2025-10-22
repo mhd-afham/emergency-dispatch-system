@@ -1239,8 +1239,16 @@ class AssignmentController {
           : [req.query.vehicleType]
         : [];
 
+      // Get search scope filters (which fields to search in)
+      const searchFields = req.query.searchFields
+        ? Array.isArray(req.query.searchFields)
+          ? req.query.searchFields
+          : [req.query.searchFields]
+        : []; // Empty array = search all fields
+
       console.log("📋 Fetching assignment history with filters:", {
         search,
+        searchFields,
         dateFrom,
         dateTo,
         status,
@@ -1273,19 +1281,12 @@ class AssignmentController {
       // NOTE: Priority and Incident Type are in the Incident model, not Assignment
       // They will be filtered after population (like vehicle type)
 
-      // Search filter (searches across multiple fields)
-      if (search) {
-        const searchRegex = new RegExp(search, "i");
-        query.$or = [
-          { assignmentId: searchRegex },
-          { "incident.incidentId": searchRegex },
-          { "resource.vehicleCallSign": searchRegex },
-          { "incident.location.address": searchRegex },
-          { "incident.location.city": searchRegex },
-        ];
-      }
+      // NOTE: Search filtering is done AFTER population (post-query filtering)
+      // because most search fields (Incident ID, Vehicle Plate, Crew Name, Location)
+      // are in referenced documents, not in the Assignment model itself.
+      // We cannot query them before population.
 
-      // Execute query with population (get all matching documents for vehicle type filtering)
+      // Execute query with population (get all matching documents for search filtering)
       let assignments = await Assignment.find(query)
         .populate("incident.incidentId")
         .populate("resource.vehicleId")
@@ -1295,6 +1296,139 @@ class AssignmentController {
         )
         .populate("dispatch.assignedBy", "firstName lastName auth.role")
         .sort({ "dispatch.assignedAt": -1 });
+
+      // Post-population search filtering (for fields in referenced documents)
+      if (search) {
+        // Match start of any word: (^|\\s) means start of string OR after whitespace
+        // This allows "kad" to match "Kadawatha", "jun" to match "Junction" in "Kadawatha Junction"
+        const searchRegex = new RegExp(`(^|\\s)${search}`, "i");
+
+        // If no search fields specified, search all fields
+        const shouldSearchAll = !searchFields || searchFields.length === 0;
+
+        console.log(
+          `🔍 Searching for: "${search}" with pattern: /(^|\\s)${search}/i`
+        );
+        console.log(
+          `🎯 Search scope: ${
+            shouldSearchAll ? "All fields" : searchFields.join(", ")
+          }`
+        );
+        console.log(
+          `📊 Total assignments before search filter: ${assignments.length}`
+        );
+
+        assignments = assignments.filter((assignment) => {
+          // Debug: Log available data for first assignment to help troubleshoot
+          if (assignments.indexOf(assignment) === 0) {
+            console.log("🔍 Sample assignment data:");
+            console.log("  - Assignment ID:", assignment.assignmentId);
+            console.log(
+              "  - Incident ID:",
+              assignment.incident?.incidentId?.incidentId || "NOT POPULATED"
+            );
+            console.log(
+              "  - Vehicle Plate:",
+              assignment.resource?.vehicleId?.registration?.plateNumber ||
+                "NOT POPULATED"
+            );
+            console.log(
+              "  - Crew Name:",
+              assignment.resource?.primaryCrewId?.personal
+                ? `${assignment.resource.primaryCrewId.personal.firstName} ${assignment.resource.primaryCrewId.personal.lastName}`
+                : "NOT POPULATED"
+            );
+            console.log(
+              "  - Location Address:",
+              assignment.incident?.incidentId?.location?.address ||
+                "NOT POPULATED"
+            );
+            console.log(
+              "  - Location City:",
+              assignment.incident?.incidentId?.location?.city || "NOT POPULATED"
+            );
+          }
+
+          // 1. Search in Assignment ID
+          if (
+            (shouldSearchAll || searchFields.includes("assignmentId")) &&
+            searchRegex.test(assignment.assignmentId)
+          ) {
+            console.log(
+              `✅ Match found in Assignment ID: ${assignment.assignmentId}`
+            );
+            return true;
+          }
+
+          // 2. Search in Incident ID
+          if (
+            (shouldSearchAll || searchFields.includes("incidentId")) &&
+            assignment.incident?.incidentId?.incidentId &&
+            searchRegex.test(assignment.incident.incidentId.incidentId)
+          ) {
+            console.log(
+              `✅ Match found in Incident ID: ${assignment.incident.incidentId.incidentId}`
+            );
+            return true;
+          }
+
+          // 3. Search in Vehicle Plate Number
+          if (
+            (shouldSearchAll || searchFields.includes("vehiclePlate")) &&
+            assignment.resource?.vehicleId?.registration?.plateNumber &&
+            searchRegex.test(
+              assignment.resource.vehicleId.registration.plateNumber
+            )
+          ) {
+            console.log(
+              `✅ Match found in Vehicle Plate: ${assignment.resource.vehicleId.registration.plateNumber}`
+            );
+            return true;
+          }
+
+          // 4. Search in Crew Leader Name (first name, last name, or full name)
+          if (shouldSearchAll || searchFields.includes("crewLeader")) {
+            const crew = assignment.resource?.primaryCrewId;
+            if (crew?.personal) {
+              const fullName = `${crew.personal.firstName} ${crew.personal.lastName}`;
+              if (
+                searchRegex.test(fullName) ||
+                searchRegex.test(crew.personal.firstName) ||
+                searchRegex.test(crew.personal.lastName)
+              ) {
+                console.log(`✅ Match found in Crew Name: ${fullName}`);
+                return true;
+              }
+            }
+          }
+
+          // 5. Search in Location (address and city)
+          if (shouldSearchAll || searchFields.includes("location")) {
+            const incident = assignment.incident?.incidentId;
+            if (incident?.location) {
+              if (
+                (incident.location.address &&
+                  searchRegex.test(incident.location.address)) ||
+                (incident.location.city &&
+                  searchRegex.test(incident.location.city))
+              ) {
+                console.log(
+                  `✅ Match found in Location: ${
+                    incident.location.address || incident.location.city
+                  }`
+                );
+                return true;
+              }
+            }
+          }
+
+          return false;
+        });
+
+        console.log(
+          `📊 Total assignments after search filter: ${assignments.length}`
+        );
+      }
 
       // Filter by vehicle type (after population since it's in the referenced document)
       if (vehicleType && vehicleType.length > 0) {

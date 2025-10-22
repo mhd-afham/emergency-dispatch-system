@@ -145,6 +145,9 @@ const DispatcherDashboard: React.FC = () => {
               </span>
             </div>
             <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">
+                Welcome, {user?.firstName} {user?.lastName}
+              </span>
               <button
                 onClick={() => navigate("/assignments/history")}
                 className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 flex items-center gap-2 transition-colors shadow-sm hover:shadow"
@@ -152,9 +155,6 @@ const DispatcherDashboard: React.FC = () => {
                 <MdHistory className="text-lg" />
                 Assignment History
               </button>
-              <span className="text-sm text-gray-600">
-                Welcome, {user?.firstName} {user?.lastName}
-              </span>
               <button
                 onClick={logout}
                 className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors"

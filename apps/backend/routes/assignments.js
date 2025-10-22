@@ -162,12 +162,12 @@ router.patch("/:id/cancel", (req, res, next) => {
 /**
  * @route   DELETE /api/assignments/:id
  * @desc    Permanently delete an assignment (only cancelled assignments)
- * @access  Admins only
+ * @access  Dispatchers, Admins
  * @note    This is for CRUD demonstration. Only cancelled assignments can be deleted to preserve audit trail.
  */
 router.delete("/:id", (req, res, next) => {
-  // Only admins can permanently delete assignments
-  const allowedRoles = ["Admin"];
+  // Dispatchers and admins can permanently delete cancelled assignments
+  const allowedRoles = ["Admin", "Dispatcher"];
 
   if (!allowedRoles.includes(req.user.auth.role)) {
     return res.status(403).json({
@@ -175,7 +175,7 @@ router.delete("/:id", (req, res, next) => {
       message: "Insufficient permissions to delete assignments",
       requiredRoles: allowedRoles,
       currentRole: req.user.auth.role,
-      note: "Only administrators can permanently delete assignments",
+      note: "Only dispatchers and administrators can permanently delete assignments",
     });
   }
 
