@@ -12,6 +12,8 @@ export interface IncidentTypes {
   medical: number;
   fire: number;
   rescue: number;
+  hazmat: number;
+  traffic: number;
   other: number;
 }
 
@@ -58,8 +60,8 @@ class AnalyticsService {
     };
   }
 
-  async getSummary(): Promise<AnalyticsSummary> {
-    const response = await fetch(`${API_BASE_URL}/analytics/summary`, {
+  async getSummary(range: 'daily' | 'weekly' | 'monthly' | 'yearly' = 'daily'): Promise<AnalyticsSummary> {
+    const response = await fetch(`${API_BASE_URL}/analytics/summary?range=${range}`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });

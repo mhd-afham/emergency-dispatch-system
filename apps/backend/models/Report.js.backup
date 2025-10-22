@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
 
 /**
+ * Simplified Report Model for Emergency Dispatch System
  * Stores generated analytics reports (PDF) for history and tracking
  * Removed: workflow, comments, distribution, versions, templates, scheduling, multiple formats
+ * Kept: basic info, metrics, PDF output, simple access control, audit trail
  */
 
 const reportSchema = new mongoose.Schema(

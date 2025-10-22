@@ -36,6 +36,9 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
   const { user } = useAuth();
   const { notification, showSuccess, showError, showConfirm, hideNotification, handleConfirm } = useNotification();
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [filteredIncidents, setFilteredIncidents] = useState<Incident[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchFilter, setSearchFilter] = useState<'all' | 'id' | 'caller' | 'location' | 'type' | 'status' | 'severity'>('all');
   const [loading, setLoading] = useState(true);
   const [editingIncident, setEditingIncident] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Incident>>({});
@@ -60,6 +63,76 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
     fetchIncidents();
   }, []);
 
+  // Filter incidents based on search term and filter type
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredIncidents(incidents);
+      return;
+    }
+
+    const search = searchTerm.toLowerCase().trim();
+    
+    // Helper function to check if search matches start of word
+    const startsWithSearch = (text: string) => {
+      const lowerText = text.toLowerCase();
+      // Check if starts with search term OR any word in text starts with search term
+      return lowerText.startsWith(search) || 
+             lowerText.split(/\s+/).some(word => word.startsWith(search));
+    };
+
+    const filtered = incidents.filter(incident => {
+      // Filter by specific field based on searchFilter
+      switch (searchFilter) {
+        case 'id':
+          return startsWithSearch(incident.incidentId);
+        
+        case 'caller':
+          return (
+            startsWithSearch(incident.callerInfo.name) ||
+            incident.callerInfo.contactNumber.startsWith(search)
+          );
+        
+        case 'location':
+          return (
+            startsWithSearch(incident.location.address) ||
+            startsWithSearch(incident.location.city) ||
+            startsWithSearch(incident.location.province)
+          );
+        
+        case 'type':
+          return (
+            startsWithSearch(incident.incidentType) ||
+            startsWithSearch(incident.incidentCategory)
+          );
+        
+        case 'status':
+          return startsWithSearch(incident.status);
+        
+        case 'severity':
+          return startsWithSearch(incident.severity);
+        
+        case 'all':
+        default:
+          // Search in all fields - match start of words
+          return (
+            startsWithSearch(incident.incidentId) ||
+            startsWithSearch(incident.callerInfo.name) ||
+            incident.callerInfo.contactNumber.startsWith(search) ||
+            startsWithSearch(incident.incidentType) ||
+            startsWithSearch(incident.incidentCategory) ||
+            startsWithSearch(incident.description) ||
+            startsWithSearch(incident.location.address) ||
+            startsWithSearch(incident.location.city) ||
+            startsWithSearch(incident.location.province) ||
+            startsWithSearch(incident.status) ||
+            startsWithSearch(incident.severity)
+          );
+      }
+    });
+
+    setFilteredIncidents(filtered);
+  }, [searchTerm, searchFilter, incidents]);
+
   const fetchIncidents = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -73,6 +146,7 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
       if (response.ok) {
         const data = await response.json();
         setIncidents(data.data.incidents || []);
+        setFilteredIncidents(data.data.incidents || []);
       } else {
         console.error('Failed to fetch incidents');
       }
@@ -262,33 +336,132 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-          <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          All Incidents ({incidents.length})
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            All Incidents ({filteredIncidents.length}{searchTerm && ` of ${incidents.length}`})
+          </h3>
+        </div>
+
+        {/* Search Bar */}
+        <div className="flex gap-3 items-start">
+          {/* Filter Dropdown */}
+          <div className="flex-shrink-0">
+            <select
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value as any)}
+              className="h-[42px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+            >
+              <option value="all">All Fields</option>
+              <option value="id">Incident ID</option>
+              <option value="caller">Caller</option>
+              <option value="location">Location</option>
+              <option value="type">Type</option>
+              <option value="status">Status</option>
+              <option value="severity">Severity</option>
+            </select>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative flex-grow">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              placeholder={
+                searchFilter === 'all' ? "Search all fields..." :
+                searchFilter === 'id' ? "Search by Incident ID..." :
+                searchFilter === 'caller' ? "Search by caller name or phone..." :
+                searchFilter === 'location' ? "Search by address, city, or province..." :
+                searchFilter === 'type' ? "Search by incident type or category..." :
+                searchFilter === 'status' ? "Search by status (pending, active, resolved)..." :
+                "Search by severity (low, medium, high, critical)..."
+              }
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Search Results Summary */}
+        {searchTerm && (
+          <div className="mt-2 text-sm text-gray-600">
+            {filteredIncidents.length === 0 ? (
+              <span className="text-red-600">No incidents found matching "{searchTerm}"</span>
+            ) : (
+              <span className="text-green-600">
+                Found {filteredIncidents.length} incident{filteredIncidents.length !== 1 ? 's' : ''} matching "{searchTerm}"
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {incidents.length === 0 ? (
+      {filteredIncidents.length === 0 ? (
         <div className="px-6 py-8 text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-            />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No incidents</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Start by creating your first emergency incident report above.
-          </p>
+          {searchTerm ? (
+            <>
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No matching incidents</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Try adjusting your search term or clear the filter.
+              </p>
+              <button
+                onClick={() => setSearchTerm('')}
+                className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Clear Search
+              </button>
+            </>
+          ) : (
+            <>
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No incidents</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Start by creating your first emergency incident report above.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -319,7 +492,7 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {incidents.map((incident) => (
+              {filteredIncidents.map((incident) => (
                 <tr key={incident._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
@@ -445,21 +618,21 @@ const IncidentList: React.FC<IncidentListProps> = ({ onIncidentUpdate }) => {
                       <div className="flex space-x-1">
                         <button
                           onClick={() => handleEdit(incident)}
-                          className="text-indigo-600 hover:text-indigo-900 text-xs px-2 py-1 border border-indigo-200 rounded hover:bg-indigo-50"
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleCancelIncident(incident._id)}
-                          className="text-orange-600 hover:text-orange-900 text-xs px-2 py-1 border border-orange-200 rounded hover:bg-orange-50"
+                          className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-2 py-1 rounded"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={() => handlePermanentDelete(incident._id, incident.incidentId)}
-                          className="text-red-600 hover:text-red-900 text-xs px-2 py-1 border border-red-200 rounded hover:bg-red-50"
+                          className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
                         >
-                          🗑️ Delete
+                          Delete
                         </button>
                       </div>
                     )}
