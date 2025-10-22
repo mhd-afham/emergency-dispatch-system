@@ -1207,6 +1207,362 @@ class AssignmentController {
       });
     }
   }
+
+  /**
+   * Get assignment history with advanced filtering and search
+   * GET /api/assignments/history
+   * Supports: search, date range, status, priority, incident type filters
+   */
+  static async getAssignmentHistory(req, res) {
+    try {
+      const { search, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
+
+      // Get array parameters (they come as ?status=completed&status=cancelled)
+      const status = req.query.status
+        ? Array.isArray(req.query.status)
+          ? req.query.status
+          : [req.query.status]
+        : [];
+      const priority = req.query.priority
+        ? Array.isArray(req.query.priority)
+          ? req.query.priority
+          : [req.query.priority]
+        : [];
+      const incidentType = req.query.incidentType
+        ? Array.isArray(req.query.incidentType)
+          ? req.query.incidentType
+          : [req.query.incidentType]
+        : [];
+      const vehicleType = req.query.vehicleType
+        ? Array.isArray(req.query.vehicleType)
+          ? req.query.vehicleType
+          : [req.query.vehicleType]
+        : [];
+
+      console.log("📋 Fetching assignment history with filters:", {
+        search,
+        dateFrom,
+        dateTo,
+        status,
+        priority,
+        incidentType,
+        vehicleType,
+        page,
+        limit,
+      });
+
+      // Build query
+      const query = {};
+
+      // Date range filter
+      if (dateFrom || dateTo) {
+        query["dispatch.assignedAt"] = {};
+        if (dateFrom) {
+          query["dispatch.assignedAt"].$gte = new Date(dateFrom);
+        }
+        if (dateTo) {
+          query["dispatch.assignedAt"].$lte = new Date(dateTo);
+        }
+      }
+
+      // Status filter (can be queried directly as it's in Assignment model)
+      if (status && status.length > 0) {
+        query["response.status"] = { $in: status };
+      }
+
+      // NOTE: Priority and Incident Type are in the Incident model, not Assignment
+      // They will be filtered after population (like vehicle type)
+
+      // Search filter (searches across multiple fields)
+      if (search) {
+        const searchRegex = new RegExp(search, "i");
+        query.$or = [
+          { assignmentId: searchRegex },
+          { "incident.incidentId": searchRegex },
+          { "resource.vehicleCallSign": searchRegex },
+          { "incident.location.address": searchRegex },
+          { "incident.location.city": searchRegex },
+        ];
+      }
+
+      // Execute query with population (get all matching documents for vehicle type filtering)
+      let assignments = await Assignment.find(query)
+        .populate("incident.incidentId")
+        .populate("resource.vehicleId")
+        .populate(
+          "resource.primaryCrewId",
+          "personal.firstName personal.lastName"
+        )
+        .populate("dispatch.assignedBy", "firstName lastName auth.role")
+        .sort({ "dispatch.assignedAt": -1 });
+
+      // Filter by vehicle type (after population since it's in the referenced document)
+      if (vehicleType && vehicleType.length > 0) {
+        assignments = assignments.filter((assignment) => {
+          const vehicle = assignment.resource?.vehicleId;
+          if (
+            !vehicle ||
+            !vehicle.registration ||
+            !vehicle.registration.vehicleType
+          ) {
+            return false;
+          }
+          return vehicleType.includes(vehicle.registration.vehicleType);
+        });
+      }
+
+      // Filter by priority (after population since it's in the Incident model as 'severity')
+      if (priority && priority.length > 0) {
+        assignments = assignments.filter((assignment) => {
+          const incident = assignment.incident?.incidentId;
+          if (!incident || !incident.severity) {
+            return false;
+          }
+          return priority.includes(incident.severity);
+        });
+      }
+
+      // Filter by incident type (after population since it's in the Incident model)
+      if (incidentType && incidentType.length > 0) {
+        assignments = assignments.filter((assignment) => {
+          const incident = assignment.incident?.incidentId;
+          if (!incident || !incident.incidentType) {
+            return false;
+          }
+          return incidentType.includes(incident.incidentType);
+        });
+      }
+
+      // Get total count after vehicle type filtering
+      const total = assignments.length;
+
+      // Apply pagination after filtering
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      assignments = assignments.slice(skip, skip + parseInt(limit));
+
+      console.log(
+        `📊 Found ${assignments.length} assignments out of ${total} total`
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          assignments,
+          pagination: {
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(total / parseInt(limit)),
+            totalItems: total,
+            itemsPerPage: parseInt(limit),
+          },
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error fetching assignment history:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch assignment history",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Get assignment statistics
+   * GET /api/assignments/statistics
+   * Returns: comprehensive statistics for dashboard
+   */
+  static async getAssignmentStatistics(req, res) {
+    try {
+      const { dateFrom, dateTo } = req.query;
+
+      console.log("📊 Calculating assignment statistics", { dateFrom, dateTo });
+
+      // Build date filter
+      const dateFilter = {};
+      if (dateFrom || dateTo) {
+        dateFilter["dispatch.assignedAt"] = {};
+        if (dateFrom) {
+          dateFilter["dispatch.assignedAt"].$gte = new Date(dateFrom);
+        }
+        if (dateTo) {
+          dateFilter["dispatch.assignedAt"].$lte = new Date(dateTo);
+        }
+      }
+
+      // Get all assignments for detailed analysis
+      const allAssignments = await Assignment.find(dateFilter)
+        .populate("incident.incidentId")
+        .populate("resource.vehicleId");
+
+      // Calculate statistics
+      const totalAssignments = allAssignments.length;
+
+      // By Status
+      const byStatus = {};
+      allAssignments.forEach((a) => {
+        const status = a.response?.status || a.status || "pending";
+        byStatus[status] = (byStatus[status] || 0) + 1;
+      });
+
+      // By Priority
+      const byPriority = {};
+      allAssignments.forEach((a) => {
+        const priority = a.incident?.priority || "unknown";
+        byPriority[priority] = (byPriority[priority] || 0) + 1;
+      });
+
+      // By Incident Type
+      const byIncidentType = {};
+      allAssignments.forEach((a) => {
+        const type = a.incident?.type || "unknown";
+        byIncidentType[type] = (byIncidentType[type] || 0) + 1;
+      });
+
+      // By Vehicle Type
+      const byVehicleType = {};
+      allAssignments.forEach((a) => {
+        const vehicleType = a.resource?.vehicleId?.type || "unknown";
+        byVehicleType[vehicleType] = (byVehicleType[vehicleType] || 0) + 1;
+      });
+
+      // Performance metrics
+      // Include both "completed" and "returned" assignments for performance calculation
+      const completedAssignments = allAssignments.filter(
+        (a) =>
+          a.response?.status === "completed" ||
+          a.response?.status === "returned"
+      );
+
+      let avgResponseTime = null;
+      let avgArrivalTime = null;
+      let avgOnSceneTime = null;
+      let avgTotalDuration = null;
+      let minResponseTime = null;
+      let maxResponseTime = null;
+
+      if (completedAssignments.length > 0) {
+        const responseTimes = [];
+        const arrivalTimes = [];
+        const onSceneTimes = [];
+        const totalDurations = [];
+
+        completedAssignments.forEach((a) => {
+          // Use pre-calculated performance metrics from the database (in seconds)
+          // These are calculated by the Assignment model's pre-save hook
+          if (a.performance?.responseTime != null) {
+            responseTimes.push(a.performance.responseTime);
+          }
+
+          if (a.performance?.arrivalTime != null) {
+            arrivalTimes.push(a.performance.arrivalTime);
+          }
+
+          if (a.performance?.onSceneTime != null) {
+            onSceneTimes.push(a.performance.onSceneTime);
+          }
+
+          if (a.performance?.totalDuration != null) {
+            totalDurations.push(a.performance.totalDuration);
+          }
+        });
+
+        if (responseTimes.length > 0) {
+          avgResponseTime = Math.round(
+            responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+          );
+          minResponseTime = Math.round(Math.min(...responseTimes));
+          maxResponseTime = Math.round(Math.max(...responseTimes));
+        }
+
+        if (arrivalTimes.length > 0) {
+          avgArrivalTime = Math.round(
+            arrivalTimes.reduce((a, b) => a + b, 0) / arrivalTimes.length
+          );
+        }
+
+        if (onSceneTimes.length > 0) {
+          avgOnSceneTime = Math.round(
+            onSceneTimes.reduce((a, b) => a + b, 0) / onSceneTimes.length
+          );
+        }
+
+        if (totalDurations.length > 0) {
+          avgTotalDuration = Math.round(
+            totalDurations.reduce((a, b) => a + b, 0) / totalDurations.length
+          );
+        }
+      }
+
+      // Resolution rate
+      const resolvedCount =
+        (byStatus.completed || 0) + (byStatus.resolved || 0);
+      const resolutionRate =
+        totalAssignments > 0
+          ? Math.round((resolvedCount / totalAssignments) * 100)
+          : 0;
+
+      // Daily trends (last 30 days or filtered range)
+      const dailyTrends = [];
+      const trendMap = {};
+      allAssignments.forEach((a) => {
+        const date = new Date(a.dispatch?.assignedAt)
+          .toISOString()
+          .split("T")[0];
+        trendMap[date] = (trendMap[date] || 0) + 1;
+      });
+      Object.entries(trendMap).forEach(([date, count]) => {
+        dailyTrends.push({ date, count });
+      });
+      dailyTrends.sort((a, b) => a.date.localeCompare(b.date));
+
+      // Hourly distribution
+      const hourlyDistribution = Array(24)
+        .fill(0)
+        .map((_, hour) => ({ hour, count: 0 }));
+      allAssignments.forEach((a) => {
+        const hour = new Date(a.dispatch?.assignedAt).getHours();
+        hourlyDistribution[hour].count++;
+      });
+
+      const statistics = {
+        totalAssignments,
+        byStatus,
+        byPriority,
+        byIncidentType,
+        byVehicleType,
+        performance: {
+          avgResponseTime,
+          avgArrivalTime,
+          avgOnSceneTime,
+          avgTotalDuration,
+          minResponseTime,
+          maxResponseTime,
+        },
+        resolutionRate,
+        dailyTrends,
+        hourlyDistribution,
+      };
+
+      console.log("📈 Statistics calculated:", {
+        totalAssignments,
+        byStatus,
+        resolutionRate,
+        avgResponseTime,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: statistics,
+      });
+    } catch (error) {
+      console.error("❌ Error calculating statistics:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to calculate statistics",
+        error: error.message,
+      });
+    }
+  }
 }
 
 module.exports = AssignmentController;

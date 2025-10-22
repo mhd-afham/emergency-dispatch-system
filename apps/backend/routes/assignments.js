@@ -45,12 +45,43 @@ router.get("/", (req, res, next) => {
 });
 
 /**
- * @route   GET /api/assignments/:id
- * @desc    Get assignment by ID
- * @access  All authenticated users
+ * @route   GET /api/assignments/history
+ * @desc    Get assignment history with advanced filtering and search
+ * @access  Dispatchers, Supervisors, Admins
  */
-router.get("/:id", (req, res, next) => {
-  AssignmentController.getAssignmentById(req, res, next);
+router.get("/history", (req, res, next) => {
+  const allowedRoles = ["Dispatcher", "Admin", "Supervisor"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to view assignment history",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  AssignmentController.getAssignmentHistory(req, res, next);
+});
+
+/**
+ * @route   GET /api/assignments/statistics
+ * @desc    Get assignment statistics and analytics
+ * @access  Dispatchers, Supervisors, Admins
+ */
+router.get("/statistics", (req, res, next) => {
+  const allowedRoles = ["Dispatcher", "Admin", "Supervisor"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to view assignment statistics",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  AssignmentController.getAssignmentStatistics(req, res, next);
 });
 
 /**
@@ -60,6 +91,16 @@ router.get("/:id", (req, res, next) => {
  */
 router.get("/incident/:incidentId", (req, res, next) => {
   AssignmentController.getIncidentAssignments(req, res, next);
+});
+
+/**
+ * @route   GET /api/assignments/:id
+ * @desc    Get assignment by ID
+ * @access  All authenticated users
+ * @note    This route must be AFTER specific routes like /history, /statistics to avoid conflicts
+ */
+router.get("/:id", (req, res, next) => {
+  AssignmentController.getAssignmentById(req, res, next);
 });
 
 /**

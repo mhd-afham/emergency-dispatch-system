@@ -14,6 +14,7 @@ import ModularAdminDashboard from "./pages/ModularAdminDashboard";
 import CallTakerDashboard from "./pages/CallTakerDashboard";
 import DispatcherDashboard from "./pages/DispatcherDashboard";
 import ModularSupervisorDashboard from "./pages/ModularSupervisorDashboard";
+import AssignmentHistory from "./pages/AssignmentHistory";
 import LoginForm from "./components/auth/LoginForm";
 import ForgotPasswordForm from "./components/auth/ForgotPasswordForm";
 import ResetPasswordForm from "./components/auth/ResetPasswordForm";
@@ -139,6 +140,18 @@ function App() {
                 element={
                   <ProtectedRoute requiredRoles={["Supervisor"]}>
                     <ModularSupervisorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Assignment History & Reports - Accessible to Dispatcher, Supervisor, Admin */}
+              <Route
+                path="/assignments/history"
+                element={
+                  <ProtectedRoute
+                    requiredRoles={["Dispatcher", "Supervisor", "Admin"]}
+                  >
+                    <AssignmentHistory />
                   </ProtectedRoute>
                 }
               />
