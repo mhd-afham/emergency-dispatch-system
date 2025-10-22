@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const path = require('path');
+const fs = require('fs');
 const EquipmentController = require('../controllers/equipmentController');
 const MaintenanceRecord = require('../models/MaintenanceRecord');
 const { authenticate, auditLog } = require('../middleware/auth');
@@ -95,6 +97,32 @@ router.get('/checks/vehicle/:vehicleId/latest',
 );
 
 /**
+ * @route   DELETE /api/equipment/checks/vehicle/:vehicleId
+ * @desc    Delete all equipment checks for a specific vehicle
+ * @access  Field Crews, Crew Leaders, Supervisors, Admins
+ * @param   vehicleId - MongoDB ObjectId of the vehicle
+ * @note    Used when creating new manual checklist to replace old records
+ */
+router.delete('/checks/vehicle/:vehicleId',
+  auditLog('DELETE_VEHICLE_EQUIPMENT_CHECKS', 'EQUIPMENT_MANAGEMENT'),
+  (req, res, next) => {
+    // Verify user has permission to delete equipment checks
+    const allowedRoles = ['Field Crew', 'Crew Leader', 'Supervisor', 'Admin'];
+    
+    if (!allowedRoles.includes(req.user.auth.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions to delete equipment checks',
+        requiredRoles: allowedRoles,
+        currentRole: req.user.auth.role
+      });
+    }
+
+    EquipmentController.deleteVehicleEquipmentChecks(req, res, next);
+  }
+);
+
+/**
  * @route   GET /api/equipment/statistics
  * @desc    Get equipment check statistics for dashboard analytics
  * @access  Supervisors, Admins, Data Analysts
@@ -173,26 +201,17 @@ router.get('/checks/:checkId',
 
 /**
  * @route   GET /api/equipment/checks
- * @desc    Get all equipment checks with filtering and pagination (for supervisors/admins)
- * @access  Supervisors, Admins, Data Analysts
+ * @desc    Get all equipment checks with filtering and pagination
+ * @access  All authenticated users
  * @query   page, limit, status, vehicleType, startDate, endDate, sortBy, sortOrder, search
  */
 router.get('/checks',
   auditLog('VIEW_ALL_EQUIPMENT_CHECKS', 'EQUIPMENT_MANAGEMENT'),
   async (req, res, next) => {
     try {
-      // Verify user has permission to view all equipment checks
-      const allowedRoles = ['Supervisor', 'Admin', 'Data Analyst'];
+      // All authenticated users can view equipment checks
+      // (Previously restricted to Supervisor, Admin, Data Analyst only)
       
-      if (!allowedRoles.includes(req.user.auth.role)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Insufficient permissions to view all equipment checks',
-          requiredRoles: allowedRoles,
-          currentRole: req.user.auth.role
-        });
-      }
-
       const { 
         page = 1, 
         limit = 20, 
@@ -719,22 +738,6 @@ router.put('/maintenance/:id',
         });
       }
 
-      // Validate required fields
-      if (!vehicleId || !recordType || !description) {
-        return res.status(400).json({
-          success: false,
-          message: 'Missing required fields: vehicleId, recordType, and description are required'
-        });
-      }
-
-      // Validate vehicleId format
-      if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid vehicle ID format'
-        });
-      }
-
       // Check if maintenance record exists
       const existingRecord = await MaintenanceRecord.findById(id);
       if (!existingRecord) {
@@ -744,24 +747,44 @@ router.put('/maintenance/:id',
         });
       }
 
-      // Check if vehicle exists
-      const Vehicle = require('../models/Vehicle');
-      const vehicle = await Vehicle.findById(vehicleId);
-      if (!vehicle) {
-        return res.status(404).json({
-          success: false,
-          message: 'Vehicle not found'
-        });
-      }
-
-      // Update the maintenance record
+      // Build update data dynamically (only update provided fields)
       const updateData = {
-        vehicleId,
-        recordType,
-        description,
-        priority: priority || 'MEDIUM',
         updatedAt: new Date()
       };
+
+      // If updating full record (vehicleId, recordType, description provided)
+      if (vehicleId || recordType || description) {
+        // Validate required fields for full update
+        if (!vehicleId || !recordType || !description) {
+          return res.status(400).json({
+            success: false,
+            message: 'When updating maintenance details, vehicleId, recordType, and description are all required'
+          });
+        }
+
+        // Validate vehicleId format
+        if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid vehicle ID format'
+          });
+        }
+
+        // Check if vehicle exists
+        const Vehicle = require('../models/Vehicle');
+        const vehicle = await Vehicle.findById(vehicleId);
+        if (!vehicle) {
+          return res.status(404).json({
+            success: false,
+            message: 'Vehicle not found'
+          });
+        }
+
+        updateData.vehicleId = vehicleId;
+        updateData.recordType = recordType;
+        updateData.description = description;
+        updateData.priority = priority || 'MEDIUM';
+      }
 
       // If status is provided, include it in the update
       if (status) {
@@ -769,10 +792,13 @@ router.put('/maintenance/:id',
         
         // If maintenance is completed or cancelled, change vehicle status back to active
         if (status === 'COMPLETED' || status === 'CANCELLED') {
-          await Vehicle.findByIdAndUpdate(vehicleId, {
+          const Vehicle = require('../models/Vehicle');
+          const recordVehicleId = vehicleId || existingRecord.vehicleId;
+          
+          await Vehicle.findByIdAndUpdate(recordVehicleId, {
             'status.operational': 'active'
           });
-          console.log('🔧 Vehicle status updated to active for vehicle:', vehicleId);
+          console.log('🔧 Vehicle status updated to active for vehicle:', recordVehicleId);
         }
       }
 
@@ -860,8 +886,19 @@ router.delete('/maintenance/:id',
         });
       }
 
+      const vehicleId = existingRecord.vehicleId?._id;
+
       // Delete the maintenance record
       await MaintenanceRecord.findByIdAndDelete(id);
+      
+      // Always change vehicle status back to active when deleting maintenance record
+      if (vehicleId) {
+        const Vehicle = require('../models/Vehicle');
+        await Vehicle.findByIdAndUpdate(vehicleId, {
+          'status.operational': 'active'
+        });
+        console.log('🔧 Vehicle status changed back to active:', vehicleId);
+      }
       
       console.log('✅ Maintenance record deleted successfully:', id);
       
@@ -888,6 +925,588 @@ router.delete('/maintenance/:id',
       res.status(500).json({
         success: false,
         message: 'Failed to delete maintenance record',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
+ * @route   POST /api/equipment/maintenance/report
+ * @desc    Generate PDF report for filtered maintenance records
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.post('/maintenance/report',
+  auditLog('GENERATE_MAINTENANCE_REPORT', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('📊 Generating maintenance records PDF report');
+      
+      const allowedRoles = ['Supervisor', 'Maintenance Technician', 'Admin'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to generate reports'
+        });
+      }
+
+      const { 
+        vehicleId,
+        recordType,
+        priority,
+        status,
+        startDate,
+        endDate
+      } = req.body;
+
+      // Build query
+      const query = {};
+      
+      if (vehicleId && mongoose.Types.ObjectId.isValid(vehicleId)) {
+        query.vehicleId = vehicleId;
+      }
+      
+      if (recordType) {
+        query.recordType = recordType;
+      }
+      
+      if (priority) {
+        query.priority = priority;
+      }
+      
+      if (status) {
+        query.status = status;
+      }
+      
+      if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) {
+          query.createdAt.$gte = new Date(startDate);
+        }
+        if (endDate) {
+          query.createdAt.$lte = new Date(endDate);
+        }
+      }
+
+      // Fetch maintenance records
+      const maintenanceRecords = await MaintenanceRecord.find(query)
+        .populate('vehicleId', 'registration.plateNumber registration.vehicleType')
+        .sort({ createdAt: -1 })
+        .limit(500); // Limit to prevent memory issues
+
+      if (maintenanceRecords.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No maintenance records found for the specified filters'
+        });
+      }
+
+      console.log(`📋 Generating report for ${maintenanceRecords.length} maintenance records`);
+
+      // Generate PDF
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ 
+        margin: 50,
+        size: 'A4',
+        layout: 'landscape' // Better for table format
+      });
+
+      // Set response headers
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=maintenance-report-${new Date().toISOString().split('T')[0]}.pdf`);
+
+      // Pipe PDF to response
+      doc.pipe(res);
+
+      // Logo and System Name Header
+      const logoPath = path.join(__dirname, '../../web/public/images/respondr-horizontal.svg');
+      
+      // Add logo if it exists (for PNG format, SVG needs conversion)
+      // Using text-based header instead for better compatibility
+      doc.fontSize(24).font('Helvetica-Bold');
+      doc.fillColor('#2563eb'); // Blue color for branding
+      doc.text('RESPONDR', { align: 'center' });
+      doc.fontSize(12).font('Helvetica');
+      doc.fillColor('#6b7280'); // Gray color
+      doc.text('Emergency Dispatch System', { align: 'center' });
+      doc.moveDown(0.3);
+      
+      // Reset color to black
+      doc.fillColor('#000000');
+      
+      // Divider line
+      doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke('#2563eb');
+      doc.moveDown(1);
+
+      // Report Title
+      doc.fontSize(20).font('Helvetica-Bold').text('Maintenance Records Report', { align: 'center' });
+      doc.moveDown(0.5);
+      
+      doc.fontSize(10).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, { align: 'center' });
+      doc.text(`Total Records: ${maintenanceRecords.length}`, { align: 'center' });
+      doc.moveDown(1);
+
+      // Summary Statistics
+      const stats = {
+        routine: maintenanceRecords.filter(r => r.recordType === 'ROUTINE').length,
+        corrective: maintenanceRecords.filter(r => r.recordType === 'CORRECTIVE').length,
+        emergency: maintenanceRecords.filter(r => r.recordType === 'EMERGENCY').length,
+        high: maintenanceRecords.filter(r => r.priority === 'HIGH').length,
+        medium: maintenanceRecords.filter(r => r.priority === 'MEDIUM').length,
+        low: maintenanceRecords.filter(r => r.priority === 'LOW').length,
+        pending: maintenanceRecords.filter(r => r.status === 'PENDING').length,
+        inProgress: maintenanceRecords.filter(r => r.status === 'IN_PROGRESS').length,
+        completed: maintenanceRecords.filter(r => r.status === 'COMPLETED').length,
+      };
+
+      doc.fontSize(12).font('Helvetica-Bold').text('Summary Statistics:', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Record Types: ROUTINE (${stats.routine}), CORRECTIVE (${stats.corrective}), EMERGENCY (${stats.emergency})`);
+      doc.text(`Priorities: HIGH (${stats.high}), MEDIUM (${stats.medium}), LOW (${stats.low})`);
+      doc.text(`Status: PENDING (${stats.pending}), IN PROGRESS (${stats.inProgress}), COMPLETED (${stats.completed})`);
+      doc.moveDown(1);
+
+      // Draw separator line
+      doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
+      doc.moveDown(1);
+
+      // Table Header
+      doc.fontSize(11).font('Helvetica-Bold');
+      const tableTop = doc.y;
+      const colWidths = {
+        date: 70,
+        vehicle: 80,
+        type: 70,
+        priority: 60,
+        status: 70,
+        description: 250,
+        creator: 90
+      };
+      
+      let xPos = 50;
+      doc.text('Date', xPos, tableTop, { width: colWidths.date });
+      xPos += colWidths.date;
+      doc.text('Vehicle', xPos, tableTop, { width: colWidths.vehicle });
+      xPos += colWidths.vehicle;
+      doc.text('Type', xPos, tableTop, { width: colWidths.type });
+      xPos += colWidths.type;
+      doc.text('Priority', xPos, tableTop, { width: colWidths.priority });
+      xPos += colWidths.priority;
+      doc.text('Status', xPos, tableTop, { width: colWidths.status });
+      xPos += colWidths.status;
+      doc.text('Description', xPos, tableTop, { width: colWidths.description });
+      xPos += colWidths.description;
+      doc.text('Creator', xPos, tableTop, { width: colWidths.creator });
+      
+      doc.moveDown(0.5);
+      doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
+      doc.moveDown(0.5);
+
+      // Table Rows
+      doc.fontSize(9).font('Helvetica');
+      
+      for (const record of maintenanceRecords) {
+        // Check if we need a new page
+        if (doc.y > 500) {
+          doc.addPage({ layout: 'landscape' });
+          doc.y = 50;
+        }
+
+        const rowTop = doc.y;
+        xPos = 50;
+
+        // Date
+        const dateStr = new Date(record.createdAt).toLocaleDateString();
+        doc.text(dateStr, xPos, rowTop, { width: colWidths.date });
+        xPos += colWidths.date;
+
+        // Vehicle
+        const vehicleStr = record.vehicleId?.registration?.plateNumber || 'N/A';
+        doc.text(vehicleStr, xPos, rowTop, { width: colWidths.vehicle });
+        xPos += colWidths.vehicle;
+
+        // Type
+        doc.text(record.recordType, xPos, rowTop, { width: colWidths.type });
+        xPos += colWidths.type;
+
+        // Priority with color
+        const priorityColor = 
+          record.priority === 'HIGH' ? '#DC2626' :
+          record.priority === 'MEDIUM' ? '#F59E0B' : '#10B981';
+        doc.fillColor(priorityColor).text(record.priority, xPos, rowTop, { width: colWidths.priority });
+        doc.fillColor('black');
+        xPos += colWidths.priority;
+
+        // Status
+        doc.text(record.status || 'PENDING', xPos, rowTop, { width: colWidths.status });
+        xPos += colWidths.status;
+
+        // Description (truncated if too long)
+        const desc = record.description.length > 50 
+          ? record.description.substring(0, 47) + '...' 
+          : record.description;
+        doc.text(desc, xPos, rowTop, { width: colWidths.description });
+        xPos += colWidths.description;
+
+        // Creator
+        const creator = record.createdBy || 'N/A';
+        doc.text(creator, xPos, rowTop, { width: colWidths.creator });
+
+        doc.moveDown(0.8);
+      }
+
+      // Footer
+      doc.moveDown(2);
+      
+      // Footer divider line (centered)
+      const pageWidth = doc.page.width;
+      const lineMargin = 100;
+      doc.moveTo(lineMargin, doc.y)
+         .lineTo(pageWidth - lineMargin, doc.y)
+         .stroke('#2563eb');
+      doc.moveDown(0.8);
+      
+      // Footer content - all centered
+      doc.fontSize(9).font('Helvetica');
+      doc.fillColor('#6b7280');
+      doc.text('RESPONDR - Emergency Dispatch System', 50, doc.y, { 
+        width: pageWidth - 100, 
+        align: 'center' 
+      });
+      doc.fontSize(8);
+      doc.text(`Report Generated: ${new Date().toLocaleString()}`, 50, doc.y, { 
+        width: pageWidth - 100, 
+        align: 'center' 
+      });
+      doc.text(`Generated by: ${req.user.email || req.user.username || 'System'}`, 50, doc.y, { 
+        width: pageWidth - 100, 
+        align: 'center' 
+      });
+      doc.moveDown(0.5);
+      doc.text('This is a computer-generated report and does not require a signature.', 50, doc.y, { 
+        width: pageWidth - 100, 
+        align: 'center' 
+      });
+      
+      // Reset color
+      doc.fillColor('#000000');
+
+      // Finalize PDF
+      doc.end();
+
+      console.log('✅ PDF report generated successfully');
+    } catch (error) {
+      console.error('❌ Error generating PDF report:', error);
+      
+      // If response hasn't been sent yet, send error
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to generate PDF report',
+          error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+      }
+    }
+  }
+);
+
+/**
+ * @route   POST /api/equipment/maintenance/search
+ * @desc    Search maintenance records with filters and pagination
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.post('/maintenance/search',
+  auditLog('SEARCH_MAINTENANCE_RECORDS', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('🔍 Searching maintenance records:', JSON.stringify(req.body, null, 2));
+      
+      const allowedRoles = ['Supervisor', 'Maintenance Technician', 'Admin', 'Field Crew', 'Crew Leader'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to search maintenance records'
+        });
+      }
+
+      const { 
+        vehicleNumber, 
+        recordType, 
+        priority, 
+        status, 
+        createdBy,
+        dateFrom,
+        dateTo,
+        page = 1,
+        limit = 20,
+        sortBy = 'createdAt',
+        sortOrder = 'desc'
+      } = req.body;
+
+      // Build search query
+      const query = {};
+
+      // Search by vehicle number (requires lookup)
+      if (vehicleNumber) {
+        const Vehicle = require('../models/Vehicle');
+        const vehicles = await Vehicle.find({
+          'registration.plateNumber': { $regex: vehicleNumber, $options: 'i' }
+        }).select('_id');
+        
+        if (vehicles.length > 0) {
+          query.vehicleId = { $in: vehicles.map(v => v._id) };
+        } else {
+          // No matching vehicles found
+          return res.json({
+            success: true,
+            data: {
+              records: [],
+              pagination: {
+                total: 0,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                pages: 0
+              }
+            }
+          });
+        }
+      }
+
+      // Filter by record type
+      if (recordType && ['ROUTINE', 'CORRECTIVE', 'EMERGENCY'].includes(recordType)) {
+        query.recordType = recordType;
+      }
+
+      // Filter by priority
+      if (priority && ['LOW', 'MEDIUM', 'HIGH'].includes(priority)) {
+        query.priority = priority;
+      }
+
+      // Filter by status
+      if (status && ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status)) {
+        query.status = status;
+      }
+
+      // Filter by creator
+      if (createdBy) {
+        query.createdBy = { $regex: createdBy, $options: 'i' };
+      }
+
+      // Date range filter
+      if (dateFrom || dateTo) {
+        query.createdAt = {};
+        if (dateFrom) {
+          query.createdAt.$gte = new Date(dateFrom);
+        }
+        if (dateTo) {
+          query.createdAt.$lte = new Date(dateTo);
+        }
+      }
+
+      // Pagination options
+      const options = {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 },
+        populate: {
+          path: 'vehicleId',
+          select: 'registration.plateNumber registration.vehicleType'
+        }
+      };
+
+      console.log('📋 Search query:', JSON.stringify(query, null, 2));
+      console.log('⚙️ Search options:', JSON.stringify(options, null, 2));
+
+      const result = await MaintenanceRecord.paginate(query, options);
+
+      // Transform results for frontend
+      const records = result.docs.map(record => ({
+        id: record._id,
+        vehicleId: record.vehicleId._id,
+        vehicleNumber: record.vehicleId.registration?.plateNumber || 'Unknown',
+        vehicleType: record.vehicleId.registration?.vehicleType || 'Unknown',
+        recordType: record.recordType,
+        description: record.description,
+        priority: record.priority,
+        createdBy: record.createdBy,
+        createdAt: record.createdAt.toISOString(),
+        status: record.status
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          records,
+          pagination: {
+            total: result.totalDocs,
+            page: result.page,
+            limit: result.limit,
+            pages: result.totalPages,
+            hasNextPage: result.hasNextPage,
+            hasPrevPage: result.hasPrevPage
+          },
+          searchCriteria: {
+            vehicleNumber,
+            recordType,
+            priority,
+            status,
+            createdBy,
+            dateFrom,
+            dateTo
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Maintenance record search error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to search maintenance records',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/equipment/maintenance/:id/pdf
+ * @desc    Generate PDF report for a specific maintenance record
+ * @access  Supervisors, Maintenance Technicians, Admins
+ */
+router.get('/maintenance/:id/pdf',
+  auditLog('GENERATE_MAINTENANCE_PDF', 'MAINTENANCE'),
+  async (req, res) => {
+    try {
+      console.log('📄 Generating PDF for maintenance record:', req.params.id);
+      
+      const allowedRoles = ['Supervisor', 'Maintenance Technician', 'Admin'];
+      
+      if (!allowedRoles.includes(req.user.auth.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Insufficient permissions to generate maintenance PDF'
+        });
+      }
+
+      // Validate record ID
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid maintenance record ID format'
+        });
+      }
+
+      // Fetch maintenance record with vehicle details
+      const record = await MaintenanceRecord.findById(req.params.id)
+        .populate({
+          path: 'vehicleId',
+          select: 'registration specifications status'
+        });
+
+      if (!record) {
+        return res.status(404).json({
+          success: false,
+          message: 'Maintenance record not found'
+        });
+      }
+
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ margin: 50 });
+
+      // Set response headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=maintenance-record-${record._id}.pdf`);
+
+      // Pipe PDF to response
+      doc.pipe(res);
+
+      // Add header
+      doc.fontSize(20).text('Maintenance Record Report', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(10).text(`Generated: ${new Date().toLocaleString()}`, { align: 'right' });
+      doc.moveDown(2);
+
+      // Record Information
+      doc.fontSize(16).text('Record Information', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(12);
+      doc.text(`Record ID: ${record._id}`);
+      doc.text(`Record Type: ${record.recordType}`);
+      doc.text(`Priority: ${record.priority}`);
+      doc.text(`Status: ${record.status}`);
+      doc.text(`Created By: ${record.createdBy}`);
+      doc.text(`Created At: ${new Date(record.createdAt).toLocaleString()}`);
+      doc.moveDown(2);
+
+      // Vehicle Information
+      doc.fontSize(16).text('Vehicle Information', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(12);
+      doc.text(`Vehicle Number: ${record.vehicleId.registration?.plateNumber || 'N/A'}`);
+      doc.text(`Vehicle Type: ${record.vehicleId.registration?.vehicleType || 'N/A'}`);
+      doc.text(`Make/Model: ${record.vehicleId.registration?.make || 'N/A'} ${record.vehicleId.registration?.model || 'N/A'}`);
+      doc.text(`Operational Status: ${record.vehicleId.status?.operational || 'N/A'}`);
+      doc.moveDown(2);
+
+      // Maintenance Details
+      doc.fontSize(16).text('Maintenance Details', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(12);
+      doc.text('Description:', { continued: false });
+      doc.moveDown(0.3);
+      doc.fontSize(11);
+      doc.text(record.description, { align: 'justify' });
+      doc.moveDown(2);
+
+      // Priority Badge
+      const priorityColors = {
+        HIGH: '#EF4444',
+        MEDIUM: '#F59E0B',
+        LOW: '#10B981'
+      };
+      doc.fontSize(14).fillColor(priorityColors[record.priority] || '#6B7280');
+      doc.text(`Priority Level: ${record.priority}`, { align: 'center' });
+      doc.fillColor('#000000');
+      doc.moveDown(2);
+
+      // Status Badge
+      const statusColors = {
+        PENDING: '#F59E0B',
+        IN_PROGRESS: '#3B82F6',
+        COMPLETED: '#10B981',
+        CANCELLED: '#6B7280'
+      };
+      doc.fontSize(14).fillColor(statusColors[record.status] || '#6B7280');
+      doc.text(`Current Status: ${record.status}`, { align: 'center' });
+      doc.fillColor('#000000');
+      doc.moveDown(3);
+
+      // Footer
+      doc.fontSize(10).text('_'.repeat(80), { align: 'center' });
+      doc.moveDown(0.5);
+      doc.text('Emergency Dispatch System - UC-005 Digital Equipment Readiness', { align: 'center' });
+      doc.text('This is an official maintenance record document', { align: 'center' });
+      doc.moveDown(2);
+
+      // Signature Section
+      doc.fontSize(12);
+      doc.text('Supervisor Signature: _______________________     Date: __________', { align: 'left' });
+      doc.moveDown();
+      doc.text('Technician Signature: _______________________     Date: __________', { align: 'left' });
+
+      // Finalize PDF
+      doc.end();
+
+      console.log('✅ PDF generated successfully for record:', record._id);
+
+    } catch (error) {
+      console.error('❌ PDF generation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate PDF',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
