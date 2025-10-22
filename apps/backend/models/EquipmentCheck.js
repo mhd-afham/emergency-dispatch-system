@@ -11,12 +11,12 @@ const equipmentCheckSchema = new mongoose.Schema(
     crewId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Crew",
-      required: [true, "Crew ID is required"],
+      required: false, // Optional - may not exist for admin/supervisor users
     },
     templateId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "EquipmentChecklistTemplate",
-      required: [true, "Template ID is required"],
+      required: false, // Optional - may not exist for manual checklists
     },
 
     // Inspection Details
@@ -70,7 +70,7 @@ const equipmentCheckSchema = new mongoose.Schema(
           checkedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Crew",
-            required: true,
+            required: false, // Optional - may not exist for admin/supervisor users
           },
         },
       ],

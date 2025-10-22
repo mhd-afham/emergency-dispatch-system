@@ -118,34 +118,42 @@ class EquipmentController {
         });
       }
 
-      // Find crew member by user ID
-      const crew = await Crew.findOne({ userId: req.user._id });
-      if (!crew) {
-        return res.status(404).json({
-          success: false,
-          message: 'Crew member profile not found for current user'
-        });
+      // Find crew member by user ID (optional - might not exist for admin/supervisor users)
+      let crew = await Crew.findOne({ userId: req.user._id });
+      let crewId = null;
+      
+      if (crew) {
+        crewId = crew._id;
+        console.log('👤 Inspector (Crew):', crew.personal.firstName, crew.personal.lastName);
+      } else {
+        console.log('👤 Inspector (User):', req.user.personal.firstName, req.user.personal.lastName, '- No crew profile');
       }
 
       // Verify vehicle and template exist
       const vehicle = await Vehicle.findById(vehicleId);
       const template = await EquipmentChecklistTemplate.findById(templateId);
       
-      if (!vehicle || !template) {
+      if (!vehicle) {
         return res.status(404).json({
           success: false,
-          message: 'Vehicle or template not found'
+          message: 'Vehicle not found'
         });
       }
 
+      if (!template) {
+        console.warn('Template not found, will try to continue without it');
+        // Don't fail - template might not exist for manual checklists
+      }
+
       console.log('🚗 Vehicle:', vehicle.registration.plateNumber);
-      console.log('📋 Template:', template.template.name);
-      console.log('👤 Inspector:', crew.personal.firstName, crew.personal.lastName);
+      if (template) {
+        console.log('📋 Template:', template.template.name);
+      }
 
       // Create equipment check
       const equipmentCheck = new EquipmentCheck({
         vehicleId: vehicleId,
-        crewId: crew._id,
+        crewId: crewId, // Can be null for users without crew profile
         templateId: templateId,
         inspection: {
           checkResults: checkResults,
@@ -209,9 +217,9 @@ class EquipmentController {
       equipmentCheck.inspection.warningCount = warningCount;
       equipmentCheck.inspection.criticalFailures = criticalFailures;
 
-      // Determine overall status
+      // Determine overall status (using model enum values: pass, fail, conditional)
       if (criticalFailures.length > 0) {
-        equipmentCheck.inspection.overallStatus = 'critical_failure';
+        equipmentCheck.inspection.overallStatus = 'fail';
         // Update vehicle status to out of service
         await Vehicle.findByIdAndUpdate(vehicleId, {
           'operationalStatus.status': 'out_of_service',
@@ -219,7 +227,7 @@ class EquipmentController {
           'operationalStatus.lastUpdated': new Date()
         });
       } else if (failCount > 0) {
-        equipmentCheck.inspection.overallStatus = 'minor_issues';
+        equipmentCheck.inspection.overallStatus = 'conditional';
         // Update vehicle status to available with restrictions
         await Vehicle.findByIdAndUpdate(vehicleId, {
           'operationalStatus.status': 'available_with_restrictions',
@@ -227,7 +235,7 @@ class EquipmentController {
           'operationalStatus.lastUpdated': new Date()
         });
       } else {
-        equipmentCheck.inspection.overallStatus = 'passed';
+        equipmentCheck.inspection.overallStatus = 'pass';
         // Update vehicle status to available
         await Vehicle.findByIdAndUpdate(vehicleId, {
           'operationalStatus.status': 'available',
@@ -624,6 +632,48 @@ class EquipmentController {
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve equipment status',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Delete all equipment checks for a specific vehicle
+   * DELETE /api/equipment/checks/vehicle/:vehicleId
+   * Used when creating new manual checklist to replace old records
+   */
+  static async deleteVehicleEquipmentChecks(req, res) {
+    try {
+      console.log('🗑️ Deleting equipment checks for vehicle:', req.params.vehicleId);
+      
+      const { vehicleId } = req.params;
+      
+      // Validate vehicle ID
+      if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid vehicle ID format'
+        });
+      }
+
+      // Delete all equipment checks for this vehicle
+      const result = await EquipmentCheck.deleteMany({ vehicleId });
+
+      console.log(`✅ Deleted ${result.deletedCount} equipment check(s) for vehicle ${vehicleId}`);
+
+      res.status(200).json({
+        success: true,
+        message: `Deleted ${result.deletedCount} equipment check(s)`,
+        data: {
+          deletedCount: result.deletedCount
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error deleting equipment checks:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete equipment checks',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
