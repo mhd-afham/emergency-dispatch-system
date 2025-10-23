@@ -65,6 +65,16 @@ const AdminRegistrationSection: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Search states - Hybrid Approach (Option 5)
+  // Quick Search (Global): Direct ID lookup
+  const [quickSearchTerm, setQuickSearchTerm] = useState<string>("");
+  const [quickSearchLoading, setQuickSearchLoading] = useState(false);
+  
+  // Tab-Specific Filter: Refine results in current tab
+  const [tabFilterTerm, setTabFilterTerm] = useState<string>("");
+  const [dateFilter, setDateFilter] = useState<{start: string; end: string}>({start: "", end: ""});
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
   // Notification state
   const [notification, setNotification] = useState<{
     show: boolean;
@@ -344,7 +354,7 @@ const AdminRegistrationSection: React.FC = () => {
           quantity: "",
         }],
       },
-      registration: {
+      station: {
         homeStationId: vehicle.station?.homeStationId?._id || vehicle.station?.homeStationId || "",
       },
     };
@@ -376,49 +386,43 @@ const AdminRegistrationSection: React.FC = () => {
     };
   };
 
-  const handleEditRejected = async (item: any, type: FormType) => {
+  const handleEditRejected = (item: any, type: FormType) => {
     try {
-      console.log(`🔄 Clearing rejection status for ${type}:`, item);
-      
-      // Clear the rejection status via API
-      const endpoint = type === 'vehicle' ? `/vehicles/${item._id}/clear-rejection` : `/crew/${item._id}/clear-rejection`;
-      const response = await apiClient.patch(endpoint);
-      
-      console.log(`✅ Cleared rejection status successfully:`, response.data);
-      
-      // Get the cleared data from response
-      const clearedData = response.data.data || item;
+      console.log(`� Opening rejected ${type} for editing (without clearing rejection):`, item);
       
       // Transform the rejected item data to match the wizard's expected format
       let formData;
       if (type === 'vehicle') {
-        formData = transformVehicleToFormData(clearedData);
+        formData = transformVehicleToFormData(item);
       } else {
-        formData = transformCrewToFormData(clearedData);
+        formData = transformCrewToFormData(item);
       }
       
       // Create a draft-like structure for the wizard
+      // Include isRejected flag to indicate this is a rejected form being edited
       const draftData = {
-        _id: clearedData._id,
+        _id: item._id,
         registrationType: type,
         formData: formData,
         currentStep: 1, // Start from step 1
+        isRejected: true, // Flag to indicate this is a rejected form
+        rejectionReason: item.registrationStatus?.rejectionReason, // Keep rejection info for reference
       };
       
-      console.log('📝 Opening wizard with transformed data:', draftData);
+      console.log('📝 Opening wizard with rejected form data:', draftData);
       
-      // Open the wizard with the transformed data (no modal, directly open)
+      // Open the wizard with the transformed data
       setEditingDraft(draftData);
       setCurrentMode(type);
       
     } catch (err: any) {
-      console.error('Error clearing rejection status:', err);
+      console.error('Error opening rejected form:', err);
       // Show error notification only on failure
       setNotification({
         show: true,
         type: 'error',
-        title: 'Clear Rejection Failed',
-        message: err.response?.data?.message || 'Failed to clear rejection status. You can try again.',
+        title: 'Error Opening Form',
+        message: 'Failed to open the rejected form for editing. Please try again.',
         onConfirm: () => setNotification(null)
       });
     }
@@ -455,6 +459,321 @@ const AdminRegistrationSection: React.FC = () => {
     setCurrentMode("overview");
     setEditingDraft(null);
   };
+
+  // ========== SEARCH FUNCTIONS (Hybrid Option 5) ==========
+  
+  /**
+   * Quick Search Handler - Global ID lookup (Plate Number or Employee ID)
+   * Auto-navigates to the correct tab and type when found
+   */
+  const handleQuickSearch = async () => {
+    const searchTerm = quickSearchTerm.trim().toUpperCase();
+    
+    if (!searchTerm) {
+      setNotification({
+        show: true,
+        type: 'warning',
+        title: 'Search Required',
+        message: 'Please enter a plate number (e.g., CAB-1234) or employee ID (e.g., EMP001)',
+        onConfirm: () => setNotification(null)
+      });
+      return;
+    }
+
+    setQuickSearchLoading(true);
+    console.log(`🔍 Quick searching for: ${searchTerm}`);
+
+    try {
+      // First, load ALL data from backend if not already loaded
+      let allPendingVehicles = pendingVehicles;
+      let allApprovedVehicles = approvedVehicles;
+      let allRejectedVehicles = rejectedVehicles;
+      let allPendingCrew = pendingCrew;
+      let allApprovedCrew = approvedCrew;
+      let allRejectedCrew = rejectedCrew;
+
+      // Fetch all data if arrays are empty
+      if (allPendingVehicles.length === 0) {
+        const response = await apiClient.get('/vehicles/pending-approval');
+        allPendingVehicles = response.data?.data?.pendingVehicles || [];
+        setPendingVehicles(allPendingVehicles);
+      }
+      
+      if (allApprovedVehicles.length === 0) {
+        const response = await apiClient.get('/vehicles/approved');
+        allApprovedVehicles = response.data?.data?.approvedVehicles || [];
+        setApprovedVehicles(allApprovedVehicles);
+      }
+      
+      if (allRejectedVehicles.length === 0) {
+        const response = await apiClient.get('/vehicles/rejected');
+        allRejectedVehicles = response.data?.data?.rejectedVehicles || [];
+        setRejectedVehicles(allRejectedVehicles);
+      }
+      
+      if (allPendingCrew.length === 0) {
+        const response = await apiClient.get('/crew/pending-approval');
+        allPendingCrew = response.data?.data?.pendingCrew || [];
+        setPendingCrew(allPendingCrew);
+      }
+      
+      if (allApprovedCrew.length === 0) {
+        const response = await apiClient.get('/crew/approved');
+        allApprovedCrew = response.data?.data?.approvedCrew || [];
+        setApprovedCrew(allApprovedCrew);
+      }
+      
+      if (allRejectedCrew.length === 0) {
+        const response = await apiClient.get('/crew/rejected');
+        allRejectedCrew = response.data?.data?.rejectedCrew || [];
+        setRejectedCrew(allRejectedCrew);
+      }
+
+      // Now search in all loaded data
+      const allVehicles = [...allPendingVehicles, ...allApprovedVehicles, ...allRejectedVehicles];
+      const allCrew = [...allPendingCrew, ...allApprovedCrew, ...allRejectedCrew];
+
+      // Try to find in vehicles
+      const foundVehicle = allVehicles.find(v => 
+        v.registration?.plateNumber?.toUpperCase() === searchTerm
+      );
+
+      if (foundVehicle) {
+        // Determine correct tab based on which array it was found in
+        let targetTab: FormsSection = 'pending';
+        
+        if (allApprovedVehicles.some(v => v._id === foundVehicle._id)) {
+          targetTab = 'approved';
+        } else if (allRejectedVehicles.some(v => v._id === foundVehicle._id)) {
+          targetTab = 'rejected';
+        }
+        
+        console.log(`✅ Found vehicle in ${targetTab} section`);
+        
+        // Navigate to correct tab and set type
+        setExpandedSection(targetTab);
+        setSelectedFormType('vehicle');
+        setTabFilterTerm(searchTerm); // Highlight the found item
+        
+        // Auto-scroll to the results section after DOM updates
+        setTimeout(() => {
+          const resultsSection = document.querySelector(`[data-section="${targetTab}"]`);
+          if (resultsSection) {
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } else {
+            // Fallback: scroll to first visible card
+            const firstCard = document.querySelector(`[data-vehicle-id="${foundVehicle._id}"]`);
+            if (firstCard) {
+              firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }, 300); // Wait for tab content to render
+        
+        setNotification({
+          show: true,
+          type: 'success',
+          title: 'Vehicle Found!',
+          message: `Found vehicle ${searchTerm} in ${targetTab} section. Navigating now...`,
+          onConfirm: () => setNotification(null)
+        });
+        
+        setQuickSearchLoading(false);
+        return;
+      }
+
+      // Try to find in crew - Check both root level and personal.employeeId
+      const foundCrew = allCrew.find(c => 
+        c.employeeId?.toUpperCase() === searchTerm || 
+        c.personal?.employeeId?.toUpperCase() === searchTerm
+      );
+
+      if (foundCrew) {
+        // Determine correct tab based on which array it was found in
+        let targetTab: FormsSection = 'pending';
+        
+        if (allApprovedCrew.some(c => c._id === foundCrew._id)) {
+          targetTab = 'approved';
+        } else if (allRejectedCrew.some(c => c._id === foundCrew._id)) {
+          targetTab = 'rejected';
+        }
+        
+        const employeeId = foundCrew.employeeId || foundCrew.personal?.employeeId || searchTerm;
+        console.log(`✅ Found crew member in ${targetTab} section`);
+        console.log(`   Employee ID: ${employeeId}`);
+        console.log(`   Setting filter to: ${employeeId}`);
+        
+        // Navigate to correct tab and set type
+        setExpandedSection(targetTab);
+        setSelectedFormType('crew');
+        setTabFilterTerm(employeeId); // Use the actual employee ID from the record
+        
+        // Auto-scroll to the results section after DOM updates
+        setTimeout(() => {
+          const resultsSection = document.querySelector(`[data-section="${targetTab}"]`);
+          if (resultsSection) {
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } else {
+            // Fallback: scroll to first visible card
+            const firstCard = document.querySelector(`[data-crew-id="${foundCrew._id}"]`);
+            if (firstCard) {
+              firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }, 300); // Wait for tab content to render
+        
+        const firstName = foundCrew.firstName || foundCrew.personal?.firstName || '';
+        const lastName = foundCrew.lastName || foundCrew.personal?.lastName || '';
+        
+        setNotification({
+          show: true,
+          type: 'success',
+          title: 'Crew Member Found!',
+          message: `Found ${firstName} ${lastName} (${searchTerm}) in ${targetTab} section. Navigating now...`,
+          onConfirm: () => setNotification(null)
+        });
+        
+        setQuickSearchLoading(false);
+        return;
+      }
+
+      // Not found
+      setNotification({
+        show: true,
+        type: 'info',
+        title: 'Not Found',
+        message: `No registration found with ID: ${searchTerm}. Make sure it's correctly formatted.`,
+        onConfirm: () => setNotification(null)
+      });
+
+    } catch (err) {
+      console.error('Quick search error:', err);
+      setNotification({
+        show: true,
+        type: 'error',
+        title: 'Search Error',
+        message: 'An error occurred while searching. Please try again.',
+        onConfirm: () => setNotification(null)
+      });
+    } finally {
+      setQuickSearchLoading(false);
+    }
+  };
+
+  /**
+   * Tab Filter - Client-side filtering of visible results
+   */
+  const getFilteredData = (data: any[], type: 'vehicle' | 'crew' | 'draft') => {
+    if (!tabFilterTerm && !dateFilter.start && !dateFilter.end) {
+      return data; // No filters applied
+    }
+
+    return data.filter(item => {
+      const searchLower = tabFilterTerm.toLowerCase();
+      
+      // Text search
+      if (tabFilterTerm) {
+        if (type === 'vehicle') {
+          const matches = 
+            item.registration?.plateNumber?.toLowerCase().includes(searchLower) ||
+            item.registration?.make?.toLowerCase().includes(searchLower) ||
+            item.registration?.model?.toLowerCase().includes(searchLower) ||
+            item.registration?.vehicleType?.toLowerCase().includes(searchLower);
+          
+          if (!matches) return false;
+        } else if (type === 'crew') {
+          // Handle both nested and flat crew data structures
+          const employeeId = item.employeeId || item.personal?.employeeId || '';
+          const firstName = item.firstName || item.personal?.firstName || '';
+          const lastName = item.lastName || item.personal?.lastName || '';
+          const role = item.role || item.professional?.role || '';
+          const certLevel = item.certificationLevel || item.professional?.certificationLevel || '';
+          const certifications = item.certifications || item.professional?.certifications || [];
+          
+          // Check certifications - handle both string[] and object[] formats
+          let certMatches = false;
+          if (Array.isArray(certifications)) {
+            certMatches = certifications.some((cert: any) => {
+              if (typeof cert === 'string') {
+                return cert.toLowerCase().includes(searchLower);
+              } else if (cert && typeof cert === 'object') {
+                // Check certification object properties
+                const certName = cert.name || cert.type || '';
+                const certLevel = cert.level || '';
+                return certName.toLowerCase().includes(searchLower) || 
+                       certLevel.toLowerCase().includes(searchLower);
+              }
+              return false;
+            });
+          }
+          
+          const matches = 
+            employeeId.toLowerCase().includes(searchLower) ||
+            firstName.toLowerCase().includes(searchLower) ||
+            lastName.toLowerCase().includes(searchLower) ||
+            role.toLowerCase().includes(searchLower) ||
+            certLevel.toLowerCase().includes(searchLower) ||
+            certMatches;
+          
+          if (!matches) return false;
+        } else if (type === 'draft') {
+          // Handle draft filtering
+          const draftTitle = item.draftTitle || '';
+          const currentStep = String(item.currentStep || '');
+          const completionPercentage = String(item.completionPercentage || '');
+          
+          const matches = 
+            draftTitle.toLowerCase().includes(searchLower) ||
+            currentStep.includes(searchLower) ||
+            completionPercentage.includes(searchLower);
+          
+          if (!matches) return false;
+        }
+      }
+
+      // Date range filter
+      if (dateFilter.start || dateFilter.end) {
+        const itemDate = new Date(item.audit?.createdAt || item.audit?.updatedAt || item.createdAt);
+        
+        if (dateFilter.start) {
+          const startDate = new Date(dateFilter.start);
+          if (itemDate < startDate) return false;
+        }
+        
+        if (dateFilter.end) {
+          const endDate = new Date(dateFilter.end);
+          endDate.setHours(23, 59, 59, 999); // End of day
+          if (itemDate > endDate) return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  /**
+   * Clear all filters
+   */
+  const clearFilters = () => {
+    setTabFilterTerm("");
+    setDateFilter({start: "", end: ""});
+    setShowAdvancedFilters(false);
+  };
+
+  /**
+   * Highlight search term in text
+   */
+  const highlightText = (text: string, highlight: string) => {
+    if (!highlight.trim() || !text) return text;
+    
+    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === highlight.toLowerCase() 
+        ? `**${part}**` 
+        : part
+    ).join('');
+  };
+
+  // ========== END SEARCH FUNCTIONS ==========
 
   // Render specific registration wizard
   if (currentMode === "vehicle") {
@@ -557,6 +876,67 @@ const AdminRegistrationSection: React.FC = () => {
         <p className="text-sm text-gray-600 mt-1">
           View all approved, rejected, and saved draft registrations
         </p>
+
+        {/* ========== QUICK SEARCH (Global) ========== */}
+        <div className="mt-6 mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center">
+              <svg className="h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <h3 className="text-sm font-semibold text-gray-900">Quick Search</h3>
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={quickSearchTerm}
+                onChange={(e) => setQuickSearchTerm(e.target.value.toUpperCase())}
+                onKeyPress={(e) => e.key === 'Enter' && handleQuickSearch()}
+                placeholder="Enter Plate Number (e.g., CAB-1234) or Employee ID (e.g., EMP001)"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+            
+            <button
+              onClick={handleQuickSearch}
+              disabled={quickSearchLoading || !quickSearchTerm.trim()}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-md font-medium text-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center whitespace-nowrap h-[42px]"
+            >
+              {quickSearchLoading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Search
+                </>
+              )}
+            </button>
+            
+            {quickSearchTerm && (
+              <button
+                onClick={() => setQuickSearchTerm("")}
+                className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-md font-medium text-sm hover:bg-gray-300 transition-colors duration-200 flex items-center whitespace-nowrap h-[42px]"
+              >
+                <svg className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+        {/* ========== END QUICK SEARCH ========== */}
         
         {/* Tab Selection - Horizontal tabs like Supervisor */}
         <div className="mt-4 border-b border-gray-200">
@@ -626,7 +1006,7 @@ const AdminRegistrationSection: React.FC = () => {
 
       {/* Tab Content - Only show content for active tab */}
       {expandedSection === 'pending' && (
-        <div className="bg-white shadow rounded-lg">
+        <div className="bg-white shadow rounded-lg" data-section="pending">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -664,6 +1044,84 @@ const AdminRegistrationSection: React.FC = () => {
                   </button>
                 </div>
 
+                {/* ========== TAB-SPECIFIC FILTER BAR ========== */}
+                <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <svg className="h-4 w-4 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                      <span className="text-sm font-semibold text-gray-700">Filter Results</span>
+                    </div>
+                    <button
+                      onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      {showAdvancedFilters ? '− Hide Advanced' : '+ Show Advanced'}
+                    </button>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={tabFilterTerm}
+                        onChange={(e) => setTabFilterTerm(e.target.value)}
+                        placeholder={selectedFormType === 'vehicle' ? "Filter by plate, make, model, type..." : "Filter by name, ID, role, certification..."}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                    
+                    {(tabFilterTerm || dateFilter.start || dateFilter.end) && (
+                      <button
+                        onClick={clearFilters}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors duration-200 flex items-center"
+                      >
+                        <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Advanced Filters */}
+                  {showAdvancedFilters && (
+                    <div className="mt-3 pt-3 border-t border-gray-300">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+                          <input
+                            type="date"
+                            value={dateFilter.start}
+                            onChange={(e) => setDateFilter({...dateFilter, start: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+                          <input
+                            type="date"
+                            value={dateFilter.end}
+                            onChange={(e) => setDateFilter({...dateFilter, end: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Result Counter */}
+                  {(tabFilterTerm || dateFilter.start || dateFilter.end) && (
+                    <div className="mt-3 text-xs text-gray-600">
+                      Showing {selectedFormType === 'vehicle' 
+                        ? getFilteredData(pendingVehicles, 'vehicle').length 
+                        : getFilteredData(pendingCrew, 'crew').length} of {selectedFormType === 'vehicle' ? pendingVehicles.length : pendingCrew.length} results
+                    </div>
+                  )}
+                </div>
+                {/* ========== END TAB-SPECIFIC FILTER BAR ========== */}
+
                 {/* Loading and Error States */}
                 {loading && (
                   <div className="flex justify-center items-center py-12">
@@ -681,15 +1139,15 @@ const AdminRegistrationSection: React.FC = () => {
                 {!loading && !error && selectedFormType === 'vehicle' && (
                   <div>
                     <h4 className="text-md font-semibold text-gray-900 mb-3">
-                      Pending Vehicle Registrations ({pendingVehicles.length})
+                      Pending Vehicle Registrations ({getFilteredData(pendingVehicles, 'vehicle').length})
                     </h4>
-                    {pendingVehicles.length === 0 ? (
+                    {getFilteredData(pendingVehicles, 'vehicle').length === 0 ? (
                       <div className="text-center py-12 text-gray-500">
-                        <p>No pending vehicle registrations</p>
+                        <p>{tabFilterTerm || dateFilter.start || dateFilter.end ? 'No vehicles match your filters' : 'No pending vehicle registrations'}</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {pendingVehicles.map((vehicle) => (
+                        {getFilteredData(pendingVehicles, 'vehicle').map((vehicle) => (
                           <div key={vehicle._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
@@ -716,15 +1174,15 @@ const AdminRegistrationSection: React.FC = () => {
                 {!loading && !error && selectedFormType === 'crew' && (
                   <div>
                     <h4 className="text-md font-semibold text-gray-900 mb-3">
-                      Pending Crew Registrations ({pendingCrew.length})
+                      Pending Crew Registrations ({getFilteredData(pendingCrew, 'crew').length})
                     </h4>
-                    {pendingCrew.length === 0 ? (
+                    {getFilteredData(pendingCrew, 'crew').length === 0 ? (
                       <div className="text-center py-12 text-gray-500">
-                        <p>No pending crew registrations</p>
+                        <p>{tabFilterTerm || dateFilter.start || dateFilter.end ? 'No crew members match your filters' : 'No pending crew registrations'}</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {pendingCrew.map((crew) => (
+                        {getFilteredData(pendingCrew, 'crew').map((crew) => (
                           <div key={crew._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
@@ -753,7 +1211,7 @@ const AdminRegistrationSection: React.FC = () => {
       )}
 
       {expandedSection === 'approved' && (
-        <div className="bg-white shadow rounded-lg">
+        <div className="bg-white shadow rounded-lg" data-section="approved">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -791,6 +1249,84 @@ const AdminRegistrationSection: React.FC = () => {
                   </button>
                 </div>
 
+                {/* ========== TAB-SPECIFIC FILTER BAR ========== */}
+                <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <svg className="h-4 w-4 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                      <span className="text-sm font-semibold text-gray-700">Filter Results</span>
+                    </div>
+                    <button
+                      onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      {showAdvancedFilters ? '− Hide Advanced' : '+ Show Advanced'}
+                    </button>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={tabFilterTerm}
+                        onChange={(e) => setTabFilterTerm(e.target.value)}
+                        placeholder={selectedFormType === 'vehicle' ? "Filter by plate, make, model, type..." : "Filter by name, ID, role, certification..."}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                    
+                    {(tabFilterTerm || dateFilter.start || dateFilter.end) && (
+                      <button
+                        onClick={clearFilters}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors duration-200 flex items-center"
+                      >
+                        <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Advanced Filters */}
+                  {showAdvancedFilters && (
+                    <div className="mt-3 pt-3 border-t border-gray-300">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+                          <input
+                            type="date"
+                            value={dateFilter.start}
+                            onChange={(e) => setDateFilter({...dateFilter, start: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+                          <input
+                            type="date"
+                            value={dateFilter.end}
+                            onChange={(e) => setDateFilter({...dateFilter, end: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Result Counter */}
+                  {(tabFilterTerm || dateFilter.start || dateFilter.end) && (
+                    <div className="mt-3 text-xs text-gray-600">
+                      Showing {selectedFormType === 'vehicle' 
+                        ? getFilteredData(approvedVehicles, 'vehicle').length 
+                        : getFilteredData(approvedCrew, 'crew').length} of {selectedFormType === 'vehicle' ? approvedVehicles.length : approvedCrew.length} results
+                    </div>
+                  )}
+                </div>
+                {/* ========== END TAB-SPECIFIC FILTER BAR ========== */}
+
                 {loading ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
@@ -804,12 +1340,12 @@ const AdminRegistrationSection: React.FC = () => {
                   <div>
                     {selectedFormType === 'vehicle' ? (
                       <div>
-                        <p className="text-sm text-gray-600 mb-4">Total: {approvedVehicles.length} approved vehicles</p>
-                        {approvedVehicles.length === 0 ? (
-                          <p className="text-gray-500 text-center py-8">No approved vehicles found</p>
+                        <p className="text-sm text-gray-600 mb-4">Total: {getFilteredData(approvedVehicles, 'vehicle').length} approved vehicles</p>
+                        {getFilteredData(approvedVehicles, 'vehicle').length === 0 ? (
+                          <p className="text-gray-500 text-center py-8">{tabFilterTerm || dateFilter.start || dateFilter.end ? 'No vehicles match your filters' : 'No approved vehicles found'}</p>
                         ) : (
                           <div className="space-y-3">
-                            {approvedVehicles.map((vehicle) => (
+                            {getFilteredData(approvedVehicles, 'vehicle').map((vehicle) => (
                               <div key={vehicle._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
                                 <div className="flex justify-between items-start">
                                   <div className="flex-1">
@@ -836,12 +1372,12 @@ const AdminRegistrationSection: React.FC = () => {
                       </div>
                     ) : (
                       <div>
-                        <p className="text-sm text-gray-600 mb-4">Total: {approvedCrew.length} approved crew members</p>
-                        {approvedCrew.length === 0 ? (
-                          <p className="text-gray-500 text-center py-8">No approved crew members found</p>
+                        <p className="text-sm text-gray-600 mb-4">Total: {getFilteredData(approvedCrew, 'crew').length} approved crew members</p>
+                        {getFilteredData(approvedCrew, 'crew').length === 0 ? (
+                          <p className="text-gray-500 text-center py-8">{tabFilterTerm || dateFilter.start || dateFilter.end ? 'No crew members match your filters' : 'No approved crew members found'}</p>
                         ) : (
                           <div className="space-y-3">
-                            {approvedCrew.map((crew) => (
+                            {getFilteredData(approvedCrew, 'crew').map((crew) => (
                               <div key={crew._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
                                 <div className="flex justify-between items-start">
                                   <div className="flex-1">
@@ -873,7 +1409,7 @@ const AdminRegistrationSection: React.FC = () => {
 
       {/* Rejected Tab Content */}
       {expandedSection === 'rejected' && (
-        <div className="bg-white shadow rounded-lg">
+        <div className="bg-white shadow rounded-lg" data-section="rejected">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -910,6 +1446,84 @@ const AdminRegistrationSection: React.FC = () => {
               </button>
             </div>
 
+            {/* ========== TAB-SPECIFIC FILTER BAR ========== */}
+            <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <svg className="h-4 w-4 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  <span className="text-sm font-semibold text-gray-700">Filter Results</span>
+                </div>
+                <button
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  {showAdvancedFilters ? '− Hide Advanced' : '+ Show Advanced'}
+                </button>
+              </div>
+              
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={tabFilterTerm}
+                    onChange={(e) => setTabFilterTerm(e.target.value)}
+                    placeholder={selectedFormType === 'vehicle' ? "Filter by plate, make, model, type..." : "Filter by name, ID, role, certification..."}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+                
+                {(tabFilterTerm || dateFilter.start || dateFilter.end) && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors duration-200 flex items-center"
+                  >
+                    <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Advanced Filters */}
+              {showAdvancedFilters && (
+                <div className="mt-3 pt-3 border-t border-gray-300">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+                      <input
+                        type="date"
+                        value={dateFilter.start}
+                        onChange={(e) => setDateFilter({...dateFilter, start: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+                      <input
+                        type="date"
+                        value={dateFilter.end}
+                        onChange={(e) => setDateFilter({...dateFilter, end: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Result Counter */}
+              {(tabFilterTerm || dateFilter.start || dateFilter.end) && (
+                <div className="mt-3 text-xs text-gray-600">
+                  Showing {selectedFormType === 'vehicle' 
+                    ? getFilteredData(rejectedVehicles, 'vehicle').length 
+                    : getFilteredData(rejectedCrew, 'crew').length} of {selectedFormType === 'vehicle' ? rejectedVehicles.length : rejectedCrew.length} results
+                </div>
+              )}
+            </div>
+            {/* ========== END TAB-SPECIFIC FILTER BAR ========== */}
+
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
@@ -923,17 +1537,19 @@ const AdminRegistrationSection: React.FC = () => {
               <div>
                 {selectedFormType === 'vehicle' ? (
                   <div>
-                    <p className="text-sm text-gray-600 mb-4">Total: {rejectedVehicles.length} rejected vehicles</p>
-                    {rejectedVehicles.length === 0 ? (
+                    <p className="text-sm text-gray-600 mb-4">
+                      Rejected Vehicles ({getFilteredData(rejectedVehicles, 'vehicle').length})
+                    </p>
+                    {getFilteredData(rejectedVehicles, 'vehicle').length === 0 ? (
                       <div className="text-center py-8 text-gray-500">
                         <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <p className="mt-2">No rejected vehicles found</p>
+                        <p className="mt-2">{tabFilterTerm || dateFilter.start || dateFilter.end ? 'No vehicles match your filters' : 'No rejected vehicles found'}</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {rejectedVehicles.map((vehicle) => (
+                        {getFilteredData(rejectedVehicles, 'vehicle').map((vehicle) => (
                           <div key={vehicle._id} className="border border-red-200 rounded-lg p-4 bg-red-50 hover:shadow-md transition-shadow duration-200">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
@@ -970,17 +1586,19 @@ const AdminRegistrationSection: React.FC = () => {
                   </div>
                 ) : (
                   <div>
-                    <p className="text-sm text-gray-600 mb-4">Total: {rejectedCrew.length} rejected crew members</p>
-                    {rejectedCrew.length === 0 ? (
+                    <p className="text-sm text-gray-600 mb-4">
+                      Rejected Crew Members ({getFilteredData(rejectedCrew, 'crew').length})
+                    </p>
+                    {getFilteredData(rejectedCrew, 'crew').length === 0 ? (
                       <div className="text-center py-8 text-gray-500">
                         <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <p className="mt-2">No rejected crew members found</p>
+                        <p className="mt-2">{tabFilterTerm || dateFilter.start || dateFilter.end ? 'No crew members match your filters' : 'No rejected crew members found'}</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {rejectedCrew.map((crew) => (
+                        {getFilteredData(rejectedCrew, 'crew').map((crew) => (
                           <div key={crew._id} className="border border-red-200 rounded-lg p-4 bg-red-50 hover:shadow-md transition-shadow duration-200">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
@@ -1061,6 +1679,82 @@ const AdminRegistrationSection: React.FC = () => {
               </button>
             </div>
 
+            {/* ========== TAB-SPECIFIC FILTER BAR ========== */}
+            <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <svg className="h-4 w-4 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  <span className="text-sm font-semibold text-gray-700">Filter Results</span>
+                </div>
+                <button
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  {showAdvancedFilters ? '− Hide Advanced' : '+ Show Advanced'}
+                </button>
+              </div>
+              
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={tabFilterTerm}
+                    onChange={(e) => setTabFilterTerm(e.target.value)}
+                    placeholder="Filter by draft title, step, or completion..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+                
+                {(tabFilterTerm || dateFilter.start || dateFilter.end) && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors duration-200 flex items-center"
+                  >
+                    <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Advanced Filters */}
+              {showAdvancedFilters && (
+                <div className="mt-3 pt-3 border-t border-gray-300">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+                      <input
+                        type="date"
+                        value={dateFilter.start}
+                        onChange={(e) => setDateFilter({...dateFilter, start: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+                      <input
+                        type="date"
+                        value={dateFilter.end}
+                        onChange={(e) => setDateFilter({...dateFilter, end: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Result Counter */}
+              {(tabFilterTerm || dateFilter.start || dateFilter.end) && (
+                <div className="mt-3 text-xs text-gray-600">
+                  Showing {getFilteredData(drafts, 'draft').length} of {drafts.length} results
+                </div>
+              )}
+            </div>
+            {/* ========== END TAB-SPECIFIC FILTER BAR ========== */}
+
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600 mx-auto"></div>
@@ -1072,17 +1766,19 @@ const AdminRegistrationSection: React.FC = () => {
               </div>
             ) : (
               <div>
-                <p className="text-sm text-gray-600 mb-4">Total: {drafts.length} saved drafts - {selectedFormType === 'vehicle' ? 'Vehicles' : 'Crew Members'}</p>
-                {drafts.length === 0 ? (
+                <p className="text-sm text-gray-600 mb-4">
+                  Saved Drafts ({getFilteredData(drafts, 'draft').length})
+                </p>
+                {getFilteredData(drafts, 'draft').length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="mt-2">No drafts found</p>
+                    <p className="mt-2">{tabFilterTerm || dateFilter.start || dateFilter.end ? 'No drafts match your filters' : 'No drafts found'}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {drafts.map((draft) => (
+                    {getFilteredData(drafts, 'draft').map((draft) => (
                       <div key={draft._id} className="border border-yellow-200 rounded-lg p-4 bg-yellow-50 hover:shadow-md transition-shadow duration-200">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">

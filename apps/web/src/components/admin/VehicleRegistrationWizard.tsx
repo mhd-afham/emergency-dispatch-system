@@ -379,6 +379,31 @@ const VehicleRegistrationWizard: React.FC<VehicleRegistrationWizardProps> = ({
     setGeneralError("");
 
     try {
+      // Check if this is a rejected form being resubmitted
+      const isRejectedForm = (initialData as any)?.isRejected === true;
+      const vehicleId = draftId;
+
+      // If this is a rejected form, clear the rejection status first
+      if (isRejectedForm && vehicleId) {
+        console.log("🔄 Clearing rejection status before resubmission for vehicle:", vehicleId);
+        const clearRejectionUrl = `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/vehicles/${vehicleId}/clear-rejection`;
+        
+        const clearResponse = await fetch(clearRejectionUrl, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        if (!clearResponse.ok) {
+          const clearData = await clearResponse.json();
+          throw new Error(clearData.message || "Failed to clear rejection status");
+        }
+
+        console.log("✅ Rejection status cleared successfully");
+      }
+
       // Create submission data matching backend Vehicle controller expectations
       const submitData = {
         plateNumber: formData.basic.plateNumber,
@@ -417,8 +442,8 @@ const VehicleRegistrationWizard: React.FC<VehicleRegistrationWizardProps> = ({
       console.log("✅ Vehicle registration successful, clearing form data...");
       localStorage.removeItem("vehicleRegistrationData");
       
-      // If this was from a draft, delete the draft
-      if (draftId) {
+      // If this was from a draft (not a rejected form), delete the draft
+      if (draftId && !isRejectedForm) {
         try {
           console.log(`🗑️ Deleting draft ${draftId} after successful submission...`);
           await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/drafts/${draftId}`, {
