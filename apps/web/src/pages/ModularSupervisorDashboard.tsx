@@ -34,6 +34,7 @@ const ModularSupervisorDashboard: React.FC = () => {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
 
   // Core supervisor data (owned by main dashboard) - MUST be before any conditional returns
   const [pendingApprovals] = useState([
@@ -63,7 +64,7 @@ const ModularSupervisorDashboard: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const data: AnalyticsSummary = await analyticsService.getSummary();
+        const data: AnalyticsSummary = await analyticsService.getSummary(dateRange);
 
         // Store full analytics data
         setAnalyticsData(data);
@@ -97,9 +98,20 @@ const ModularSupervisorDashboard: React.FC = () => {
           return "good";
         };
 
+        // Get label based on selected range
+        const getRangeLabel = () => {
+          switch (dateRange) {
+            case 'daily': return 'Today';
+            case 'weekly': return 'This Week';
+            case 'monthly': return 'This Month';
+            case 'yearly': return 'This Year';
+            default: return 'Today';
+          }
+        };
+
         setAnalyticsSummary([
           {
-            title: "Total Incidents Today",
+            title: `Total Incidents ${getRangeLabel()}`,
             value: data.totalIncidentsToday.toString(),
             icon: "🚨",
             status: getIncidentStatus(data.totalIncidentsToday),
@@ -111,7 +123,7 @@ const ModularSupervisorDashboard: React.FC = () => {
             status: getResponseTimeStatus(data.averageResponseTime),
           },
           {
-            title: "Active Units",
+            title: "Available Units",
             value: data.activeUnits,
             icon: "🚑",
             status: getActiveUnitsStatus(data.activeUnits),
@@ -127,9 +139,19 @@ const ModularSupervisorDashboard: React.FC = () => {
         console.error("Failed to fetch analytics:", err);
         setError("Failed to load analytics data. Using cached data.");
         // Fallback to default values
+        const getRangeLabel = () => {
+          switch (dateRange) {
+            case 'daily': return 'Today';
+            case 'weekly': return 'This Week';
+            case 'monthly': return 'This Month';
+            case 'yearly': return 'This Year';
+            default: return 'Today';
+          }
+        };
+        
         setAnalyticsSummary([
           {
-            title: "Total Incidents Today",
+            title: `Total Incidents ${getRangeLabel()}`,
             value: "0",
             icon: "🚨",
             status: "normal",
@@ -141,7 +163,7 @@ const ModularSupervisorDashboard: React.FC = () => {
             status: "good",
           },
           {
-            title: "Active Units",
+            title: "Available Units",
             value: "0/0",
             icon: "🚑",
             status: "good",
@@ -164,7 +186,7 @@ const ModularSupervisorDashboard: React.FC = () => {
     const interval = setInterval(fetchAnalytics, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [dateRange]); // Re-fetch when date range changes
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -286,10 +308,62 @@ const ModularSupervisorDashboard: React.FC = () => {
                   <h3 className="text-2xl font-bold text-gray-900">
                     Analytics Overview
                   </h3>
-                  <span className="text-xs text-gray-500 flex items-center">
-                    <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-                    Live Data • Auto-refresh every 30s
-                  </span>
+                  <div className="flex items-center gap-4">
+                    {/* Date Range Selector */}
+                    <select
+                      value={dateRange}
+                      onChange={(e) => setDateRange(e.target.value as any)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                    </select>
+                    
+                    {/* Download Report Button */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const token = localStorage.getItem('token');
+                          const response = await fetch(
+                            `http://localhost:5000/api/reports/analytics-pdf?range=${dateRange}`,
+                            {
+                              method: 'GET',
+                              headers: {
+                                'Authorization': `Bearer ${token}`,
+                              },
+                            }
+                          );
+
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Analytics_${dateRange}_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                          } else {
+                            alert('Failed to download report');
+                          }
+                        } catch (error) {
+                          console.error('Error downloading PDF:', error);
+                          alert('Error downloading report');
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
+                    >
+                      Download Report
+                    </button>
+                    
+                    <span className="text-xs text-gray-500 flex items-center">
+                      <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                      Live Data • Auto-refresh every 30s
+                    </span>
+                  </div>
                 </div>
 
                 {/* Error Message */}
@@ -421,7 +495,19 @@ const ModularSupervisorDashboard: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">📦 Other</span>
+                        <span className="text-sm text-gray-600">� Traffic</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {(analyticsData.incidentTypes as any).traffic || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">☢️ Hazmat</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {(analyticsData.incidentTypes as any).hazmat || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center border-t pt-2">
+                        <span className="text-sm text-gray-600">�📦 Other</span>
                         <span className="text-lg font-bold text-gray-900">
                           {analyticsData.incidentTypes.other}
                         </span>

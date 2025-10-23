@@ -45,12 +45,43 @@ router.get("/", (req, res, next) => {
 });
 
 /**
- * @route   GET /api/assignments/:id
- * @desc    Get assignment by ID
- * @access  All authenticated users
+ * @route   GET /api/assignments/history
+ * @desc    Get assignment history with advanced filtering and search
+ * @access  Dispatchers, Supervisors, Admins
  */
-router.get("/:id", (req, res, next) => {
-  AssignmentController.getAssignmentById(req, res, next);
+router.get("/history", (req, res, next) => {
+  const allowedRoles = ["Dispatcher", "Admin", "Supervisor"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to view assignment history",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  AssignmentController.getAssignmentHistory(req, res, next);
+});
+
+/**
+ * @route   GET /api/assignments/statistics
+ * @desc    Get assignment statistics and analytics
+ * @access  Dispatchers, Supervisors, Admins
+ */
+router.get("/statistics", (req, res, next) => {
+  const allowedRoles = ["Dispatcher", "Admin", "Supervisor"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to view assignment statistics",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+    });
+  }
+
+  AssignmentController.getAssignmentStatistics(req, res, next);
 });
 
 /**
@@ -60,6 +91,16 @@ router.get("/:id", (req, res, next) => {
  */
 router.get("/incident/:incidentId", (req, res, next) => {
   AssignmentController.getIncidentAssignments(req, res, next);
+});
+
+/**
+ * @route   GET /api/assignments/:id
+ * @desc    Get assignment by ID
+ * @access  All authenticated users
+ * @note    This route must be AFTER specific routes like /history, /statistics to avoid conflicts
+ */
+router.get("/:id", (req, res, next) => {
+  AssignmentController.getAssignmentById(req, res, next);
 });
 
 /**
@@ -90,14 +131,21 @@ router.put("/:id/status", (req, res, next) => {
 });
 
 /**
- * @route   DELETE /api/assignments/:id
+ * @route   PATCH /api/assignments/:id/cancel
  * @desc    Cancel/Recall an assignment (sets status to cancelled)
  * @access  Dispatchers, Supervisors, Admins
  * @body    reason (optional) - Cancellation reason
  */
-router.delete("/:id", (req, res, next) => {
+router.patch("/:id/cancel", (req, res, next) => {
   // Only dispatchers, supervisors, and admins can cancel assignments
   const allowedRoles = ["Dispatcher", "Admin", "Supervisor"];
+
+  console.log(`🔐 Cancel assignment permission check:`, {
+    user: req.user?.firstName + " " + req.user?.lastName,
+    role: req.user?.auth?.role,
+    allowedRoles,
+    hasPermission: allowedRoles.includes(req.user?.auth?.role),
+  });
 
   if (!allowedRoles.includes(req.user.auth.role)) {
     return res.status(403).json({
@@ -109,6 +157,29 @@ router.delete("/:id", (req, res, next) => {
   }
 
   AssignmentController.cancelAssignment(req, res, next);
+});
+
+/**
+ * @route   DELETE /api/assignments/:id
+ * @desc    Permanently delete an assignment (only cancelled assignments)
+ * @access  Dispatchers, Admins
+ * @note    This is for CRUD demonstration. Only cancelled assignments can be deleted to preserve audit trail.
+ */
+router.delete("/:id", (req, res, next) => {
+  // Dispatchers and admins can permanently delete cancelled assignments
+  const allowedRoles = ["Admin", "Dispatcher"];
+
+  if (!allowedRoles.includes(req.user.auth.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient permissions to delete assignments",
+      requiredRoles: allowedRoles,
+      currentRole: req.user.auth.role,
+      note: "Only dispatchers and administrators can permanently delete assignments",
+    });
+  }
+
+  AssignmentController.deleteAssignment(req, res, next);
 });
 
 module.exports = router;

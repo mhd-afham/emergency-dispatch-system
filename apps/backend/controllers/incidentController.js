@@ -1,11 +1,7 @@
 const Incident = require("../models/Incident");
 const mongoose = require("mongoose");
 
-/**
- * Incident Controller for Emergency Dispatch System
- * Handles all incident intake, triage, and management operations
- * Implements the core functionality for US-002, US-003, US-004
- */
+
 class IncidentController {
   /**
    * Create a new incident (Emergency Call Logging - US-002)

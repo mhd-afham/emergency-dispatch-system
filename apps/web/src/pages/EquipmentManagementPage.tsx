@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { equipmentService } from '../services/equipment';
 import SupervisorEquipmentSection from '../components/SupervisorEquipmentSection';
+import MaintenanceRecordSearch from '../components/MaintenanceRecordSearch';
 
 interface MaintenanceRecord {
   id: string;
@@ -24,7 +25,7 @@ interface NewMaintenanceRecord {
 
 const EquipmentManagementPage: React.FC = () => {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'maintenance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'maintenance' | 'search'>('overview');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -167,6 +168,16 @@ const EquipmentManagementPage: React.FC = () => {
             >
               🔧 Maintenance Management
             </button>
+            <button
+              onClick={() => setActiveTab('search')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'search'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              🔍 Search & Reports
+            </button>
           </nav>
         </div>
       </div>
@@ -233,6 +244,11 @@ const EquipmentManagementPage: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Search & Reports Tab */}
+        {activeTab === 'search' && (
+          <MaintenanceRecordSearch />
         )}
       </div>
 

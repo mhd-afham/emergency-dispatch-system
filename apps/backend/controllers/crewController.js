@@ -102,11 +102,13 @@ class CrewController {
       // Find active assignments where crew is primary crew leader
       const assignments = await Assignment.find({
         "resource.primaryCrewId": crewId,
-        "response.status": { $nin: ["completed", "cancelled", "declined"] }, // Exclude completed/cancelled/declined
+        "response.status": { $nin: ["cancelled", "declined", "returned"] }, // Include completed assignments until crew marks "returned"
+        // Double-check: Don't show assignments where crew has already returned to station
+        "response.returnedAt": { $exists: false },
       })
         .populate(
           "incident.incidentId",
-          "incidentId classification location caller status priority"
+          "incidentId incidentType incidentCategory severity description location callerInfo.name status"
         )
         .populate(
           "resource.vehicleId",
@@ -138,6 +140,71 @@ class CrewController {
   }
 
   /**
+   * @desc    Get crew member's assignment history (completed/returned)
+   * @route   GET /api/crews/:crewId/assignments/history
+   * @access  Private (Field Crew)
+   * @returns List of completed/returned assignments for the crew member
+   */
+  static async getCrewAssignmentHistory(req, res) {
+    try {
+      const { crewId } = req.params;
+      const { limit = 10 } = req.query;
+
+      console.log(
+        `📱 [CrewController] Fetching assignment history for crew: ${crewId}`
+      );
+
+      // Verify crew exists
+      const crew = await Crew.findById(crewId);
+      if (!crew) {
+        return res.status(404).json({
+          success: false,
+          message: "Crew member not found",
+        });
+      }
+
+      // Find completed/returned assignments where crew was primary crew leader
+      const history = await Assignment.find({
+        "resource.primaryCrewId": crewId,
+        $or: [
+          { "response.status": "returned" },
+          { "response.returnedAt": { $exists: true } },
+        ],
+      })
+        .populate(
+          "incident.incidentId",
+          "incidentId incidentType incidentCategory severity description location status"
+        )
+        .populate(
+          "resource.vehicleId",
+          "registration.plateNumber registration.vehicleType"
+        )
+        .sort({ "response.returnedAt": -1, "response.completedAt": -1 })
+        .limit(parseInt(limit));
+
+      console.log(
+        `✅ [CrewController] Found ${history.length} completed assignments`
+      );
+
+      res.status(200).json({
+        success: true,
+        count: history.length,
+        data: history,
+      });
+    } catch (error) {
+      console.error(
+        `❌ [CrewController] Error fetching crew assignment history:`,
+        error.message
+      );
+      res.status(500).json({
+        success: false,
+        message: "Error fetching crew assignment history",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * @desc    Get crew member's assigned vehicle details
    * @route   GET /api/crews/:crewId/vehicle
    * @access  Private (Field Crew)
@@ -155,7 +222,7 @@ class CrewController {
       const crew = await Crew.findById(crewId)
         .populate({
           path: "currentStatus.assignedVehicleId",
-          select: "registration status equipment station assignment",
+          select: "registration status equipment station assignment readiness", // October 21, 2025 - Added readiness field
           populate: [
             {
               path: "assignment.crew",
@@ -254,7 +321,7 @@ class CrewController {
         },
         { new: true, runValidators: true }
       ).select(
-        "currentStatus.location currentStatus.lastLocationUpdate personal.firstName personal.lastName"
+        "currentStatus.location currentStatus.lastLocationUpdate currentStatus.assignedVehicleId personal.firstName personal.lastName"
       );
 
       if (!crew) {
@@ -265,6 +332,45 @@ class CrewController {
       }
 
       console.log(`✅ [CrewController] Location updated successfully`);
+
+      // Sync vehicle location if crew is assigned to a vehicle (October 20, 2025)
+      if (crew.currentStatus?.assignedVehicleId) {
+        const Vehicle = require("../models/Vehicle");
+        try {
+          await Vehicle.findByIdAndUpdate(
+            crew.currentStatus.assignedVehicleId,
+            {
+              "status.currentLocation": {
+                type: "Point",
+                coordinates: [lng, lat],
+              },
+              "status.lastLocationUpdate": new Date(),
+            },
+            { runValidators: true }
+          );
+          console.log(
+            `🚗 [CrewController] Vehicle location synced: ${crew.currentStatus.assignedVehicleId}`
+          );
+
+          // Emit vehicle location update event
+          if (io) {
+            io.emit("vehicle_location_update", {
+              vehicleId: crew.currentStatus.assignedVehicleId,
+              location: {
+                type: "Point",
+                coordinates: [lng, lat],
+              },
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } catch (vehicleError) {
+          console.error(
+            `⚠️ [CrewController] Failed to sync vehicle location:`,
+            vehicleError.message
+          );
+          // Don't fail the request if vehicle sync fails
+        }
+      }
 
       // Emit WebSocket event for real-time GPS tracking on dispatcher map
       const io = req.app.get("io");

@@ -100,12 +100,12 @@ const IncidentQueue: React.FC<IncidentQueueProps> = ({
   };
 
   const statusStyles = {
-    pending: "text-amber-600 bg-amber-50",
-    assigned: "text-blue-600 bg-blue-50",
-    en_route: "text-indigo-600 bg-indigo-50",
-    on_scene: "text-purple-600 bg-purple-50",
-    resolved: "text-green-600 bg-green-50",
-    cancelled: "text-gray-600 bg-gray-50",
+    pending: "text-cyan-600 bg-cyan-50", // � Cyan - Waiting for assignment (distinct from assigned)
+    assigned: "text-yellow-600 bg-yellow-50", // 🟡 Yellow - Resources assigned (crew notified)
+    en_route: "text-orange-600 bg-orange-50", // 🟠 Orange - Resources traveling to scene
+    on_scene: "text-red-600 bg-red-50", // 🔴 Red - Resources at emergency
+    resolved: "text-green-600 bg-green-50", // 🟢 Green - Incident resolved/completed
+    cancelled: "text-gray-600 bg-gray-50", // ⚫ Gray - Cancelled
   };
 
   // Fetch incidents from backend

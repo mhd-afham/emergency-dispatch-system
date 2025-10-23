@@ -6,7 +6,6 @@ import MapLocationPicker from './MapLocationPicker';
 
 /**
  * Emergency Incident Intake Form Component
- * Implements US-002: Emergency Call Logging with structured intake forms
  * Used by Call Takers to log emergency incidents with proper validation
  */
 

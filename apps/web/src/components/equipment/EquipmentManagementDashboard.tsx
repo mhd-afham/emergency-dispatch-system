@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { equipmentService } from "../../services/equipment";
+import ManualChecklistModal from "./ManualChecklistModal";
 
 interface EquipmentManagementDashboardProps {
   className?: string;
@@ -12,7 +13,7 @@ const EquipmentManagementDashboard: React.FC<
   const [activeTab, setActiveTab] = useState<"maintenance" | "checks">(
     "maintenance"
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Toast Notification State
@@ -22,18 +23,14 @@ const EquipmentManagementDashboard: React.FC<
     message: string;
   }>({ show: false, type: "info", message: "" });
 
-  // Summary Statistics
-  const [statistics, setStatistics] = useState({
-    totalChecks: 0,
-    passedChecks: 0,
-    criticalFailures: 0,
-    minorIssues: 0,
-    passRate: "0%",
-  });
-
   // Maintenance Records
   const [maintenanceRecords, setMaintenanceRecords] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [vehicleStats, setVehicleStats] = useState({
+    total: 0,
+    active: 0,
+    maintenance: 0,
+  });
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [maintenanceForm, setMaintenanceForm] = useState({
@@ -46,15 +43,31 @@ const EquipmentManagementDashboard: React.FC<
   // Equipment Checks
   const [equipmentChecks, setEquipmentChecks] = useState<any[]>([]);
 
+  // Manual Checklist State
+  const [showManualChecklistModal, setShowManualChecklistModal] = useState(false);
+  const [checklistVehicleId, setChecklistVehicleId] = useState("");
+  const [checklistValues, setChecklistValues] = useState<Record<string, any>>({});
+  const [checklistResults, setChecklistResults] = useState<any>(null);
+  const [isSubmittingChecklist, setIsSubmittingChecklist] = useState(false);
+
   // Delete Confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{
     show: boolean;
     id: string | null;
   }>({ show: false, id: null });
 
+  // Search and Filter State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterVehicle, setFilterVehicle] = useState("");
+  const [filterRecordType, setFilterRecordType] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
   useEffect(() => {
-    loadDashboardData();
     loadVehicles();
+    // Also load equipment checks on mount
+    loadEquipmentChecks();
   }, []);
 
   useEffect(() => {
@@ -65,46 +78,17 @@ const EquipmentManagementDashboard: React.FC<
     }
   }, [activeTab]);
 
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await equipmentService.getEquipmentStatistics("week");
-
-      // Update statistics with real data from backend
-      if (response && response.statistics) {
-        setStatistics({
-          totalChecks: response.statistics.totalChecks || 0,
-          passedChecks: response.statistics.passedChecks || 0,
-          criticalFailures: response.statistics.criticalFailures || 0,
-          minorIssues: response.statistics.minorIssues || 0,
-          passRate: response.statistics.passRate
-            ? `${response.statistics.passRate}%`
-            : "0%",
-        });
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load dashboard data"
-      );
-      console.error("Dashboard load error:", err);
-      // Set default values if loading fails
-      setStatistics({
-        totalChecks: 0,
-        passedChecks: 0,
-        criticalFailures: 0,
-        minorIssues: 0,
-        passRate: "0%",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadVehicles = async () => {
     try {
       const vehicleData = await equipmentService.getAllVehicles();
       setVehicles(vehicleData || []);
+      
+      // Calculate vehicle statistics
+      const total = vehicleData?.length || 0;
+      const active = vehicleData?.filter((v: any) => v.status?.operational === 'active')?.length || 0;
+      const maintenance = vehicleData?.filter((v: any) => v.status?.operational === 'maintenance')?.length || 0;
+      
+      setVehicleStats({ total, active, maintenance });
     } catch (err) {
       console.error("Failed to load vehicles:", err);
     }
@@ -112,9 +96,12 @@ const EquipmentManagementDashboard: React.FC<
 
   const loadMaintenanceRecords = async () => {
     try {
-      const maintenanceData = await equipmentService.getAllMaintenanceRecords({
-        limit: 50,
-      });
+      const params: any = { limit: 50 };
+      
+      if (filterVehicle) params.vehicleId = filterVehicle;
+      if (filterStatus) params.status = filterStatus;
+      
+      const maintenanceData = await equipmentService.getAllMaintenanceRecords(params);
       setMaintenanceRecords(maintenanceData.maintenanceRecords || []);
     } catch (err) {
       console.error("Failed to load maintenance records:", err);
@@ -123,16 +110,24 @@ const EquipmentManagementDashboard: React.FC<
 
   const loadEquipmentChecks = async () => {
     try {
+      console.log('📋 Loading equipment checks...');
+      console.log('📋 API URL:', process.env.REACT_APP_API_URL || "http://localhost:5000/api");
+      console.log('📋 JWT Token:', localStorage.getItem("token") ? "EXISTS" : "MISSING");
+      
       const checksData = await equipmentService.getAllEquipmentChecks({
         page: 1,
         limit: 50,
       });
+      
+      console.log('📋 RAW Response:', checksData);
+      console.log('📋 Equipment checks array:', checksData.equipmentChecks);
+      console.log('📋 Number of checks:', checksData.equipmentChecks?.length || 0);
+      
       setEquipmentChecks(checksData.equipmentChecks || []);
-
-      // Also refresh statistics when equipment checks are loaded
-      loadDashboardData();
     } catch (err) {
-      console.error("Failed to load equipment checks:", err);
+      console.error("❌ Failed to load equipment checks:", err);
+      // Show error to user
+      showToast("error", "Failed to load equipment checks: " + (err instanceof Error ? err.message : "Unknown error"));
     }
   };
 
@@ -207,6 +202,24 @@ const EquipmentManagementDashboard: React.FC<
     }
   };
 
+  const handleCompleteMaintenance = async (recordId: string) => {
+    try {
+      // Update the maintenance record status to COMPLETED
+      await equipmentService.updateMaintenanceRecord(recordId, {
+        status: "COMPLETED",
+      });
+
+      loadMaintenanceRecords();
+      showToast("success", "Maintenance marked as completed! Vehicle status changed to active.");
+    } catch (err) {
+      showToast(
+        "error",
+        "Failed to complete maintenance record: " +
+          (err instanceof Error ? err.message : "Unknown error")
+      );
+    }
+  };
+
   const handleDeleteMaintenance = async () => {
     if (!deleteConfirm.id) return;
 
@@ -222,7 +235,7 @@ const EquipmentManagementDashboard: React.FC<
       );
 
       // Show success message
-      showToast("success", "Maintenance record deleted successfully!");
+      showToast("success", "Maintenance record deleted successfully! Vehicle status changed to active.");
     } catch (err) {
       console.error("Delete error:", err);
       showToast(
@@ -231,6 +244,236 @@ const EquipmentManagementDashboard: React.FC<
           (err instanceof Error ? err.message : "Unknown error")
       );
     }
+  };
+
+  const handleSearch = () => {
+    loadMaintenanceRecords();
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setFilterVehicle("");
+    setFilterRecordType("");
+    setFilterPriority("");
+    setFilterStatus("");
+    // Reload without filters
+    setTimeout(() => loadMaintenanceRecords(), 100);
+  };
+
+  const handleGenerateReport = async () => {
+    try {
+      setIsGeneratingReport(true);
+      
+      // Check if there are records to report
+      const filteredRecords = getFilteredRecords();
+      if (filteredRecords.length === 0) {
+        showToast("warning", "No records to generate report");
+        return;
+      }
+
+      // Prepare filters for API call
+      const filters: any = {};
+      if (filterVehicle) filters.vehicleId = filterVehicle;
+      if (filterRecordType) filters.recordType = filterRecordType;
+      if (filterPriority) filters.priority = filterPriority;
+      if (filterStatus) filters.status = filterStatus;
+
+      // Call backend to Download PDF
+      const pdfBlob = await equipmentService.generateMaintenanceReport(filters);
+      
+      // Download PDF file
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `maintenance-report-${new Date().toISOString().split('T')[0]}.pdf`;
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      showToast("success", "PDF report generated successfully!");
+    } catch (err) {
+      showToast("error", "Failed to generate report: " + (err instanceof Error ? err.message : "Unknown error"));
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleSubmitManualChecklist = async () => {
+    try {
+      setIsSubmittingChecklist(true);
+
+      if (!checklistVehicleId) {
+        showToast("error", "Please select a vehicle");
+        return;
+      }
+
+      // DISABLED: Delete existing checklist records
+      // We'll keep all historical records instead of deleting them
+      console.log('📝 Creating new checklist (keeping old records for history)');
+
+      // Import check items configuration
+      const { CHECK_ITEMS, validateCheckItem } = await import('../../config/checkItemsConfig');
+      
+      // Validate all check items
+      const results: any[] = [];
+      let overallPass = true;
+      let criticalFailures: string[] = [];
+      let warnings: string[] = [];
+
+      CHECK_ITEMS.forEach(item => {
+        const value = checklistValues[item.id];
+        const validation = validateCheckItem(item, value);
+        
+        results.push({
+          itemId: item.id,
+          itemName: item.name,
+          category: item.category,
+          value: value,
+          pass: validation.pass,
+          message: validation.message,
+          critical: item.critical
+        });
+
+        if (!validation.pass) {
+          if (item.critical) {
+            criticalFailures.push(`${item.name}: ${validation.message}`);
+            overallPass = false;
+          } else {
+            warnings.push(`${item.name}: ${validation.message}`);
+          }
+        }
+      });
+
+      // Store results for display
+      setChecklistResults({
+        overallPass,
+        criticalFailures,
+        warnings,
+        results
+      });
+
+      // Get checklist template for the vehicle
+      let templateId = '';
+      try {
+        const templateData = await equipmentService.getChecklistTemplate(checklistVehicleId);
+        templateId = templateData.template._id;
+      } catch (err) {
+        console.warn("Could not fetch template, will try to continue without it:", err);
+      }
+
+      // Create equipment check record to display in list
+      try {
+        console.log('📝 Creating equipment check record...');
+        console.log('📝 Vehicle ID:', checklistVehicleId);
+        console.log('📝 Template ID:', templateId || checklistVehicleId);
+        console.log('📝 Results count:', results.length);
+        
+        // Convert results to EquipmentCheckResult format
+        const checkResults = results.map((result: any) => ({
+          categoryName: result.category,
+          itemName: result.itemName,
+          status: (result.pass ? 'pass' : (result.critical ? 'fail' : 'warning')) as "pass" | "fail" | "warning" | "not_applicable" | "skipped",
+          actualValue: String(result.value || ''),
+          notes: result.message || '',
+          isCritical: result.critical
+        }));
+
+        console.log('📝 Formatted check results:', checkResults);
+
+        // Create the equipment check
+        const createdCheck = await equipmentService.createEquipmentCheck({
+          vehicleId: checklistVehicleId,
+          templateId: templateId || checklistVehicleId, // Use vehicleId as fallback if no template
+          checkResults: checkResults,
+          notes: `Manual checklist. ${overallPass ? 'Passed' : 'Failed'} - ${results.length} items checked.`
+        });
+
+        console.log('✅ Equipment check record created successfully:', createdCheck);
+      } catch (err) {
+        console.error("❌ Failed to create equipment check record:", err);
+        const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
+        console.error("❌ Error details:", errorMsg);
+        showToast("error", "Failed to save checklist: " + errorMsg);
+        throw err; // Stop execution here
+      }
+
+      // If checklist failed, create maintenance record automatically
+      if (!overallPass) {
+        const maintenanceDescription = `Equipment checklist failed. Critical issues:\n${criticalFailures.join('\n')}`;
+        
+        try {
+          await equipmentService.createMaintenanceRecord({
+            vehicleId: checklistVehicleId,
+            recordType: 'CORRECTIVE',
+            description: maintenanceDescription,
+            priority: 'HIGH',
+          });
+          
+          showToast("warning", `Checklist FAILED. Vehicle marked for maintenance. Maintenance record created automatically.`);
+        } catch (err) {
+          showToast("error", "Checklist failed but couldn't create maintenance record: " + (err instanceof Error ? err.message : "Unknown error"));
+        }
+      } else if (warnings.length > 0) {
+        showToast("success", `Checklist PASSED with ${warnings.length} warning(s). Vehicle is operational.`);
+      } else {
+        showToast("success", "Checklist PASSED! All systems check out. Vehicle is ready for service.");
+      }
+
+      // Reload data including equipment checks
+      await loadVehicles();
+      await loadMaintenanceRecords();
+      await loadEquipmentChecks();
+
+      // Close the modal after successful submission
+      handleCloseManualChecklist();
+
+    } catch (err) {
+      showToast("error", "Failed to process checklist: " + (err instanceof Error ? err.message : "Unknown error"));
+    } finally {
+      setIsSubmittingChecklist(false);
+    }
+  };
+
+  const handleOpenManualChecklist = (vehicleId?: string) => {
+    setChecklistVehicleId(vehicleId || "");
+    setChecklistValues({});
+    setChecklistResults(null);
+    setShowManualChecklistModal(true);
+  };
+
+  const handleCloseManualChecklist = () => {
+    setShowManualChecklistModal(false);
+    setChecklistVehicleId("");
+    setChecklistValues({});
+    setChecklistResults(null);
+  };
+
+  const getFilteredRecords = () => {
+    return maintenanceRecords.filter(record => {
+      // Search term filter (searches in description and vehicle number)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          record.description?.toLowerCase().includes(searchLower) ||
+          record.vehicleId?.registration?.plateNumber?.toLowerCase().includes(searchLower) ||
+          record.createdBy?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+      
+      // Record type filter
+      if (filterRecordType && record.recordType !== filterRecordType) {
+        return false;
+      }
+      
+      // Priority filter
+      if (filterPriority && record.priority !== filterPriority) {
+        return false;
+      }
+      
+      return true;
+    });
   };
 
   const getPriorityColor = (priority: string) => {
@@ -290,41 +533,100 @@ const EquipmentManagementDashboard: React.FC<
         </p>
       </div>
 
-      {/* Summary Statistics */}
-      <div className="p-6 bg-gray-50 border-b border-gray-200">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">
-          Summary Statistics
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="text-2xl font-bold text-blue-600">
-              {statistics.totalChecks}
+      {/* Vehicle Statistics Cards */}
+      <div className="px-6 py-6 bg-gray-50 border-b border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Total Vehicles Card */}
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">
+                  Total Vehicles
+                </p>
+                <p className="text-3xl font-bold text-blue-600">
+                  {vehicleStats.total}
+                </p>
+              </div>
+              <div className="bg-blue-100 p-3 rounded-full">
+                <svg
+                  className="w-8 h-8 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
             </div>
-            <div className="text-sm text-gray-600">Total Checks</div>
           </div>
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="text-2xl font-bold text-green-600">
-              {statistics.passedChecks}
-            </div>
-            <div className="text-sm text-gray-600">Passed Checks</div>
-            <div className="text-xs text-green-500 mt-1">
-              {statistics.passRate}
+          {/* Active Vehicles Card */}
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">
+                  Available Vehicles
+                </p>
+                <p className="text-3xl font-bold text-green-600">
+                  {vehicleStats.active}
+                </p>
+              </div>
+              <div className="bg-green-100 p-3 rounded-full">
+                <svg
+                  className="w-8 h-8 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="text-2xl font-bold text-yellow-600">
-              {statistics.minorIssues}
+          {/* Maintenance Vehicles Card */}
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">
+                  In Maintenance
+                </p>
+                <p className="text-3xl font-bold text-orange-600">
+                  {vehicleStats.maintenance}
+                </p>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-full">
+                <svg
+                  className="w-8 h-8 text-orange-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+              </div>
             </div>
-            <div className="text-sm text-gray-600">Minor Issues</div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="text-2xl font-bold text-red-600">
-              {statistics.criticalFailures}
-            </div>
-            <div className="text-sm text-gray-600">Critical Failures</div>
           </div>
         </div>
       </div>
@@ -375,7 +677,108 @@ const EquipmentManagementDashboard: React.FC<
               </button>
             </div>
 
-            {maintenanceRecords.length === 0 ? (
+            {/* Search and Filter Bar */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+              {/* Search Bar */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="🔍 Search by vehicle number, description, or creator..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <button
+                  onClick={handleSearch}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Search
+                </button>
+                <button
+                  onClick={handleGenerateReport}
+                  disabled={isGeneratingReport || getFilteredRecords().length === 0}
+                  className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isGeneratingReport ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      � Download PDF
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Filter Dropdowns */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <select
+                  value={filterVehicle}
+                  onChange={(e) => setFilterVehicle(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                >
+                  <option value="">All Vehicles</option>
+                  {vehicles.map((vehicle) => (
+                    <option key={vehicle._id} value={vehicle._id}>
+                      {vehicle.registration?.plateNumber}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filterRecordType}
+                  onChange={(e) => setFilterRecordType(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                >
+                  <option value="">All Types</option>
+                  <option value="ROUTINE">ROUTINE</option>
+                  <option value="CORRECTIVE">CORRECTIVE</option>
+                  <option value="EMERGENCY">EMERGENCY</option>
+                </select>
+
+                <select
+                  value={filterPriority}
+                  onChange={(e) => setFilterPriority(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                >
+                  <option value="">All Priorities</option>
+                  <option value="LOW">LOW</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                  <option value="HIGH">HIGH</option>
+                </select>
+
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                >
+                  <option value="">All Status</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="IN_PROGRESS">IN PROGRESS</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                </select>
+
+                <button
+                  onClick={handleResetFilters}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors text-sm font-medium"
+                >
+                  🔄 Reset Filters
+                </button>
+              </div>
+
+              {/* Results Count */}
+              <div className="text-sm text-gray-600">
+                Showing {getFilteredRecords().length} of {maintenanceRecords.length} records
+              </div>
+            </div>
+
+            {getFilteredRecords().length === 0 ? (
               <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg">
                 <div className="text-6xl mb-4">🔧</div>
                 <p className="text-xl mb-2 font-medium">
@@ -414,7 +817,7 @@ const EquipmentManagementDashboard: React.FC<
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
-                    {maintenanceRecords.map((record: any) => (
+                    {getFilteredRecords().map((record: any) => (
                       <tr
                         key={record._id}
                         className="hover:bg-gray-50 transition-colors"
@@ -451,6 +854,15 @@ const EquipmentManagementDashboard: React.FC<
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex space-x-2">
+                            {(record.status === "PENDING" || record.status === "IN_PROGRESS") && (
+                              <button
+                                onClick={() => handleCompleteMaintenance(record._id)}
+                                className="text-green-600 hover:text-green-900 text-sm font-medium transition-colors"
+                                title="Mark as Completed"
+                              >
+                                ✓ Complete
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 setEditingRecord(record);
@@ -490,11 +902,29 @@ const EquipmentManagementDashboard: React.FC<
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-900">
-                Recent Equipment Checks
+                Equipment Checks
               </h3>
-              <p className="text-sm text-gray-500">
-                Equipment checks are created from the mobile app
-              </p>
+              <div className="flex gap-3 items-center">
+                <button
+                  onClick={() => handleOpenManualChecklist()}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-md hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-medium"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  + Checklist
+                </button>
+                <p className="text-sm text-gray-500">
+                  or use mobile app for equipment checks
+                </p>
+              </div>
+            </div>
+
+            {/* Debug Info - Remove after testing */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
+              <p className="font-semibold text-yellow-800">🔍 Debug Info:</p>
+              <p className="text-yellow-700">Equipment Checks Array Length: {equipmentChecks.length}</p>
+              <p className="text-yellow-700">Equipment Checks Data: {JSON.stringify(equipmentChecks).substring(0, 200)}...</p>
             </div>
 
             {equipmentChecks.length === 0 ? (
@@ -548,16 +978,15 @@ const EquipmentManagementDashboard: React.FC<
                           </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          {check.crewId?.personal?.firstName}{" "}
-                          {check.crewId?.personal?.lastName}
+                          {check.crewId?.personal?.firstName || "N/A"}{" "}
+                          {check.crewId?.personal?.lastName || ""}
                         </td>
                         <td className="px-4 py-3">
                           <span
                             className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              check.inspection?.overallStatus === "passed"
+                              check.inspection?.overallStatus === "pass"
                                 ? "text-green-600 bg-green-100"
-                                : check.inspection?.overallStatus ===
-                                  "minor_issues"
+                                : check.inspection?.overallStatus === "conditional"
                                 ? "text-yellow-600 bg-yellow-100"
                                 : "text-red-600 bg-red-100"
                             }`}
@@ -625,8 +1054,8 @@ const EquipmentManagementDashboard: React.FC<
                 >
                   <option value="">Select a vehicle</option>
                   {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.plateNumber} - {vehicle.vehicleType}
+                    <option key={vehicle._id} value={vehicle._id}>
+                      {vehicle.registration?.plateNumber || 'Unknown'} - {vehicle.registration?.vehicleType || 'Unknown Type'}
                     </option>
                   ))}
                 </select>
@@ -888,6 +1317,22 @@ const EquipmentManagementDashboard: React.FC<
           <p className="text-red-600">{error}</p>
         </div>
       )}
+
+      {/* Manual Checklist Modal */}
+      <ManualChecklistModal
+        show={showManualChecklistModal}
+        vehicles={vehicles}
+        selectedVehicleId={checklistVehicleId}
+        checklistValues={checklistValues}
+        checklistResults={checklistResults}
+        isSubmitting={isSubmittingChecklist}
+        onClose={handleCloseManualChecklist}
+        onVehicleChange={setChecklistVehicleId}
+        onValueChange={(itemId, value) => {
+          setChecklistValues(prev => ({ ...prev, [itemId]: value }));
+        }}
+        onSubmit={handleSubmitManualChecklist}
+      />
     </div>
   );
 };

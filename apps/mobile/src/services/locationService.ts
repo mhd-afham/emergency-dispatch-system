@@ -10,9 +10,11 @@ class LocationService {
 
   /**
    * Request location permissions
+   * Note: Background permissions only work in standalone builds, not Expo Go
    */
   public async requestPermissions(): Promise<boolean> {
     try {
+      // Step 1: Request foreground permissions (required)
       const { status: foregroundStatus } =
         await Location.requestForegroundPermissionsAsync();
 
@@ -23,17 +25,34 @@ class LocationService {
 
       console.log("✅ Foreground location permission granted");
 
-      // Request background permissions (optional for now, needed for iOS)
-      const { status: backgroundStatus } =
-        await Location.requestBackgroundPermissionsAsync();
+      // Step 2: Try to request background permissions (optional, may fail in Expo Go)
+      try {
+        const { status: backgroundStatus } =
+          await Location.requestBackgroundPermissionsAsync();
 
-      if (backgroundStatus !== "granted") {
-        console.warn("⚠️ Background location permission denied (optional)");
-      } else {
-        console.log("✅ Background location permission granted");
+        if (backgroundStatus !== "granted") {
+          console.warn(
+            "⚠️ Background location permission denied (optional for continuous tracking)"
+          );
+        } else {
+          console.log("✅ Background location permission granted");
+        }
+      } catch (backgroundError: any) {
+        // This is expected in Expo Go - Info.plist keys not available
+        if (backgroundError.message?.includes("NSLocation")) {
+          console.warn(
+            "⚠️ Background location permissions not available (running in Expo Go). This is expected and doesn't affect foreground tracking."
+          );
+        } else {
+          console.warn(
+            "⚠️ Background permission request failed:",
+            backgroundError.message
+          );
+        }
+        // Don't fail the entire permission request, foreground is enough for now
       }
 
-      return true;
+      return true; // Foreground permission is sufficient
     } catch (error) {
       console.error("❌ Error requesting location permissions:", error);
       return false;

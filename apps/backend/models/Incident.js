@@ -1,13 +1,6 @@
 const mongoose = require("mongoose");
 
-/**
- * Incident Schema for Emergency Dispatch System
- * This schema handles all emergency incident data including:
- * - Caller information
- * - Incident details and classification
- * - Location data with geospatial support
- * - Status tracking throughout incident lifecycle
- */
+
 const IncidentSchema = new mongoose.Schema(
   {
     // Unique incident identifier - auto-generated

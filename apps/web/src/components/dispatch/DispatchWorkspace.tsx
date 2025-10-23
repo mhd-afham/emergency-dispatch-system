@@ -616,12 +616,16 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/assignments/${assignmentId}`,
+        `http://localhost:5000/api/assignments/${assignmentId}/cancel`,
         {
-          method: "DELETE",
+          method: "PATCH",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({
+            reason: "Cancelled by dispatcher",
+          }),
         }
       );
 
@@ -687,17 +691,17 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
-        return "text-yellow-800 bg-yellow-100";
+        return "text-cyan-800 bg-cyan-100"; // 🔵 Cyan - Waiting for assignment
       case "assigned":
-        return "text-blue-800 bg-blue-100";
+        return "text-yellow-800 bg-yellow-100"; // 🟡 Yellow - Resources assigned
       case "en_route":
-        return "text-purple-800 bg-purple-100";
+        return "text-orange-800 bg-orange-100"; // 🟠 Orange - Resources traveling
       case "on_scene":
-        return "text-orange-800 bg-orange-100";
+        return "text-red-800 bg-red-100"; // 🔴 Red - Resources at emergency
       case "resolved":
-        return "text-green-800 bg-green-100";
+        return "text-green-800 bg-green-100"; // 🟢 Green - Incident resolved
       case "cancelled":
-        return "text-gray-800 bg-gray-100";
+        return "text-gray-800 bg-gray-100"; // ⚫ Gray - Cancelled
       default:
         return "text-gray-800 bg-gray-100";
     }
@@ -1087,10 +1091,11 @@ const DispatchWorkspace: React.FC<DispatchWorkspaceProps> = ({
               </div>
               <div className="space-y-1">
                 {[
-                  { status: "available", label: "Available", color: "#059669" },
-                  { status: "assigned", label: "Assigned", color: "#d97706" },
-                  { status: "en_route", label: "En Route", color: "#dc2626" },
-                  { status: "on_scene", label: "On Scene", color: "#7c3aed" },
+                  { status: "available", label: "Available", color: "#10B981" }, // 🟢 Green
+                  { status: "assigned", label: "Assigned", color: "#F59E0B" }, // 🟡 Yellow
+                  { status: "en_route", label: "En Route", color: "#FB923C" }, // 🟠 Orange
+                  { status: "on_scene", label: "On Scene", color: "#EF4444" }, // 🔴 Red
+                  { status: "returning", label: "Returning", color: "#3B82F6" }, // 🔵 Blue
                 ].map(({ status, label, color }) => {
                   const count = vehicles.filter(
                     (v) => v.status.currentStatus === status

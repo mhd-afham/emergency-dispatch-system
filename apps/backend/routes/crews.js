@@ -41,6 +41,16 @@ router.get(
   CrewController.getCrewAssignments
 );
 
+// @route   GET /api/crews/:crewId/assignments/history
+// @desc    Get crew member's assignment history (completed/returned)
+// @access  Private (Field Crew, Dispatcher, Admin)
+router.get(
+  "/:crewId/assignments/history",
+  authenticate,
+  authorize("Field Crew", "Dispatcher", "Admin"),
+  CrewController.getCrewAssignmentHistory
+);
+
 // @route   GET /api/crews/:crewId/vehicle
 // @desc    Get crew member's assigned vehicle
 // @access  Private (Field Crew, Dispatcher, Admin)

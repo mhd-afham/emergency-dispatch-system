@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { GoogleMapsProvider } from "../contexts/GoogleMapsContext";
 import IncidentQueue from "../components/dispatch/IncidentQueue";
 import DispatchWorkspace from "../components/dispatch/DispatchWorkspace";
 import { ResourceSuggestion } from "../utils/resourceMatrix";
+import { MdHistory } from "react-icons/md";
 
 interface Incident {
   _id: string;
@@ -58,6 +60,7 @@ interface Incident {
 
 const DispatcherDashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(
     null
   );
@@ -146,8 +149,15 @@ const DispatcherDashboard: React.FC = () => {
                 Welcome, {user?.firstName} {user?.lastName}
               </span>
               <button
+                onClick={() => navigate("/assignments/history")}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 flex items-center gap-2 transition-colors shadow-sm hover:shadow"
+              >
+                <MdHistory className="text-lg" />
+                Assignment History
+              </button>
+              <button
                 onClick={logout}
-                className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700"
+                className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
               >
                 Logout
               </button>

@@ -92,6 +92,7 @@ export default function App() {
       // Clear API client token
       apiClient.clearAuthToken();
       setUser(null);
+      setCrew(null);
       setIsLoggedIn(false);
     } catch (error) {
       console.log("Logout failed:", error);

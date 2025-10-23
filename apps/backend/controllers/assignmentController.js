@@ -135,10 +135,41 @@ class AssignmentController {
         });
       }
 
-      // Check if vehicle has any pending or active assignments (not declined/completed/cancelled)
+      // Check if vehicle is operationally ready (October 22, 2025)
+      if (vehicle.status.operational !== "active") {
+        return res.status(400).json({
+          success: false,
+          message: `Vehicle cannot be assigned. Operational status: ${vehicle.status.operational}`,
+          details: {
+            vehicleId: vehicle._id,
+            plateNumber: vehicle.registration.plateNumber,
+            operational: vehicle.status.operational,
+            currentStatus: vehicle.status.currentStatus,
+          },
+        });
+      }
+
+      // Check if crew has marked vehicle as ready (October 22, 2025)
+      if (vehicle.readiness?.isReady === false) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Vehicle is not ready. Crew has marked vehicle as not ready.",
+          details: {
+            vehicleId: vehicle._id,
+            plateNumber: vehicle.registration.plateNumber,
+            notReadyReason: vehicle.readiness.notReadyReason,
+            lastReadyUpdate: vehicle.readiness.lastReadyUpdate,
+          },
+        });
+      }
+
+      // Check if vehicle has any pending or active assignments (not declined/completed/cancelled/returned)
       const existingAssignment = await Assignment.findOne({
         "resource.vehicleId": vehicleId,
-        "response.status": { $nin: ["completed", "cancelled", "declined"] },
+        "response.status": {
+          $nin: ["completed", "cancelled", "declined", "returned"],
+        },
       });
 
       if (existingAssignment) {
@@ -169,6 +200,7 @@ class AssignmentController {
       }
 
       // Create assignment with incident location (GeoJSON format)
+      // Map incident severity to assignment priority (they use the same enum now)
       const assignment = new Assignment({
         incident: {
           incidentId: incidentId,
@@ -181,7 +213,7 @@ class AssignmentController {
         dispatch: {
           assignedBy: req.user._id,
           assignedAt: new Date(),
-          priority: priority || "urgent",
+          priority: priority || incident.severity || "medium", // Use incident severity as priority
         },
         response: {
           status: "assigned",
@@ -481,6 +513,10 @@ class AssignmentController {
           case "completed":
             // Vehicle is returning to station after completion
             vehicle.status.currentStatus = "returning";
+            // Set readiness to true - vehicle available for new assignments (Oct 20, 2025)
+            vehicle.readiness.isReady = true;
+            vehicle.readiness.lastReadyUpdate = new Date();
+            vehicle.readiness.notReadyReason = null;
             // Clear incident assignment but keep crew assigned to vehicle
             vehicle.assignment.currentIncidentId = null;
             vehicle.assignment.assignedAt = null;
@@ -490,10 +526,55 @@ class AssignmentController {
             // Vehicle has arrived back at station - now available
             vehicle.status.currentStatus = "available";
             // Incident already cleared when status was "completed"
+
+            // Reset vehicle location to home station coordinates (Issue #25 fix - Oct 22, 2025)
+            // Need to populate station to get coordinates
+            await vehicle.populate("station.homeStationId");
+            if (vehicle.station?.homeStationId?.coordinates?.coordinates) {
+              const stationCoords =
+                vehicle.station.homeStationId.coordinates.coordinates;
+              vehicle.status.currentLocation = {
+                type: "Point",
+                coordinates: stationCoords, // [longitude, latitude]
+              };
+              vehicle.status.lastLocationUpdate = new Date();
+              console.log(
+                `✅ Vehicle ${vehicle.registration.plateNumber} location reset to station: [${stationCoords}]`
+              );
+            } else {
+              console.warn(
+                `⚠️ Could not reset location for vehicle ${vehicle._id} - station coordinates not found`
+              );
+            }
             break;
           case "declined":
           case "cancelled":
-            vehicle.status.currentStatus = "available";
+            // Only change status to "available" if vehicle is not currently "returning"
+            // If vehicle is returning from a previous assignment, preserve that status
+            if (vehicle.status.currentStatus !== "returning") {
+              vehicle.status.currentStatus = "available";
+
+              // Reset location to station if vehicle was en_route or on_scene (Issue #25 - Oct 22, 2025)
+              // If just assigned/declined before leaving, location should already be at station
+              const wasInField = ["en_route", "on_scene"].includes(
+                vehicle.status.currentStatus
+              );
+              if (wasInField) {
+                await vehicle.populate("station.homeStationId");
+                if (vehicle.station?.homeStationId?.coordinates?.coordinates) {
+                  const stationCoords =
+                    vehicle.station.homeStationId.coordinates.coordinates;
+                  vehicle.status.currentLocation = {
+                    type: "Point",
+                    coordinates: stationCoords,
+                  };
+                  vehicle.status.lastLocationUpdate = new Date();
+                  console.log(
+                    `✅ Vehicle ${vehicle.registration.plateNumber} location reset to station after cancellation: [${stationCoords}]`
+                  );
+                }
+              }
+            }
             // Clear incident assignment but keep crew assigned to vehicle
             vehicle.assignment.currentIncidentId = null;
             vehicle.assignment.assignedAt = null;
@@ -514,13 +595,17 @@ class AssignmentController {
 
         if (resourceIndex !== -1) {
           // Map assignment status to incident resource status
-          // Assignment statuses: assigned, accepted, declined, en_route, on_scene, completed, cancelled
-          // Incident resource statuses: pending, assigned, en_route, on_scene, completed
+          // Assignment statuses: assigned, accepted, declined, en_route, on_scene, completed, returned, cancelled
+          // Incident resource statuses: pending, assigned, en_route, on_scene, completed, returned
           let incidentResourceStatus = status;
 
           if (status === "accepted") {
             // When crew accepts, change incident resource from "pending" to "assigned"
             incidentResourceStatus = "assigned";
+          } else if (status === "returned") {
+            // When crew returns to station, keep incident resource as "completed"
+            // The incident is already resolved, we just track that the vehicle has returned
+            incidentResourceStatus = "completed";
           } else if (status === "declined" || status === "cancelled") {
             // These will be removed from array below, no need to update status
             incidentResourceStatus = status; // doesn't matter, will be removed
@@ -623,6 +708,32 @@ class AssignmentController {
           },
           timestamp: new Date().toISOString(),
         });
+
+        // Emit vehicle readiness update when assignment completed (October 21, 2025)
+        if (status === "completed") {
+          io.emit("vehicle_readiness_update", {
+            vehicleId: vehicle._id,
+            plateNumber: vehicle.registration.plateNumber,
+            isReady: true,
+            notReadyReason: null,
+            timestamp: new Date().toISOString(),
+          });
+          console.log(
+            "📡 WebSocket event emitted: vehicle_readiness_update (assignment completed)"
+          );
+        }
+
+        // Emit vehicle status update for real-time mobile app updates (October 21, 2025)
+        io.emit("vehicle_status_update", {
+          vehicleId: vehicle._id,
+          status: vehicle.status.currentStatus,
+          operational: vehicle.status.operational,
+          assignedIncidentId: vehicle.assignment?.currentIncidentId,
+          timestamp: new Date().toISOString(),
+        });
+        console.log(
+          `📡 WebSocket event emitted: vehicle_status_update (${vehicle.status.currentStatus})`
+        );
 
         // Emit incident update event for real-time incident queue updates
         io.emit("incident:updated", {
@@ -1009,6 +1120,579 @@ class AssignmentController {
       res.status(500).json({
         success: false,
         message: "Failed to cancel assignment",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Delete Assignment (CRUD - Delete Operation)
+   * Permanently deletes an assignment from the database
+   * Only cancelled assignments can be safely deleted to preserve audit trail
+   */
+  static async deleteAssignment(req, res) {
+    try {
+      const { id } = req.params;
+
+      console.log(
+        `🗑️  Attempting to delete assignment: ${id} by ${req.user.firstName} ${req.user.lastName}`
+      );
+
+      // Find assignment
+      const assignment = await Assignment.findById(id);
+
+      if (!assignment) {
+        return res.status(404).json({
+          success: false,
+          message: `Assignment not found: ${id}`,
+        });
+      }
+
+      // Safety check: Only allow deletion of cancelled assignments
+      // This preserves audit trail for active/completed assignments
+      const currentStatus = assignment.response?.status || assignment.status;
+
+      if (currentStatus !== "cancelled") {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete assignment with status: ${currentStatus}`,
+          details:
+            "Only cancelled assignments can be deleted. Please cancel the assignment first if you need to remove it.",
+          currentStatus,
+          suggestion: "Cancel the assignment first, then delete it",
+        });
+      }
+
+      // Store cancellation details before deletion (for response)
+      const deletedData = {
+        assignmentId: assignment._id,
+        incidentId: assignment.incident?.incidentId,
+        vehicleId: assignment.resource?.vehicleId,
+        crewId: assignment.resource?.primaryCrewId,
+        status: currentStatus,
+        cancelledAt: assignment.response?.cancelledAt,
+        cancellationReason: assignment.response?.cancellationReason,
+        assignedAt: assignment.dispatch?.assignedAt,
+      };
+
+      // Perform deletion
+      await Assignment.findByIdAndDelete(id);
+      console.log("✅ Assignment deleted successfully:", id);
+
+      // Emit real-time event for deletion
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("assignment:deleted", {
+          assignmentId: id,
+          deletedAt: new Date(),
+          deletedBy: {
+            name: `${req.user.firstName} ${req.user.lastName}`,
+            role: req.user.auth.role,
+          },
+        });
+        console.log("📡 assignment:deleted event emitted");
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Assignment deleted successfully",
+        data: deletedData,
+      });
+    } catch (error) {
+      console.error("❌ Error deleting assignment:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete assignment",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Get assignment history with advanced filtering and search
+   * GET /api/assignments/history
+   * Supports: search, date range, status, priority, incident type filters
+   */
+  static async getAssignmentHistory(req, res) {
+    try {
+      const { search, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
+
+      // Get array parameters (they come as ?status=completed&status=cancelled)
+      const status = req.query.status
+        ? Array.isArray(req.query.status)
+          ? req.query.status
+          : [req.query.status]
+        : [];
+      const priority = req.query.priority
+        ? Array.isArray(req.query.priority)
+          ? req.query.priority
+          : [req.query.priority]
+        : [];
+      const incidentType = req.query.incidentType
+        ? Array.isArray(req.query.incidentType)
+          ? req.query.incidentType
+          : [req.query.incidentType]
+        : [];
+      const vehicleType = req.query.vehicleType
+        ? Array.isArray(req.query.vehicleType)
+          ? req.query.vehicleType
+          : [req.query.vehicleType]
+        : [];
+
+      // Get search scope filters (which fields to search in)
+      const searchFields = req.query.searchFields
+        ? Array.isArray(req.query.searchFields)
+          ? req.query.searchFields
+          : [req.query.searchFields]
+        : []; // Empty array = search all fields
+
+      console.log("📋 Fetching assignment history with filters:", {
+        search,
+        searchFields,
+        dateFrom,
+        dateTo,
+        status,
+        priority,
+        incidentType,
+        vehicleType,
+        page,
+        limit,
+      });
+
+      // Build query
+      const query = {};
+
+      // Date range filter
+      if (dateFrom || dateTo) {
+        query["dispatch.assignedAt"] = {};
+        if (dateFrom) {
+          query["dispatch.assignedAt"].$gte = new Date(dateFrom);
+        }
+        if (dateTo) {
+          query["dispatch.assignedAt"].$lte = new Date(dateTo);
+        }
+      }
+
+      // Status filter (can be queried directly as it's in Assignment model)
+      if (status && status.length > 0) {
+        query["response.status"] = { $in: status };
+      }
+
+      // NOTE: Priority and Incident Type are in the Incident model, not Assignment
+      // They will be filtered after population (like vehicle type)
+
+      // NOTE: Search filtering is done AFTER population (post-query filtering)
+      // because most search fields (Incident ID, Vehicle Plate, Crew Name, Location)
+      // are in referenced documents, not in the Assignment model itself.
+      // We cannot query them before population.
+
+      // Execute query with population (get all matching documents for search filtering)
+      let assignments = await Assignment.find(query)
+        .populate("incident.incidentId")
+        .populate("resource.vehicleId")
+        .populate(
+          "resource.primaryCrewId",
+          "personal.firstName personal.lastName"
+        )
+        .populate("dispatch.assignedBy", "firstName lastName auth.role")
+        .sort({ "dispatch.assignedAt": -1 });
+
+      // Post-population search filtering (for fields in referenced documents)
+      if (search) {
+        // Match start of any word: (^|\\s) means start of string OR after whitespace
+        // This allows "kad" to match "Kadawatha", "jun" to match "Junction" in "Kadawatha Junction"
+        const searchRegex = new RegExp(`(^|\\s)${search}`, "i");
+
+        // If no search fields specified, search all fields
+        const shouldSearchAll = !searchFields || searchFields.length === 0;
+
+        console.log(
+          `🔍 Searching for: "${search}" with pattern: /(^|\\s)${search}/i`
+        );
+        console.log(
+          `🎯 Search scope: ${
+            shouldSearchAll ? "All fields" : searchFields.join(", ")
+          }`
+        );
+        console.log(
+          `📊 Total assignments before search filter: ${assignments.length}`
+        );
+
+        assignments = assignments.filter((assignment) => {
+          // Debug: Log available data for first assignment to help troubleshoot
+          if (assignments.indexOf(assignment) === 0) {
+            console.log("🔍 Sample assignment data:");
+            console.log("  - Assignment ID:", assignment.assignmentId);
+            console.log(
+              "  - Incident ID:",
+              assignment.incident?.incidentId?.incidentId || "NOT POPULATED"
+            );
+            console.log(
+              "  - Vehicle Plate:",
+              assignment.resource?.vehicleId?.registration?.plateNumber ||
+                "NOT POPULATED"
+            );
+            console.log(
+              "  - Crew Name:",
+              assignment.resource?.primaryCrewId?.personal
+                ? `${assignment.resource.primaryCrewId.personal.firstName} ${assignment.resource.primaryCrewId.personal.lastName}`
+                : "NOT POPULATED"
+            );
+            console.log(
+              "  - Location Address:",
+              assignment.incident?.incidentId?.location?.address ||
+                "NOT POPULATED"
+            );
+            console.log(
+              "  - Location City:",
+              assignment.incident?.incidentId?.location?.city || "NOT POPULATED"
+            );
+          }
+
+          // 1. Search in Assignment ID
+          if (
+            (shouldSearchAll || searchFields.includes("assignmentId")) &&
+            searchRegex.test(assignment.assignmentId)
+          ) {
+            console.log(
+              `✅ Match found in Assignment ID: ${assignment.assignmentId}`
+            );
+            return true;
+          }
+
+          // 2. Search in Incident ID
+          if (
+            (shouldSearchAll || searchFields.includes("incidentId")) &&
+            assignment.incident?.incidentId?.incidentId &&
+            searchRegex.test(assignment.incident.incidentId.incidentId)
+          ) {
+            console.log(
+              `✅ Match found in Incident ID: ${assignment.incident.incidentId.incidentId}`
+            );
+            return true;
+          }
+
+          // 3. Search in Vehicle Plate Number
+          if (
+            (shouldSearchAll || searchFields.includes("vehiclePlate")) &&
+            assignment.resource?.vehicleId?.registration?.plateNumber &&
+            searchRegex.test(
+              assignment.resource.vehicleId.registration.plateNumber
+            )
+          ) {
+            console.log(
+              `✅ Match found in Vehicle Plate: ${assignment.resource.vehicleId.registration.plateNumber}`
+            );
+            return true;
+          }
+
+          // 4. Search in Crew Leader Name (first name, last name, or full name)
+          if (shouldSearchAll || searchFields.includes("crewLeader")) {
+            const crew = assignment.resource?.primaryCrewId;
+            if (crew?.personal) {
+              const fullName = `${crew.personal.firstName} ${crew.personal.lastName}`;
+              if (
+                searchRegex.test(fullName) ||
+                searchRegex.test(crew.personal.firstName) ||
+                searchRegex.test(crew.personal.lastName)
+              ) {
+                console.log(`✅ Match found in Crew Name: ${fullName}`);
+                return true;
+              }
+            }
+          }
+
+          // 5. Search in Location (address and city)
+          if (shouldSearchAll || searchFields.includes("location")) {
+            const incident = assignment.incident?.incidentId;
+            if (incident?.location) {
+              if (
+                (incident.location.address &&
+                  searchRegex.test(incident.location.address)) ||
+                (incident.location.city &&
+                  searchRegex.test(incident.location.city))
+              ) {
+                console.log(
+                  `✅ Match found in Location: ${
+                    incident.location.address || incident.location.city
+                  }`
+                );
+                return true;
+              }
+            }
+          }
+
+          return false;
+        });
+
+        console.log(
+          `📊 Total assignments after search filter: ${assignments.length}`
+        );
+      }
+
+      // Filter by vehicle type (after population since it's in the referenced document)
+      if (vehicleType && vehicleType.length > 0) {
+        assignments = assignments.filter((assignment) => {
+          const vehicle = assignment.resource?.vehicleId;
+          if (
+            !vehicle ||
+            !vehicle.registration ||
+            !vehicle.registration.vehicleType
+          ) {
+            return false;
+          }
+          return vehicleType.includes(vehicle.registration.vehicleType);
+        });
+      }
+
+      // Filter by priority (after population since it's in the Incident model as 'severity')
+      if (priority && priority.length > 0) {
+        assignments = assignments.filter((assignment) => {
+          const incident = assignment.incident?.incidentId;
+          if (!incident || !incident.severity) {
+            return false;
+          }
+          return priority.includes(incident.severity);
+        });
+      }
+
+      // Filter by incident type (after population since it's in the Incident model)
+      if (incidentType && incidentType.length > 0) {
+        assignments = assignments.filter((assignment) => {
+          const incident = assignment.incident?.incidentId;
+          if (!incident || !incident.incidentType) {
+            return false;
+          }
+          return incidentType.includes(incident.incidentType);
+        });
+      }
+
+      // Get total count after vehicle type filtering
+      const total = assignments.length;
+
+      // Apply pagination after filtering
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      assignments = assignments.slice(skip, skip + parseInt(limit));
+
+      console.log(
+        `📊 Found ${assignments.length} assignments out of ${total} total`
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          assignments,
+          pagination: {
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(total / parseInt(limit)),
+            totalItems: total,
+            itemsPerPage: parseInt(limit),
+          },
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error fetching assignment history:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch assignment history",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Get assignment statistics
+   * GET /api/assignments/statistics
+   * Returns: comprehensive statistics for dashboard
+   */
+  static async getAssignmentStatistics(req, res) {
+    try {
+      const { dateFrom, dateTo } = req.query;
+
+      console.log("📊 Calculating assignment statistics", { dateFrom, dateTo });
+
+      // Build date filter
+      const dateFilter = {};
+      if (dateFrom || dateTo) {
+        dateFilter["dispatch.assignedAt"] = {};
+        if (dateFrom) {
+          dateFilter["dispatch.assignedAt"].$gte = new Date(dateFrom);
+        }
+        if (dateTo) {
+          dateFilter["dispatch.assignedAt"].$lte = new Date(dateTo);
+        }
+      }
+
+      // Get all assignments for detailed analysis
+      const allAssignments = await Assignment.find(dateFilter)
+        .populate("incident.incidentId")
+        .populate("resource.vehicleId");
+
+      // Calculate statistics
+      const totalAssignments = allAssignments.length;
+
+      // By Status
+      const byStatus = {};
+      allAssignments.forEach((a) => {
+        const status = a.response?.status || a.status || "pending";
+        byStatus[status] = (byStatus[status] || 0) + 1;
+      });
+
+      // By Priority
+      const byPriority = {};
+      allAssignments.forEach((a) => {
+        const priority = a.incident?.priority || "unknown";
+        byPriority[priority] = (byPriority[priority] || 0) + 1;
+      });
+
+      // By Incident Type
+      const byIncidentType = {};
+      allAssignments.forEach((a) => {
+        const type = a.incident?.type || "unknown";
+        byIncidentType[type] = (byIncidentType[type] || 0) + 1;
+      });
+
+      // By Vehicle Type
+      const byVehicleType = {};
+      allAssignments.forEach((a) => {
+        const vehicleType = a.resource?.vehicleId?.type || "unknown";
+        byVehicleType[vehicleType] = (byVehicleType[vehicleType] || 0) + 1;
+      });
+
+      // Performance metrics
+      // Include both "completed" and "returned" assignments for performance calculation
+      const completedAssignments = allAssignments.filter(
+        (a) =>
+          a.response?.status === "completed" ||
+          a.response?.status === "returned"
+      );
+
+      let avgResponseTime = null;
+      let avgArrivalTime = null;
+      let avgOnSceneTime = null;
+      let avgTotalDuration = null;
+      let minResponseTime = null;
+      let maxResponseTime = null;
+
+      if (completedAssignments.length > 0) {
+        const responseTimes = [];
+        const arrivalTimes = [];
+        const onSceneTimes = [];
+        const totalDurations = [];
+
+        completedAssignments.forEach((a) => {
+          // Use pre-calculated performance metrics from the database (in seconds)
+          // These are calculated by the Assignment model's pre-save hook
+          if (a.performance?.responseTime != null) {
+            responseTimes.push(a.performance.responseTime);
+          }
+
+          if (a.performance?.arrivalTime != null) {
+            arrivalTimes.push(a.performance.arrivalTime);
+          }
+
+          if (a.performance?.onSceneTime != null) {
+            onSceneTimes.push(a.performance.onSceneTime);
+          }
+
+          if (a.performance?.totalDuration != null) {
+            totalDurations.push(a.performance.totalDuration);
+          }
+        });
+
+        if (responseTimes.length > 0) {
+          avgResponseTime = Math.round(
+            responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+          );
+          minResponseTime = Math.round(Math.min(...responseTimes));
+          maxResponseTime = Math.round(Math.max(...responseTimes));
+        }
+
+        if (arrivalTimes.length > 0) {
+          avgArrivalTime = Math.round(
+            arrivalTimes.reduce((a, b) => a + b, 0) / arrivalTimes.length
+          );
+        }
+
+        if (onSceneTimes.length > 0) {
+          avgOnSceneTime = Math.round(
+            onSceneTimes.reduce((a, b) => a + b, 0) / onSceneTimes.length
+          );
+        }
+
+        if (totalDurations.length > 0) {
+          avgTotalDuration = Math.round(
+            totalDurations.reduce((a, b) => a + b, 0) / totalDurations.length
+          );
+        }
+      }
+
+      // Resolution rate
+      const resolvedCount =
+        (byStatus.completed || 0) + (byStatus.resolved || 0);
+      const resolutionRate =
+        totalAssignments > 0
+          ? Math.round((resolvedCount / totalAssignments) * 100)
+          : 0;
+
+      // Daily trends (last 30 days or filtered range)
+      const dailyTrends = [];
+      const trendMap = {};
+      allAssignments.forEach((a) => {
+        const date = new Date(a.dispatch?.assignedAt)
+          .toISOString()
+          .split("T")[0];
+        trendMap[date] = (trendMap[date] || 0) + 1;
+      });
+      Object.entries(trendMap).forEach(([date, count]) => {
+        dailyTrends.push({ date, count });
+      });
+      dailyTrends.sort((a, b) => a.date.localeCompare(b.date));
+
+      // Hourly distribution
+      const hourlyDistribution = Array(24)
+        .fill(0)
+        .map((_, hour) => ({ hour, count: 0 }));
+      allAssignments.forEach((a) => {
+        const hour = new Date(a.dispatch?.assignedAt).getHours();
+        hourlyDistribution[hour].count++;
+      });
+
+      const statistics = {
+        totalAssignments,
+        byStatus,
+        byPriority,
+        byIncidentType,
+        byVehicleType,
+        performance: {
+          avgResponseTime,
+          avgArrivalTime,
+          avgOnSceneTime,
+          avgTotalDuration,
+          minResponseTime,
+          maxResponseTime,
+        },
+        resolutionRate,
+        dailyTrends,
+        hourlyDistribution,
+      };
+
+      console.log("📈 Statistics calculated:", {
+        totalAssignments,
+        byStatus,
+        resolutionRate,
+        avgResponseTime,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: statistics,
+      });
+    } catch (error) {
+      console.error("❌ Error calculating statistics:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to calculate statistics",
         error: error.message,
       });
     }

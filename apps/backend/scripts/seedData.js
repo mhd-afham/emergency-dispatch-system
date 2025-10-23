@@ -659,216 +659,406 @@ const users = [
 // Station seed data for Sri Lanka
 const stations = [
   {
-    stationName: "Colombo Central Fire Station",
+    stationName: "Colombo Central Emergency Station",
     address: "25 Chatham Street, Colombo 01, Sri Lanka",
-    coordinates: {
-      type: "Point",
-      coordinates: [79.8612, 6.9271], // [longitude, latitude] for Colombo Central
-    },
+    coordinates: { type: "Point", coordinates: [79.8612, 6.9271] }, // Vehicle FE-2301
     province: "Western",
-    contactPhone: "+94112345678",
-    contactEmail: "colombo.central@fire.gov.lk",
-    stationType: "Fire Station",
-    capacity: {
-      vehicleCapacity: 6,
-      crewCapacity: 24,
-    },
-    operatingHours: {
-      is24Hours: true,
-      openTime: "00:00",
-      closeTime: "23:59",
-    },
-    coverageArea: {
-      radius: 15, // 15 km radius
-      districts: ["Colombo"],
-      cities: ["Colombo", "Mount Lavinia", "Dehiwala"],
-    },
-    stationCommander: null, // Will be populated after user creation
+    contactPhone: "+94112345001",
+    contactEmail: "colombo.central@emergency.lk",
+    stationType: "Multi-Purpose",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 15, districts: ["Colombo"], cities: ["Colombo"] },
+    stationCommander: null,
     currentResources: {
-      activeVehicles: 4,
-      onDutyPersonnel: 8,
-      availableEquipment: ["Fire Trucks", "Ladder Trucks", "Rescue Equipment"],
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
     },
     isActive: true,
-    // audit.createdBy will be populated during seeding
   },
   {
-    stationName: "Kandy Central Ambulance Station",
+    stationName: "Kandy Central Emergency Station",
     address: "45 Dalada Veediya, Kandy, Sri Lanka",
-    coordinates: {
-      type: "Point",
-      coordinates: [80.6337, 7.2906], // [longitude, latitude] for Kandy
-    },
+    coordinates: { type: "Point", coordinates: [80.6337, 7.2906] }, // Vehicle FE-2302
     province: "Central",
-    contactPhone: "+94812345679",
-    contactEmail: "kandy.ambulance@health.gov.lk",
-    stationType: "Ambulance Station",
-    capacity: {
-      vehicleCapacity: 8,
-      crewCapacity: 16,
-    },
-    operatingHours: {
-      is24Hours: true,
-      openTime: "00:00",
-      closeTime: "23:59",
-    },
-    coverageArea: {
-      radius: 25, // 25 km radius
-      districts: ["Kandy", "Matale"],
-      cities: ["Kandy", "Peradeniya", "Gampola"],
-    },
-    stationCommander: null, // Will be populated after user creation
+    contactPhone: "+94812345002",
+    contactEmail: "kandy.central@emergency.lk",
+    stationType: "Multi-Purpose",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Kandy"], cities: ["Kandy"] },
+    stationCommander: null,
     currentResources: {
-      activeVehicles: 6,
-      onDutyPersonnel: 12,
-      availableEquipment: ["Ambulances", "Medical Equipment", "Stretchers"],
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
     },
     isActive: true,
-    // audit.createdBy will be populated during seeding
   },
   {
-    stationName: "Galle Multi-Purpose Emergency Station",
-    address: "78 Main Street, Galle Fort, Galle, Sri Lanka",
-    coordinates: {
-      type: "Point",
-      coordinates: [80.217, 6.0535], // [longitude, latitude] for Galle
-    },
+    stationName: "Galle Emergency Station",
+    address: "Main Street, Galle, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.217, 6.0535] }, // Vehicle FE-2303
     province: "Southern",
-    contactPhone: "+94912345680",
-    contactEmail: "galle.emergency@disaster.gov.lk",
+    contactPhone: "+94912345003",
+    contactEmail: "galle@emergency.lk",
     stationType: "Multi-Purpose",
-    capacity: {
-      vehicleCapacity: 10,
-      crewCapacity: 20,
-    },
-    operatingHours: {
-      is24Hours: true,
-      openTime: "00:00",
-      closeTime: "23:59",
-    },
-    coverageArea: {
-      radius: 30, // 30 km radius
-      districts: ["Galle", "Matara"],
-      cities: ["Galle", "Unawatuna", "Hikkaduwa", "Bentota"],
-    },
-    stationCommander: null, // Will be populated after user creation
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Galle"], cities: ["Galle"] },
+    stationCommander: null,
     currentResources: {
-      activeVehicles: 7,
-      onDutyPersonnel: 15,
-      availableEquipment: [
-        "Fire Trucks",
-        "Ambulances",
-        "Rescue Boats",
-        "Diving Equipment",
-      ],
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
     },
     isActive: true,
-    // audit.createdBy will be populated during seeding
   },
   {
-    stationName: "Anuradhapura Regional Emergency Station",
+    stationName: "Matara Emergency Station",
+    address: "Beach Road, Matara, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [81.2085, 6.032] }, // Vehicle FE-2304
+    province: "Southern",
+    contactPhone: "+94412345004",
+    contactEmail: "matara@emergency.lk",
+    stationType: "Multi-Purpose",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Matara"], cities: ["Matara"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Anuradhapura Emergency Station",
     address: "Sacred City Road, Anuradhapura, Sri Lanka",
-    coordinates: {
-      type: "Point",
-      coordinates: [80.4037, 8.3114], // Anuradhapura
-    },
+    coordinates: { type: "Point", coordinates: [80.4037, 8.3114] }, // Vehicle FE-2305
     province: "North Central",
-    contactPhone: "+94252345681",
-    contactEmail: "anuradhapura.emergency@disaster.gov.lk",
+    contactPhone: "+94252345005",
+    contactEmail: "anuradhapura@emergency.lk",
     stationType: "Multi-Purpose",
-    capacity: {
-      vehicleCapacity: 8,
-      crewCapacity: 16,
-    },
-    operatingHours: {
-      is24Hours: true,
-      openTime: "00:00",
-      closeTime: "23:59",
-    },
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
     coverageArea: {
-      radius: 35, // 35 km radius for rural coverage
-      districts: ["Anuradhapura", "Polonnaruwa"],
-      cities: ["Anuradhapura", "Kekirawa", "Medawachchiya"],
+      radius: 25,
+      districts: ["Anuradhapura"],
+      cities: ["Anuradhapura"],
     },
     stationCommander: null,
     currentResources: {
-      activeVehicles: 5,
-      onDutyPersonnel: 10,
-      availableEquipment: [
-        "Fire Trucks",
-        "Ambulances",
-        "Rural Rescue Equipment",
-      ],
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
     },
     isActive: true,
   },
   {
-    stationName: "Trincomalee Coastal Emergency Station",
-    address: "Harbour Road, Trincomalee, Sri Lanka",
-    coordinates: {
-      type: "Point",
-      coordinates: [80.5932, 8.5604], // Trincomalee
-    },
-    province: "Eastern",
-    contactPhone: "+94262345682",
-    contactEmail: "trincomalee.emergency@disaster.gov.lk",
-    stationType: "Multi-Purpose",
-    capacity: {
-      vehicleCapacity: 6,
-      crewCapacity: 12,
-    },
-    operatingHours: {
-      is24Hours: true,
-      openTime: "00:00",
-      closeTime: "23:59",
-    },
-    coverageArea: {
-      radius: 40, // 40 km radius for coastal coverage
-      districts: ["Trincomalee", "Batticaloa"],
-      cities: ["Trincomalee", "Kinniya", "Nilaveli"],
-    },
-    stationCommander: null,
-    currentResources: {
-      activeVehicles: 4,
-      onDutyPersonnel: 8,
-      availableEquipment: ["Marine Rescue", "Ambulances", "Diving Equipment"],
-    },
-    isActive: true,
-  },
-  {
-    stationName: "Negombo Airport Emergency Station",
-    address: "Airport Road, Katunayake, Sri Lanka",
-    coordinates: {
-      type: "Point",
-      coordinates: [80.0259, 6.9344], // Negombo/Katunayake
-    },
+    stationName: "Mount Lavinia Emergency Station",
+    address: "Galle Road, Mount Lavinia, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [79.9072, 6.8421] }, // Vehicle AM-1201
     province: "Western",
-    contactPhone: "+94112345683",
-    contactEmail: "negombo.emergency@disaster.gov.lk",
-    stationType: "Multi-Purpose",
-    capacity: {
-      vehicleCapacity: 12,
-      crewCapacity: 24,
-    },
-    operatingHours: {
-      is24Hours: true,
-      openTime: "00:00",
-      closeTime: "23:59",
-    },
+    contactPhone: "+94112345006",
+    contactEmail: "mtlavinia@emergency.lk",
+    stationType: "Ambulance Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
     coverageArea: {
-      radius: 20, // 20 km radius
-      districts: ["Gampaha"],
-      cities: ["Negombo", "Katunayake", "Wattala", "Ja-Ela"],
+      radius: 15,
+      districts: ["Colombo"],
+      cities: ["Mount Lavinia", "Dehiwala"],
     },
     stationCommander: null,
     currentResources: {
-      activeVehicles: 8,
-      onDutyPersonnel: 16,
-      availableEquipment: [
-        "Airport Fire Trucks",
-        "Hazmat Equipment",
-        "Medical Units",
-      ],
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Matale Emergency Station",
+    address: "Temple Road, Matale, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.7718, 7.4818] }, // Vehicle AM-1202
+    province: "Central",
+    contactPhone: "+94662345007",
+    contactEmail: "matale@emergency.lk",
+    stationType: "Ambulance Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Matale"], cities: ["Matale"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Dehiwala Emergency Station",
+    address: "Galle Road, Dehiwala, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [79.8774, 6.7077] }, // Vehicle AM-1203
+    province: "Western",
+    contactPhone: "+94112345008",
+    contactEmail: "dehiwala@emergency.lk",
+    stationType: "Ambulance Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 15, districts: ["Colombo"], cities: ["Dehiwala"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Hikkaduwa Emergency Station",
+    address: "Beach Road, Hikkaduwa, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.3964, 5.9549] }, // Vehicle AM-1204
+    province: "Southern",
+    contactPhone: "+94912345009",
+    contactEmail: "hikkaduwa@emergency.lk",
+    stationType: "Ambulance Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Galle"], cities: ["Hikkaduwa"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Polonnaruwa Emergency Station",
+    address: "Ancient City Road, Polonnaruwa, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [81.0104, 7.9553] }, // Vehicle AM-1205
+    province: "North Central",
+    contactPhone: "+94272345010",
+    contactEmail: "polonnaruwa@emergency.lk",
+    stationType: "Ambulance Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: {
+      radius: 25,
+      districts: ["Polonnaruwa"],
+      cities: ["Polonnaruwa"],
+    },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Trincomalee Emergency Station",
+    address: "Harbor Road, Trincomalee, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.5932, 8.5604] }, // Vehicle AM-1206
+    province: "Eastern",
+    contactPhone: "+94262345011",
+    contactEmail: "trincomalee@emergency.lk",
+    stationType: "Ambulance Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: {
+      radius: 25,
+      districts: ["Trincomalee"],
+      cities: ["Trincomalee"],
+    },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Bentota Emergency Station",
+    address: "Coastal Road, Bentota, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.7429, 6.0367] }, // Vehicle AM-1207
+    province: "Southern",
+    contactPhone: "+94342345012",
+    contactEmail: "bentota@emergency.lk",
+    stationType: "Ambulance Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Kalutara"], cities: ["Bentota"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Negombo Emergency Station",
+    address: "Airport Road, Negombo, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.0259, 6.9344] }, // Vehicle RV-3401
+    province: "Western",
+    contactPhone: "+94312345013",
+    contactEmail: "negombo@emergency.lk",
+    stationType: "Rescue Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Gampaha"], cities: ["Negombo"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Ratmalana Emergency Station",
+    address: "Airport Road, Ratmalana, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [79.9278, 6.8649] }, // Vehicle RV-3402
+    province: "Western",
+    contactPhone: "+94112345014",
+    contactEmail: "ratmalana@emergency.lk",
+    stationType: "Rescue Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 15, districts: ["Colombo"], cities: ["Ratmalana"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Peradeniya Emergency Station",
+    address: "University Road, Peradeniya, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.7747, 7.2944] }, // Vehicle RV-3403
+    province: "Central",
+    contactPhone: "+94812345015",
+    contactEmail: "peradeniya@emergency.lk",
+    stationType: "Rescue Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Kandy"], cities: ["Peradeniya"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Batticaloa Emergency Station",
+    address: "Lagoon Road, Batticaloa, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [81.8313, 6.9271] }, // Vehicle RV-3404
+    province: "Eastern",
+    contactPhone: "+94652345016",
+    contactEmail: "batticaloa@emergency.lk",
+    stationType: "Rescue Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: {
+      radius: 25,
+      districts: ["Batticaloa"],
+      cities: ["Batticaloa"],
+    },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Ambalangoda Emergency Station",
+    address: "Beach Road, Ambalangoda, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.3403, 6.4027] }, // Vehicle RV-3405
+    province: "Southern",
+    contactPhone: "+94912345017",
+    contactEmail: "ambalangoda@emergency.lk",
+    stationType: "Rescue Station",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Galle"], cities: ["Ambalangoda"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Colombo Fort Emergency Station",
+    address: "Fort Station Road, Colombo 01, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [79.8597, 6.9271] }, // Vehicle PV-4501
+    province: "Western",
+    contactPhone: "+94112345018",
+    contactEmail: "colombo.fort@emergency.lk",
+    stationType: "Multi-Purpose",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: {
+      radius: 15,
+      districts: ["Colombo"],
+      cities: ["Colombo Fort"],
+    },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Kandy Police Emergency Station",
+    address: "Police Road, Kandy, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.6423, 7.2927] }, // Vehicle PV-4502
+    province: "Central",
+    contactPhone: "+94812345019",
+    contactEmail: "kandy.police@emergency.lk",
+    stationType: "Multi-Purpose",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Kandy"], cities: ["Kandy"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
+    },
+    isActive: true,
+  },
+  {
+    stationName: "Galle Police Emergency Station",
+    address: "Police Station Road, Galle, Sri Lanka",
+    coordinates: { type: "Point", coordinates: [80.217, 6.0328] }, // Vehicle PV-4503
+    province: "Southern",
+    contactPhone: "+94912345020",
+    contactEmail: "galle.police@emergency.lk",
+    stationType: "Multi-Purpose",
+    capacity: { vehicleCapacity: 5, crewCapacity: 20 },
+    operatingHours: { is24Hours: true, openTime: "00:00", closeTime: "23:59" },
+    coverageArea: { radius: 20, districts: ["Galle"], cities: ["Galle"] },
+    stationCommander: null,
+    currentResources: {
+      activeVehicles: 1,
+      onDutyPersonnel: 4,
+      availableEquipment: [],
     },
     isActive: true,
   },
@@ -895,6 +1085,11 @@ const vehicles = [
         coordinates: [79.8612, 6.9271], // Colombo Central
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null, // Circular dependency - will be updated in Phase 2
@@ -956,6 +1151,11 @@ const vehicles = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     assignment: {
       currentIncidentId: null,
       assignedAt: null,
@@ -1009,6 +1209,11 @@ const vehicles = [
         coordinates: [80.217, 6.0535], // Galle
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1064,6 +1269,11 @@ const vehicles = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     assignment: {
       currentIncidentId: null,
       assignedAt: null,
@@ -1117,6 +1327,11 @@ const vehicles = [
         coordinates: [80.4037, 8.3114], // Anuradhapura
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1173,6 +1388,11 @@ const vehicles = [
         coordinates: [79.9072, 6.8421], // Mount Lavinia
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1234,6 +1454,11 @@ const vehicles = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     assignment: {
       currentIncidentId: null,
       assignedAt: null,
@@ -1287,6 +1512,11 @@ const vehicles = [
         coordinates: [79.8774, 6.7077], // Dehiwala
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1342,6 +1572,11 @@ const vehicles = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     assignment: {
       currentIncidentId: null,
       assignedAt: null,
@@ -1395,6 +1630,11 @@ const vehicles = [
         coordinates: [81.0104, 7.9553], // Polonnaruwa
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1450,6 +1690,11 @@ const vehicles = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     assignment: {
       currentIncidentId: null,
       assignedAt: null,
@@ -1503,6 +1748,11 @@ const vehicles = [
         coordinates: [80.7429, 6.0367], // Bentota
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1559,6 +1809,11 @@ const vehicles = [
         coordinates: [80.0259, 6.9344], // Negombo
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1620,6 +1875,11 @@ const vehicles = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     assignment: {
       currentIncidentId: null,
       assignedAt: null,
@@ -1673,6 +1933,11 @@ const vehicles = [
         coordinates: [80.7747, 7.2944], // Peradeniya
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1728,6 +1993,11 @@ const vehicles = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     assignment: {
       currentIncidentId: null,
       assignedAt: null,
@@ -1781,6 +2051,11 @@ const vehicles = [
         coordinates: [80.3403, 6.4027], // Ambalangoda
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1837,6 +2112,11 @@ const vehicles = [
         coordinates: [79.8597, 6.9271], // Colombo Fort
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -1898,6 +2178,11 @@ const vehicles = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     assignment: {
       currentIncidentId: null,
       assignedAt: null,
@@ -1951,6 +2236,11 @@ const vehicles = [
         coordinates: [80.217, 6.0328], // Galle Police
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     assignment: {
       currentIncidentId: null,
@@ -2048,6 +2338,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2099,6 +2394,11 @@ const crew = [
         coordinates: [80.6337, 7.2906], // Kandy
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     settings: {
       isActive: true,
@@ -2156,6 +2456,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2212,6 +2517,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2267,6 +2577,11 @@ const crew = [
         coordinates: [80.4037, 8.3114], // Anuradhapura
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     settings: {
       isActive: true,
@@ -2335,6 +2650,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2387,6 +2707,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2438,6 +2763,11 @@ const crew = [
         coordinates: [79.8774, 6.7077], // Dehiwala
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     settings: {
       isActive: true,
@@ -2495,6 +2825,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2546,6 +2881,11 @@ const crew = [
         coordinates: [81.0104, 7.9553], // Polonnaruwa
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     settings: {
       isActive: true,
@@ -2603,6 +2943,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2654,6 +2999,11 @@ const crew = [
         coordinates: [80.7429, 6.0367], // Bentota
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     settings: {
       isActive: true,
@@ -2722,6 +3072,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2779,6 +3134,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2830,6 +3190,11 @@ const crew = [
         coordinates: [80.7747, 7.2944], // Peradeniya
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     settings: {
       isActive: true,
@@ -2888,6 +3253,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -2944,6 +3314,11 @@ const crew = [
         coordinates: [80.3403, 6.4027], // Ambalangoda
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     settings: {
       isActive: true,
@@ -3007,6 +3382,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -3059,6 +3439,11 @@ const crew = [
       },
       lastLocationUpdate: new Date(),
     },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
+    },
     settings: {
       isActive: true,
       emergencyContact: {
@@ -3110,6 +3495,11 @@ const crew = [
         coordinates: [80.217, 6.0328], // Galle Police
       },
       lastLocationUpdate: new Date(),
+    },
+    readiness: {
+      isReady: false, // October 20, 2025 - Must be explicitly marked ready by crew
+      lastReadyUpdate: new Date(),
+      notReadyReason: null,
     },
     settings: {
       isActive: true,
@@ -4293,3 +4683,4 @@ module.exports = {
   reports,
   shifts,
 };
+
