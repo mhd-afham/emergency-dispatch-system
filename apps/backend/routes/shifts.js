@@ -62,7 +62,7 @@ router.get("/", authenticate, authorize("Supervisor", "Admin"), async (req, res)
     const skip = (page - 1) * limit;
 
     const shifts = await Shift.find(query)
-      .populate("stationId", "name location")
+      .populate("stationId", "stationName address province stationType")
       .populate("supervision.supervisorId", "firstName lastName email")
       .populate("staffing.assignedCrew.crewId", "personal professional currentStatus")
       .populate("staffing.vehicleAssignments.vehicleId", "registration specifications")
@@ -98,7 +98,7 @@ router.get("/", authenticate, authorize("Supervisor", "Admin"), async (req, res)
 router.get("/:id", authenticate, authorize("Supervisor", "Admin"), async (req, res) => {
   try {
     const shift = await Shift.findById(req.params.id)
-      .populate("stationId", "name location")
+      .populate("stationId", "stationName address province stationType")
       .populate("supervision.supervisorId", "firstName lastName email")
       .populate("supervision.backupSupervisorId", "firstName lastName email")
       .populate("staffing.assignedCrew.crewId", "personal professional currentStatus")
@@ -223,7 +223,7 @@ router.post("/", authenticate, authorize("Supervisor", "Admin"), async (req, res
         supervisorId: req.user.id,
         supervisorNotes,
       },
-      stationId,
+      stationId: stationId,
       status: {
         current: "planned",
       },
@@ -235,7 +235,7 @@ router.post("/", authenticate, authorize("Supervisor", "Admin"), async (req, res
     await shift.save();
 
     // Populate the created shift for response
-    await shift.populate("stationId", "name location");
+    await shift.populate("stationId", "stationName address province stationType");
     await shift.populate("supervision.supervisorId", "firstName lastName email");
 
     res.status(201).json({
@@ -358,7 +358,7 @@ router.put("/:id", authenticate, authorize("Supervisor", "Admin"), async (req, r
     await shift.save();
 
     // Populate for response
-    await shift.populate("stationId", "name location");
+    await shift.populate("stationId", "stationName address province stationType");
     await shift.populate("supervision.supervisorId", "firstName lastName email");
     await shift.populate("staffing.assignedCrew.crewId", "personal professional");
 
@@ -638,7 +638,7 @@ router.post("/:id/assign-crew", authenticate, authorize("Supervisor", "Admin"), 
     );
 
     // Populate for response with full details
-    await shift.populate("stationId", "name location");
+    await shift.populate("stationId", "stationName address province stationType");
     await shift.populate("supervision.supervisorId", "firstName lastName email");
     await shift.populate("staffing.assignedCrew.crewId", "personal professional currentStatus");
 
@@ -740,7 +740,7 @@ router.get("/calendar", authenticate, authorize("Supervisor", "Admin"), async (r
     }
 
     const shifts = await Shift.find(query)
-      .populate("stationId", "name")
+      .populate("stationId", "stationName")
       .populate("supervision.supervisorId", "firstName lastName")
       .select("shift schedule staffing status stationId supervision")
       .sort({ "schedule.date": 1, "schedule.startTime": 1 });

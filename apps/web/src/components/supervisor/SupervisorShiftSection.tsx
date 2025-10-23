@@ -9,6 +9,8 @@ import {
   CrewAssignment,
   UpdateShiftData 
 } from '../../services/shifts';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Types are imported from services/shifts.ts
 
@@ -53,8 +55,17 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Default station ID (in real app, this would come from user context or selection)
-  const defaultStationId = "675023b6c3b5d9dab8e67890"; // This should be dynamic
+  // Search and Filter states
+  const [shiftSearchQuery, setShiftSearchQuery] = useState<string>('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStaffing, setFilterStaffing] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+
+  // Station selection state
+  const [stations, setStations] = useState<Array<{ _id: string; stationName: string; province?: string; stationType?: string }>>([]);
+  const [loadingStations, setLoadingStations] = useState<boolean>(false);
 
   const [createShiftForm, setCreateShiftForm] = useState<CreateShiftForm>({
     name: '',
@@ -65,10 +76,30 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
     requiredCrewCount: 4,
     requiredRoles: [],
     minimumCertificationLevel: 'Basic',
-    stationId: defaultStationId,
+    stationId: '',
     supervisorNotes: '',
     recurrence: 'none',
   });
+
+  // Fetch stations from database
+  const fetchStations = async () => {
+    setLoadingStations(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/stations', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setStations(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stations:', error);
+    } finally {
+      setLoadingStations(false);
+    }
+  };
 
   // Fetch shifts data
   const fetchShifts = async () => {
@@ -125,6 +156,12 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
     console.log('📋 Editing shift?:', !!editingShift);
     console.log('📋 Form data:', createShiftForm);
     
+    // Validate station selection
+    if (!createShiftForm.stationId) {
+      setError('Please select a station');
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
@@ -160,6 +197,7 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
       } else {
         // Create new shift - Use flat format which backend POST expects
         console.log('➕ CREATING new shift');
+        console.log('📋 Form data:', createShiftForm);
         response = await shiftService.createShift(createShiftForm);
         console.log('✅ Create response:', response);
       }
@@ -182,7 +220,7 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
           requiredCrewCount: 4,
           requiredRoles: [],
           minimumCertificationLevel: 'Basic',
-          stationId: defaultStationId,
+          stationId: '',
           supervisorNotes: '',
           recurrence: 'none',
         });
@@ -364,7 +402,7 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
       const crewCount = (shift.staffing && shift.staffing.requiredCrewCount) || 4;
       const roles = (shift.staffing && shift.staffing.requiredRoles) || [];
       const certLevel = (shift.staffing && shift.staffing.minimumCertificationLevel) || 'Basic';
-      const station = (shift.stationId && shift.stationId._id) || defaultStationId;
+      const stationId = (shift.stationId && shift.stationId._id) || '';
       const recurrence = (shift.schedule && shift.schedule.recurrence) || 'none';
 
       console.log('📝 Form values being set:');
@@ -376,7 +414,7 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
       console.log('  - Crew Count:', crewCount);
       console.log('  - Roles:', roles);
       console.log('  - Cert Level:', certLevel);
-      console.log('  - Station ID:', station);
+      console.log('  - Station ID:', stationId);
       console.log('  - Recurrence:', recurrence);
       
       const formData = {
@@ -388,7 +426,7 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
         requiredCrewCount: crewCount,
         requiredRoles: roles,
         minimumCertificationLevel: certLevel,
-        stationId: station,
+        stationId: stationId,
         supervisorNotes: '',
         recurrence: recurrence,
       };
@@ -439,6 +477,252 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
     const roles = new Set<string>();
     allCrew.forEach(crew => roles.add(crew.professional.role));
     return Array.from(roles).sort();
+  };
+
+  // Filter shifts based on search and filter criteria
+  const getFilteredShifts = () => {
+    return shifts.filter(shift => {
+      // Search filter - check shift name, station name
+      if (shiftSearchQuery.trim()) {
+        const query = shiftSearchQuery.toLowerCase();
+        const matchesName = shift.shift?.name?.toLowerCase().includes(query);
+        const matchesStation = shift.stationId?.stationName?.toLowerCase().includes(query);
+        if (!matchesName && !matchesStation) return false;
+      }
+
+      // Type filter
+      if (filterType !== 'all' && shift.shift?.type !== filterType) {
+        return false;
+      }
+
+      // Status filter
+      if (filterStatus !== 'all' && shift.status?.current !== filterStatus) {
+        return false;
+      }
+
+      // Staffing filter
+      if (filterStaffing !== 'all') {
+        const staffingPercentage = shift.staffingPercentage || 0;
+        switch (filterStaffing) {
+          case 'fully':
+            if (staffingPercentage < 100) return false;
+            break;
+          case 'partial':
+            if (staffingPercentage === 0 || staffingPercentage >= 100) return false;
+            break;
+          case 'empty':
+            if (staffingPercentage > 0) return false;
+            break;
+        }
+      }
+
+      // Date range filter
+      if (filterDateFrom) {
+        const shiftDate = new Date(shift.schedule?.date || '');
+        const fromDate = new Date(filterDateFrom);
+        if (shiftDate < fromDate) return false;
+      }
+      if (filterDateTo) {
+        const shiftDate = new Date(shift.schedule?.date || '');
+        const toDate = new Date(filterDateTo);
+        if (shiftDate > toDate) return false;
+      }
+
+      return true;
+    });
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setShiftSearchQuery('');
+    setFilterType('all');
+    setFilterStatus('all');
+    setFilterStaffing('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+  };
+
+  // Generate PDF report for shifts
+  const generateShiftsPDF = () => {
+    const doc = new jsPDF();
+    const filteredShifts = getFilteredShifts();
+
+    // Add title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Shift Management Report', 14, 20);
+
+    // Add generation date
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+    doc.text(`Generated by: ${user?.firstName} ${user?.lastName}`, 14, 34);
+
+    // Add statistics
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary Statistics', 14, 44);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const statsText = [
+      `Total Shifts: ${filteredShifts.length}`,
+      `Active Shifts: ${filteredShifts.filter(s => s.status?.current === 'active').length}`,
+      `Fully Staffed: ${filteredShifts.filter(s => (s.staffingPercentage || 0) >= 100).length}`,
+      `Understaffed: ${filteredShifts.filter(s => (s.staffingPercentage || 0) < 100 && (s.staffingPercentage || 0) > 0).length}`,
+      `Empty: ${filteredShifts.filter(s => (s.staffingPercentage || 0) === 0).length}`
+    ];
+    
+    let yPos = 50;
+    statsText.forEach(text => {
+      doc.text(text, 14, yPos);
+      yPos += 6;
+    });
+
+    // Add applied filters if any
+    const appliedFilters = [];
+    if (shiftSearchQuery) appliedFilters.push(`Search: "${shiftSearchQuery}"`);
+    if (filterType !== 'all') appliedFilters.push(`Type: ${filterType}`);
+    if (filterStatus !== 'all') appliedFilters.push(`Status: ${filterStatus}`);
+    if (filterStaffing !== 'all') appliedFilters.push(`Staffing: ${filterStaffing}`);
+    if (filterDateFrom) appliedFilters.push(`From: ${filterDateFrom}`);
+    if (filterDateTo) appliedFilters.push(`To: ${filterDateTo}`);
+
+    if (appliedFilters.length > 0) {
+      yPos += 4;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Applied Filters:', 14, yPos);
+      yPos += 6;
+      doc.setFont('helvetica', 'normal');
+      appliedFilters.forEach(filter => {
+        doc.text(`• ${filter}`, 14, yPos);
+        yPos += 6;
+      });
+    }
+
+    // Prepare table data
+    const tableData = filteredShifts.map(shift => [
+      shift.shift?.name || 'N/A',
+      shift.schedule?.date ? new Date(shift.schedule.date).toLocaleDateString() : 'N/A',
+      `${shift.schedule?.startTime || 'N/A'} - ${shift.schedule?.endTime || 'N/A'}`,
+      shift.shift?.type?.toUpperCase() || 'REGULAR',
+      shift.status?.current?.toUpperCase() || 'PLANNED',
+      `${shift.staffing?.assignedCrew?.length || 0}/${shift.staffing?.requiredCrewCount || 0}`,
+      `${shift.staffingPercentage || 0}%`,
+      shift.stationId?.stationName || 'N/A'
+    ]);
+
+    // Add table
+    autoTable(doc, {
+      startY: yPos + 8,
+      head: [['Shift Name', 'Date', 'Time', 'Type', 'Status', 'Crew', 'Staffing', 'Station']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [59, 130, 246], // Blue color
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 9
+      },
+      bodyStyles: {
+        fontSize: 8
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250]
+      },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 18 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 18 },
+        7: { cellWidth: 25 }
+      },
+      margin: { left: 14, right: 14 }
+    });
+
+    // Add detailed shift information on new pages
+    if (filteredShifts.length > 0) {
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Detailed Shift Information', 14, 20);
+
+      let detailYPos = 30;
+      filteredShifts.forEach((shift, index) => {
+        // Check if we need a new page
+        if (detailYPos > 250) {
+          doc.addPage();
+          detailYPos = 20;
+        }
+
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${index + 1}. ${shift.shift?.name || 'Unnamed Shift'}`, 14, detailYPos);
+        detailYPos += 7;
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        
+        const details = [
+          `Date: ${shift.schedule?.date ? new Date(shift.schedule.date).toLocaleDateString() : 'N/A'}`,
+          `Time: ${shift.schedule?.startTime || 'N/A'} - ${shift.schedule?.endTime || 'N/A'}`,
+          `Type: ${shift.shift?.type?.toUpperCase() || 'REGULAR'}`,
+          `Status: ${shift.status?.current?.toUpperCase() || 'PLANNED'}`,
+          `Station: ${shift.stationId?.stationName || 'N/A'}`,
+          `Required Crew: ${shift.staffing?.requiredCrewCount || 0}`,
+          `Assigned Crew: ${shift.staffing?.assignedCrew?.length || 0}`,
+          `Staffing: ${shift.staffingPercentage || 0}%`,
+          `Min Certification: ${shift.staffing?.minimumCertificationLevel || 'N/A'}`
+        ];
+
+        details.forEach(detail => {
+          doc.text(detail, 18, detailYPos);
+          detailYPos += 5;
+        });
+
+        // Add assigned crew if any
+        if (shift.staffing?.assignedCrew && shift.staffing.assignedCrew.length > 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('Assigned Crew:', 18, detailYPos);
+          detailYPos += 5;
+          doc.setFont('helvetica', 'normal');
+
+          shift.staffing.assignedCrew.forEach(assignment => {
+            const crewName = `${assignment.crewId?.personal?.firstName || ''} ${assignment.crewId?.personal?.lastName || ''}`.trim() || 'Unknown';
+            const role = assignment.crewId?.professional?.role || 'N/A';
+            doc.text(`  • ${crewName} - ${role}`, 22, detailYPos);
+            detailYPos += 5;
+          });
+        }
+
+        detailYPos += 5; // Space between shifts
+      });
+    }
+
+    // Add footer with page numbers
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        doc.internal.pageSize.getWidth() / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      );
+    }
+
+    // Save the PDF
+    const fileName = `shifts_report_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+
+    // Show success message
+    setSuccessMessage(`PDF report generated successfully: ${fileName}`);
+    setTimeout(() => setSuccessMessage(null), 5000);
   };
 
   // Handle manage shift crew
@@ -519,8 +803,14 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
     return 'text-red-600';
   };
 
-  // Load shifts on component mount and when date changes
-  useEffect(() => {
+  // Load shifts and stations on component mount
+  useEffect(() => { 
+    fetchShifts();
+    fetchStations();
+  }, []);
+
+  // Load shifts when date changes
+  useEffect(() => { 
     fetchShifts();
   }, [selectedDate]);
 
@@ -536,6 +826,25 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
     { value: 'overtime', label: 'Overtime' },
     { value: 'emergency', label: 'Emergency' },
   ];
+
+  const recurrenceOptions = [
+    { value: 'none', label: 'One-time Shift' },
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'custom', label: 'Custom Pattern' }
+  ];
+
+  // Calculate shift duration
+  const calculateDuration = (start: string, end: string): string => {
+    if (!start || !end) return '0 hours';
+    const [startHour, startMin] = start.split(':').map(Number);
+    const [endHour, endMin] = end.split(':').map(Number);
+    let duration = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+    if (duration < 0) duration += 24 * 60; // Handle overnight shifts
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours} hours`;
+  };
 
   return (
     <div className={`supervisor-shift-section ${className}`}>
@@ -689,6 +998,168 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
             </div>
           </div>
 
+          {/* Search and Filter Section */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+            <div className="flex flex-col space-y-4">
+              {/* Search Bar and Export Button */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search shifts by name or station..."
+                      value={shiftSearchQuery}
+                      onChange={(e) => setShiftSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <svg
+                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <button
+                  onClick={generateShiftsPDF}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center gap-2 font-medium"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export to PDF
+                </button>
+              </div>
+
+              {/* Filter Controls */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {/* Date From */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+                  <input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={(e) => setFilterDateFrom(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+
+                {/* Date To */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+                  <input
+                    type="date"
+                    value={filterDateTo}
+                    onChange={(e) => setFilterDateTo(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+
+                {/* Type Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="regular">Regular</option>
+                    <option value="overtime">Overtime</option>
+                    <option value="emergency">Emergency</option>
+                  </select>
+                </div>
+
+                {/* Status Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="planned">Planned</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                {/* Staffing Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Staffing</label>
+                  <select
+                    value={filterStaffing}
+                    onChange={(e) => setFilterStaffing(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  >
+                    <option value="all">All Staffing</option>
+                    <option value="fully">Fully Staffed</option>
+                    <option value="partial">Partially Staffed</option>
+                    <option value="empty">Not Staffed</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Active Filters Display and Clear Button */}
+              {(shiftSearchQuery || filterType !== 'all' || filterStatus !== 'all' || filterStaffing !== 'all' || filterDateFrom || filterDateTo) && (
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <div className="flex flex-wrap gap-2">
+                    {shiftSearchQuery && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Search: "{shiftSearchQuery}"
+                      </span>
+                    )}
+                    {filterType !== 'all' && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        Type: {filterType}
+                      </span>
+                    )}
+                    {filterStatus !== 'all' && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Status: {filterStatus}
+                      </span>
+                    )}
+                    {filterStaffing !== 'all' && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        Staffing: {filterStaffing}
+                      </span>
+                    )}
+                    {filterDateFrom && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+                        From: {filterDateFrom}
+                      </span>
+                    )}
+                    {filterDateTo && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+                        To: {filterDateTo}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200 font-medium"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
+
+              {/* Results Count */}
+              <div className="text-sm text-gray-600">
+                Showing <span className="font-semibold">{getFilteredShifts().length}</span> of <span className="font-semibold">{shifts.length}</span> shifts
+              </div>
+            </div>
+          </div>
+
           {/* All Shifts */}
           <div className="bg-white border border-gray-200 rounded-lg">
             <div className="px-4 py-3 border-b border-gray-200">
@@ -715,6 +1186,17 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
                   <p className="font-semibold">No shifts found in database</p>
                   <p className="text-sm mt-2">Create a new shift to get started</p>
                 </div>
+              ) : getFilteredShifts().length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <p className="font-semibold">No shifts match your filters</p>
+                  <p className="text-sm mt-2">Try adjusting your search or filter criteria</p>
+                  <button
+                    onClick={clearFilters}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full table-auto">
@@ -729,11 +1211,11 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
                       </tr>
                     </thead>
                     <tbody>
-                      {shifts.map((shift) => (
+                      {getFilteredShifts().map((shift) => (
                         <tr key={shift._id} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-4">
                             <div className="font-medium text-gray-900">{shift.shift?.name || 'Unnamed Shift'}</div>
-                            <div className="text-sm text-gray-500">{shift.stationId?.name || 'No station assigned'}</div>
+                            <div className="text-sm text-gray-500">{shift.stationId?.stationName || 'No station assigned'}</div>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-500">
                             <div>{shift.schedule?.date ? new Date(shift.schedule.date).toLocaleDateString() : 'No date'}</div>
@@ -873,7 +1355,7 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
                   requiredCrewCount: 4,
                   requiredRoles: [],
                   minimumCertificationLevel: 'Basic',
-                  stationId: defaultStationId,
+                  stationId: '',
                   supervisorNotes: '',
                   recurrence: 'none',
                 });
@@ -883,88 +1365,190 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
               Cancel
             </button>
           </div>
-          <form onSubmit={handleCreateShift} className="p-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Shift Name *
-                </label>
-                <input
-                  type="text"
-                  value={createShiftForm.name}
-                  onChange={(e) => setCreateShiftForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  placeholder="e.g., Day Shift - Station 1"
-                  required
-                />
+          <form onSubmit={handleCreateShift} className="p-6 space-y-6">
+            {/* Basic Information Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-semibold text-gray-800 border-b pb-2">📋 Basic Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Shift Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={createShiftForm.name}
+                    onChange={(e) => setCreateShiftForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Morning Shift - Emergency Response"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Shift Type *
+                  </label>
+                  <select
+                    value={createShiftForm.type}
+                    onChange={(e) => setCreateShiftForm(prev => ({ ...prev, type: e.target.value as any }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {shiftTypes.map(type => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              {/* Station Selection Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Shift Type
+                  Station *
                 </label>
                 <select
-                  value={createShiftForm.type}
-                  onChange={(e) => setCreateShiftForm(prev => ({ ...prev, type: e.target.value as any }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  value={createShiftForm.stationId}
+                  onChange={(e) => setCreateShiftForm(prev => ({ ...prev, stationId: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                  disabled={loadingStations}
                 >
-                  {shiftTypes.map(type => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
+                  <option value="">
+                    {loadingStations ? 'Loading stations...' : 'Select a station'}
+                  </option>
+                  {stations.map((station) => (
+                    <option key={station._id} value={station._id}>
+                      🏢 {station.stationName} {station.province ? `- ${station.province}` : ''}
+                    </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={createShiftForm.date}
-                  onChange={(e) => setCreateShiftForm(prev => ({ ...prev, date: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Required Crew Count *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={createShiftForm.requiredCrewCount}
-                  onChange={(e) => setCreateShiftForm(prev => ({ ...prev, requiredCrewCount: parseInt(e.target.value) }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Time *
-                </label>
-                <input
-                  type="time"
-                  value={createShiftForm.startTime}
-                  onChange={(e) => setCreateShiftForm(prev => ({ ...prev, startTime: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Time *
-                </label>
-                <input
-                  type="time"
-                  value={createShiftForm.endTime}
-                  onChange={(e) => setCreateShiftForm(prev => ({ ...prev, endTime: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  required
-                />
+                {stations.length === 0 && !loadingStations && (
+                  <p className="text-xs text-red-500 mt-1">No stations available. Please contact admin to add stations.</p>
+                )}
               </div>
             </div>
 
-            <div>
+            {/* Schedule Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-semibold text-gray-800 border-b pb-2">🕐 Schedule</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={createShiftForm.date}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => {
+                      const selectedDate = new Date(e.target.value);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      
+                      if (selectedDate < today) {
+                        alert('⚠️ Cannot select a past date. Please choose today or a future date.');
+                        return;
+                      }
+                      setCreateShiftForm(prev => ({ ...prev, date: e.target.value }));
+                    }}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={createShiftForm.startTime}
+                    onChange={(e) => setCreateShiftForm(prev => ({ ...prev, startTime: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={createShiftForm.endTime}
+                    onChange={(e) => setCreateShiftForm(prev => ({ ...prev, endTime: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Duration Display */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-900">Shift Duration:</span>
+                  <span className="text-lg font-bold text-blue-600">
+                    {calculateDuration(createShiftForm.startTime, createShiftForm.endTime)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Recurrence Pattern */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Recurrence Pattern
+                </label>
+                <select
+                  value={createShiftForm.recurrence}
+                  onChange={(e) => setCreateShiftForm(prev => ({ ...prev, recurrence: e.target.value as any }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {recurrenceOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {createShiftForm.recurrence === 'none' && 'This shift will occur only once'}
+                  {createShiftForm.recurrence === 'daily' && 'This shift will repeat every day'}
+                  {createShiftForm.recurrence === 'weekly' && 'This shift will repeat weekly on this day'}
+                  {createShiftForm.recurrence === 'custom' && 'Custom recurrence pattern can be configured after creation'}
+                </p>
+              </div>
+            </div>
+
+            {/* Staffing Requirements Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-semibold text-gray-800 border-b pb-2">👥 Staffing Requirements</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Required Crew Count *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={createShiftForm.requiredCrewCount}
+                    onChange={(e) => setCreateShiftForm(prev => ({ ...prev, requiredCrewCount: parseInt(e.target.value) }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Number of crew members needed for this shift</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Minimum Certification Level *
+                  </label>
+                  <select
+                    value={createShiftForm.minimumCertificationLevel}
+                    onChange={(e) => setCreateShiftForm(prev => ({ ...prev, minimumCertificationLevel: e.target.value as any }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {certificationLevels.map(level => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Minimum qualification required for crew members</p>
+                </div>
+              </div>
+
+              <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Required Roles
               </label>
@@ -995,34 +1579,28 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Minimum Certification Level
-              </label>
-              <select
-                value={createShiftForm.minimumCertificationLevel}
-                onChange={(e) => setCreateShiftForm(prev => ({ ...prev, minimumCertificationLevel: e.target.value as any }))}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-              >
-                {certificationLevels.map(level => (
-                  <option key={level} value={level}>{level}</option>
-                ))}
-              </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Supervisor Notes
-              </label>
-              <textarea
-                value={createShiftForm.supervisorNotes}
-                onChange={(e) => setCreateShiftForm(prev => ({ ...prev, supervisorNotes: e.target.value }))}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                rows={3}
-                placeholder="Optional notes about this shift..."
-              />
+            {/* Additional Details Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-semibold text-gray-800 border-b pb-2">📝 Additional Details</h4>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Supervisor Notes / Instructions
+                </label>
+                <textarea
+                  value={createShiftForm.supervisorNotes}
+                  onChange={(e) => setCreateShiftForm(prev => ({ ...prev, supervisorNotes: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={4}
+                  placeholder="Add any special instructions, equipment needs, or important notes for this shift..."
+                />
+                <p className="text-xs text-gray-500 mt-1">Optional notes will be visible to all assigned crew members</p>
+              </div>
             </div>
 
+            {/* Action Buttons */}
             <div className="flex space-x-4 pt-6 border-t border-gray-200 mt-6">
               <button
                 type="submit"
@@ -1073,7 +1651,7 @@ const SupervisorShiftSection: React.FC<SupervisorShiftSectionProps> = ({ classNa
                   </p>
                 )}
                 <p className="text-sm text-gray-600">
-                  Station: {selectedShift.stationId?.name || 'Not assigned'}
+                  Station: {selectedShift.stationId?.stationName || 'Not assigned'}
                 </p>
               </div>
               <button
