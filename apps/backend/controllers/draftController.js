@@ -14,6 +14,17 @@ const AuditLog = require("../models/AuditLog");
  */
 
 /**
+ * Helper function to calculate completion percentage based on step
+ * Step 1: 33%, Step 2: 66%, Step 3: 100%
+ */
+const calculateStepCompletion = (currentStep) => {
+  if (currentStep === 1) return 33;
+  if (currentStep === 2) return 66;
+  if (currentStep === 3) return 100;
+  return 0;
+};
+
+/**
  * @desc    Save a new draft
  * @route   POST /api/drafts
  * @access  Private (Admin/Supervisor)
@@ -43,13 +54,15 @@ exports.saveDraft = async (req, res) => {
       draftTitle,
       formData,
       currentStep: currentStep || 1,
+      completionPercentage: calculateStepCompletion(currentStep || 1),
       audit: {
         createdBy: req.user._id,
       },
     });
 
-    // Calculate completion percentage
-    draft.calculateCompletion();
+    // Note: We're setting completionPercentage manually based on step
+    // instead of using calculateCompletion() method to ensure accuracy
+    // calculateCompletion() is field-based, but we need step-based completion
 
     await draft.save();
 
@@ -129,10 +142,14 @@ exports.updateDraft = async (req, res) => {
     // Update fields
     if (draftTitle) draft.draftTitle = draftTitle;
     if (formData) draft.formData = formData;
-    if (currentStep) draft.currentStep = currentStep;
+    if (currentStep) {
+      draft.currentStep = currentStep;
+      // Update completion percentage based on step
+      draft.completionPercentage = calculateStepCompletion(currentStep);
+    }
 
-    // Recalculate completion
-    draft.calculateCompletion();
+    // Note: We're setting completionPercentage manually based on step
+    // instead of using calculateCompletion() method to ensure accuracy
 
     await draft.save();
 

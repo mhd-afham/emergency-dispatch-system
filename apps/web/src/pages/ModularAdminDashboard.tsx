@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import CreateUserForm from "../components/admin/CreateUserForm";
 import AdminRegistrationSection from "../components/admin/AdminRegistrationSection";
+import ReportGenerationSection from "../components/admin/ReportGenerationSection";
 
 /**
  * Modular Admin Dashboard
@@ -13,7 +14,7 @@ import AdminRegistrationSection from "../components/admin/AdminRegistrationSecti
 
 const ModularAdminDashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const [activeSection, setActiveSection] = useState<'overview' | 'user-management' | 'registration'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'user-management' | 'registration' | 'reports'>('overview');
 
   // System stats (mock data - will be replaced with real data)
   const [systemStats] = useState({
@@ -108,6 +109,19 @@ const ModularAdminDashboard: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               Registration Management
+            </button>
+            <button
+              onClick={() => setActiveSection('reports')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
+                activeSection === 'reports'
+                  ? 'border-orange-500 text-orange-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Report Generate
             </button>
           </nav>
         </div>
@@ -310,6 +324,12 @@ const ModularAdminDashboard: React.FC = () => {
                         >
                           📝 Registration Management
                         </button>
+                        <button
+                          onClick={() => setActiveSection('reports')}
+                          className="w-full text-left px-4 py-2 bg-orange-50 hover:bg-orange-100 rounded-md text-sm text-orange-700 transition-colors duration-200"
+                        >
+                          📊 Generate Reports
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -340,6 +360,11 @@ const ModularAdminDashboard: React.FC = () => {
           {/* Registration Management Section */}
           {activeSection === 'registration' && (
             <AdminRegistrationSection />
+          )}
+
+          {/* Report Generation Section */}
+          {activeSection === 'reports' && (
+            <ReportGenerationSection />
           )}
         </div>
       </div>

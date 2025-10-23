@@ -460,6 +460,31 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
     setGeneralError("");
 
     try {
+      // Check if this is a rejected form being resubmitted
+      const isRejectedForm = (initialData as any)?.isRejected === true;
+      const crewId = draftId;
+
+      // If this is a rejected form, clear the rejection status first
+      if (isRejectedForm && crewId) {
+        console.log("🔄 Clearing rejection status before resubmission for crew member:", crewId);
+        const clearRejectionUrl = `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/crew/${crewId}/clear-rejection`;
+        
+        const clearResponse = await fetch(clearRejectionUrl, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        if (!clearResponse.ok) {
+          const clearData = await clearResponse.json();
+          throw new Error(clearData.message || "Failed to clear rejection status");
+        }
+
+        console.log("✅ Rejection status cleared successfully");
+      }
+
       // Create submission data matching backend Crew controller expectations
       const submitData = {
         employeeId: formData.personal.employeeId,
@@ -526,8 +551,8 @@ const CrewRegistrationWizard: React.FC<CrewRegistrationWizardProps> = ({
       console.log("✅ Crew registration successful, clearing form data...");
       localStorage.removeItem("crewRegistrationData");
       
-      // If this was from a draft, delete the draft
-      if (draftId) {
+      // If this was from a draft (not a rejected form), delete the draft
+      if (draftId && !isRejectedForm) {
         try {
           console.log(`🗑️ Deleting draft ${draftId} after successful submission...`);
           await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/drafts/${draftId}`, {

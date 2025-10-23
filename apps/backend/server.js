@@ -99,6 +99,7 @@ app.use("/api/shifts", require("./routes/shifts"));
 app.use("/api/crew", require("./routes/crew"));
 app.use("/api/drafts", require("./routes/drafts"));
 app.use("/api/analytics", require("./routes/analytics"));
+app.use("/api/reports", require("./routes/reports"));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
