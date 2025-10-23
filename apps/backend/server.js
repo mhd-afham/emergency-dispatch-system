@@ -100,6 +100,7 @@ app.use("/api/shifts", require("./routes/shifts"));
 app.use("/api/crew", require("./routes/crew"));
 app.use("/api/drafts", require("./routes/drafts"));
 app.use("/api/analytics", require("./routes/analytics"));
+app.use("/api/stations", require("./routes/stations"));
 app.use("/api/reports", require("./routes/reports")); // PDF reports route
 
 // Error handling middleware

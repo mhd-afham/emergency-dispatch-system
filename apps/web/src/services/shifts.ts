@@ -59,7 +59,10 @@ export interface Shift {
   };
   stationId: {
     _id: string;
-    name: string;
+    stationName: string;
+    address?: string;
+    province?: string;
+    stationType?: string;
   };
   supervision: {
     supervisorId: {
